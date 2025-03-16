@@ -1,6 +1,7 @@
-#include <test.h>
+#include <core/asserts.h>
 
 int main(void){
-  print_int(42);
+  VASSERT(TRUE);
+  VASSERT_MSG(FALSE,"See, done");
   return 0;
 }
