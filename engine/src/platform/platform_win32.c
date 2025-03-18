@@ -155,8 +155,15 @@ b8 enable_virtual_terminal(DWORD output){
 
 void windows_console_write(const char* message, log_level color, DWORD std_handle){
   char* buffer = malloc(strlen(message)+256);
+  static b8 warned = FALSE;
   if(enable_virtual_terminal(std_handle) == FALSE){
-    VWARN("Virtual terminal isn't avaiable for output, color will be ignored");
+    if(warned == FALSE){ //Only put this message box out once
+      MessageBoxA(0, 
+        "Virtual terminal isn't avaiable for output, color will be ignored",
+        0,
+        MB_ICONEXCLAMATION|MB_OK);
+        warned = TRUE;
+    }
     sprintf(buffer,"%s\n", message);
   }else{
     //Each member corresponds to a log_level
