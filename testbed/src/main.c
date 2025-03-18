@@ -1,6 +1,7 @@
 #include <core/asserts.h>
 #include <platform/platform.h>
 #include <core/logger.h>
+#include <stdlib.h>
 
 int main(void){
   platform_state *plat_state = malloc(sizeof(platform_state));
