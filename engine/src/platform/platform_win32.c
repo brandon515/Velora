@@ -173,7 +173,7 @@ void windows_console_write(const char* message, log_level color, DWORD std_handl
     sprintf(buffer, "\x1b[%d;%dm%s\n", text_colors[color],background_colors[color], message);
   }
   HANDLE console = GetStdHandle(std_handle);
-  //OutputDebugStringA(buffer);
+  OutputDebugStringA(buffer);
   LPDWORD number_written = 0;
   WriteConsole(console, buffer, strlen(buffer), number_written, 0);
 }
