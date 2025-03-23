@@ -24,7 +24,6 @@ b8 application_start(game* game_inst){
 
   app_state.game_inst = game_inst;
 
-  initialize_logging();
   app_state.is_running = TRUE;
   app_state.is_suspended = FALSE;
   app_state.width = game_inst->app_config.start_pos_width;
