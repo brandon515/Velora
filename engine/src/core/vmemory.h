@@ -39,8 +39,8 @@ typedef struct _memory_block{
   memory_tag tag;
 } memory_block;
 
-void initialize_memory();
-void shutdown_memory();
+VAPI void initialize_memory();
+VAPI void shutdown_memory();
 
 VAPI memory_block* vallocate(u64 size, memory_tag tag);
 VAPI void vfree(memory_block* block);

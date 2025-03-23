@@ -2,6 +2,7 @@
 
 #include "defines.h"
 #include "core/application.h"
+#include "core/vmemory.h"
 
 typedef struct _game{
   application_config app_config;
@@ -11,5 +12,5 @@ typedef struct _game{
   b8 (*render)(struct _game* game_inst, f32 delta_time);
   void (*on_resize)(struct _game* game_inst, u32 width, u32 height);
 
-  void* state;
+  memory_block* state;
 } game;

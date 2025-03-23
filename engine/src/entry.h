@@ -2,11 +2,15 @@
 
 #include "core/application.h"
 #include "core/logger.h"
+#include "core/vmemory.h"
 #include "game_types.h"
 
 extern b8 create_game(game* out_game);
 
 int main(void){
+  initialize_memory();
+  initialize_logging();
+
   game game_inst;
   if(create_game(&game_inst) == FALSE){
     VFATAL("Could not create instance of the game.");
@@ -27,5 +31,7 @@ int main(void){
     VFATAL("Application could not run main loop");
     return -4;
   }
+  shutdown_logging();
+  shutdown_memory();
   return 0;
 }

@@ -2,6 +2,7 @@
 #include "platform/platform.h"
 #include "game_types.h"
 #include "logger.h"
+#include "core/vmemory.h"
 
 typedef struct _application_state{
   game* game_inst;
@@ -55,6 +56,9 @@ b8 application_start(game* game_inst){
 }
 
 b8 application_run(){
+  char* mem_str = get_memory_usage_str();
+  VINFO(mem_str);
+  platform_free(mem_str, FALSE);
   while(app_state.is_running){
     app_state.is_running = platform_pump_messages(&app_state.platform);
     if(app_state.is_suspended == FALSE){
