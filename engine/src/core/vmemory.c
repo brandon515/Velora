@@ -4,6 +4,7 @@
 #include "platform/platform.h"
 
 #include <stdio.h>
+#include <string.h>
 
 typedef struct _mem_stats{
   u64 total_allocated;
@@ -92,7 +93,7 @@ char* get_memory_usage_str(){
       size_desc[0] = 'b';
       size_desc[1] = 0;
     }
-    i32 length = snprintf(buffer+offset, 8192, "\t%s: %.2f %s\n", memory_tag_strings[i], amount, size_desc);
+    i32 length = snprintf(buffer+offset, 8192, "%s: %.2f %s\n", memory_tag_strings[i], amount, size_desc);
     offset += length;
   }
   return buffer;
