@@ -33,19 +33,13 @@ static const char* memory_tag_strings[] ={
   FOREACH_MEM_TAG(GENERATE_STRING)
 };
 
-typedef struct _memory_block{
-  void* block;
-  u64 size;
-  memory_tag tag;
-} memory_block;
-
 VAPI void initialize_memory();
 VAPI void shutdown_memory();
 
-VAPI memory_block* vallocate(u64 size, memory_tag tag);
-VAPI void vfree(memory_block* block);
-VAPI memory_block* vzero_memory(memory_block* block);
-VAPI memory_block* vcopy_memory(memory_block* dest, memory_block* src);
-VAPI memory_block* vset_memory(memory_block* block, i32 value);
+VAPI void* vallocate(u64 size, memory_tag tag);
+VAPI void vfree(void* block, u64 size, memory_tag tag);
+VAPI void* vzero_memory(void* block, u64 size);
+VAPI void* vcopy_memory(void* dest, void* src, u64 size);
+VAPI void* vset_memory(void* block, i32 value, u64 size);
 
 VAPI char* get_memory_usage_str();

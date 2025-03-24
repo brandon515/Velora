@@ -24,48 +24,39 @@ void shutdown_memory(){
 
 }
 
-memory_block* vallocate(u64 size, memory_tag tag){
+void* vallocate(u64 size, memory_tag tag){
   if(tag == MEMORY_TAG_UNKNOWN){
     VWARN("Memory tag unknown was used, reclassify soon");
   }
-  memory_block* ret_block = platform_allocate(sizeof(memory_block), FALSE);
-  ret_block->block = platform_allocate(size, FALSE);
-  ret_block->size = size;
-  ret_block->tag = tag;
-  platform_zero_memory(ret_block->block, ret_block->size);
+  void* ret_block = platform_allocate(size, FALSE);
+  platform_zero_memory(ret_block, size);
 
   mem_stats.total_allocated += size;
   mem_stats.tagged_allocations[tag] += size;
   return ret_block;
 }
 
-void vfree(memory_block* block){
-  platform_free(block->block, FALSE);
+void vfree(void* block, u64 size, memory_tag tag){
+  platform_free(block, FALSE);
 
-  mem_stats.total_allocated -= block->size;
-  mem_stats.tagged_allocations[block->tag] -= block->size;
+  mem_stats.total_allocated -= size;
+  mem_stats.tagged_allocations[tag] -= size;
 
   platform_free(block, FALSE);
 }
 
-memory_block* vzero_memory(memory_block* block){
-  platform_zero_memory(block->block, block->size);
+void* vzero_memory(void* block, u64 size){
+  platform_zero_memory(block, size);
   return block;
 }
 
-memory_block* vcopy_memory(memory_block* dest, memory_block* src){
-  u64 true_size = 0;
-  if(dest->size > src->size){
-    true_size = src->size;
-  }else{
-    true_size = dest->size;
-  }
-  platform_copy_memory(dest->block, src->block, true_size);
+void* vcopy_memory(void* dest, void* src, u64 size){
+  platform_copy_memory(dest, src, size);
   return dest;
 }
 
-memory_block* vset_memory(memory_block* block, i32 value){
-  platform_set_memory(block->block, value, block->size);
+void* vset_memory(void* block, i32 value, u64 size){
+  platform_set_memory(block, value, size);
   return block;
 }
 
