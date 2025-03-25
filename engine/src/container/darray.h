@@ -53,10 +53,18 @@ VAPI darray* darray_pop(darray* arr, void* dest);
 VAPI darray* darray_insert(darray* arr, void* data, u64 index);
 
 /*!
- * @brief Removes data from index and closes the gap
+ * @brief Removes data from index and closes the gap in memory, putting the removed data into dest
  * @param arr Pointer to dynamic array
  * @param index Index to remove
- * @param dest  Pointer to copy data into
+ * @param dest  Pointer to copy data into, this should already be allocated
  * @return Pointer to darray, returns NULL if index is beyond the length of the dynamic array
  */
 VAPI darray* darray_remove(darray* arr, u64 index, void* dest);
+
+/*!
+ * @brief Destroys data at index and closes the gap in memory
+ * @param arr Pointer to dynamic array
+ * @param index Index to remove
+ * @return Pointer to darray, returns NULL if index is beyond the length of the dynamic array
+ */
+VAPI darray* darray_delete(darray* arr, u64 index);

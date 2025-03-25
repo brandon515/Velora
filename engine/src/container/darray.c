@@ -78,6 +78,21 @@ darray* darray_remove(darray* arr, u64 index, void* dest){
   u64 mem_size = (arr->cap*arr->stride)-mem_location-arr->stride;
   u8 buffer[mem_size];
   vcopy_memory(buffer, arr->data+(mem_location+arr->stride), mem_size);
+  vcopy_memory(dest, arr->data+mem_location, arr->stride);
+  vcopy_memory(arr->data+mem_location, buffer, mem_size);
+  arr->length--;
+  return arr;
+}
+
+darray* darray_delete(darray* arr, u64 index){
+  if(index >= arr->length){
+    VWARN("Attempted to delete from beyond the length of the array");
+    return NULL;
+  }
+  u64 mem_location = arr->stride*index;
+  u64 mem_size = (arr->cap*arr->stride)-mem_location-arr->stride;
+  u8 buffer[mem_size];
+  vcopy_memory(buffer, arr->data+(mem_location+arr->stride), mem_size);
   vcopy_memory(arr->data+mem_location, buffer, mem_size);
   arr->length--;
   return arr;
