@@ -170,7 +170,7 @@ void windows_console_write(const char* message, log_level color, DWORD std_handl
     //FATAL, ERROR, WARN, INFO, DEBUG, TRACE
     static u8 text_colors[6] = {30, 31, 33, 32, 34, 36};
     static u8 background_colors[6] = {41, 40, 40, 40, 40, 40};
-    sprintf(buffer, "\x1b[%d;%dm%s\n", text_colors[color],background_colors[color], message);
+    sprintf(buffer, "\x1b[%d;%dm%s\x1b[37;40m\n", text_colors[color],background_colors[color], message);
   }
   HANDLE console = GetStdHandle(std_handle);
   OutputDebugStringA(buffer);
