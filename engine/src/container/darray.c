@@ -5,7 +5,9 @@
 
 darray* darray_new(u64 stride){
   darray* ret_arr = vallocate(sizeof(darray), MEMORY_TAG_DARRAY);
-  ret_arr->data = vallocate(stride*STARTING_LENGTH, MEMORY_TAG_DARRAY);
+  u64 size_in_bytes = STARTING_LENGTH*stride;
+  ret_arr->data = vallocate(size_in_bytes, MEMORY_TAG_DARRAY);
+  vzero_memory(ret_arr->data, size_in_bytes);
   ret_arr->cap = STARTING_LENGTH;
   ret_arr->length = 0;
   ret_arr->stride = stride;
@@ -13,15 +15,15 @@ darray* darray_new(u64 stride){
 }
 
 darray* darray_reallocate(darray* arr){
-  darray* ret_arr = vallocate(sizeof(darray), MEMORY_TAG_DARRAY);
-  ret_arr->data = vallocate(arr->cap*arr->stride*REALLOCATE_MULTIPLIER, MEMORY_TAG_DARRAY);
-  vcopy_memory(ret_arr->data, arr->data, arr->cap*arr->stride);
+  char* buffer[arr->cap*arr->stride];
+  u64 new_cap = arr->cap*REALLOCATE_MULTIPLIER;
+  vcopy_memory(&buffer, arr->data, arr->cap*arr->stride);
   vfree(arr->data, arr->cap*arr->stride, MEMORY_TAG_DARRAY);
-  vfree(arr, sizeof(darray), MEMORY_TAG_DARRAY);
-  ret_arr->cap = arr->cap*REALLOCATE_MULTIPLIER;
-  ret_arr->length = arr->length;
-  ret_arr->stride = arr->stride;
-  return ret_arr;
+  arr->data = vallocate(new_cap, MEMORY_TAG_DARRAY);
+  vzero_memory(arr->data, new_cap);
+  vcopy_memory(arr->data, &buffer, arr->cap*arr->stride);
+  arr->cap = new_cap;
+  return arr;
 }
 
 darray* darray_push(darray* arr, void* data){
