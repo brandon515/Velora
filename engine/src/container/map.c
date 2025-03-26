@@ -1,7 +1,7 @@
 #include "map.h"
 #include "core/vmemory.h"
 
-int_map* map_create(u64 item_size){
+int_map* map_new(u64 item_size){
   int_map* ret_map = vallocate(sizeof(int_map), MEMORY_TAG_INT_MAP);
   ret_map->data = darray_new(item_size);
   ret_map->keys = darray_new(sizeof(u64));
@@ -9,7 +9,7 @@ int_map* map_create(u64 item_size){
 }
 
 u64 map_get(int_map* map, u64 key){
-  //
+  return 0;
 }
 
 void map_set(int_map* map, u64 key, void* item){
