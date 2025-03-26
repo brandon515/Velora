@@ -68,3 +68,9 @@ VAPI darray* darray_remove(darray* arr, u64 index, void* dest);
  * @return Pointer to darray, returns NULL if index is beyond the length of the dynamic array
  */
 VAPI darray* darray_delete(darray* arr, u64 index);
+
+/*!
+ * @brief Cleans up the dynamic array by free the data and itself, the dynamic array should not be used beyond this call
+ * @param arr Pointer to dynamic array
+ */
+VAPI void darray_free(darray* arr);
