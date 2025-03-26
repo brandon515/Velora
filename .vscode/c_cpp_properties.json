@@ -19,6 +19,25 @@
             "intelliSenseMode": "windows-clang-x64"
         },
         {
+            "name": "Win32_testing",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${VULKAN_SDK}/Include"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "VEXPORT",
+                "TESTING"
+            ],
+            "windowsSdkVersion": "10.0.22621.0",
+            "compilerPath": "C:/Program Files/LLVM/bin/clang.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-clang-x64"
+        },
+        {
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",

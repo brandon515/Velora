@@ -1,5 +1,6 @@
 #pragma once
 
+#ifndef TESTING
 #include "core/application.h"
 #include "core/logger.h"
 #include "core/vmemory.h"
@@ -35,3 +36,6 @@ int main(void){
   shutdown_memory();
   return 0;
 }
+#else
+int main(void);
+#endif

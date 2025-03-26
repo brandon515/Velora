@@ -16,6 +16,17 @@
           "console":"newExternalWindow",
       },
       {
+          "name": "(Windows) Test launch",
+          "type": "cppvsdbg",
+          "request": "launch",
+          "program": "${workspaceFolder}/bin/engine_test.exe",
+          "args": [],
+          "stopAtEntry": false,
+          "cwd": "${workspaceFolder}/bin/",
+          "environment": [],
+          "console":"newExternalWindow",
+      },
+      {
           "name": "(Linux) Launch",
           "type": "cppdbg",
           "request": "launch",

@@ -86,10 +86,14 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #ifdef VEXPORT
 // Exports
 #ifdef _MSC_VER
+#ifdef TESTING
+#define VAPI
+#else
 #define VAPI __declspec(dllexport)
+#endif// TESTING
 #else
 #define VAPI __attribute__((visibility("default")))
-#endif
+#endif //_MSC_VER
 #else
 // Imports
 #ifdef _MSC_VER

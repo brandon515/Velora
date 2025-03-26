@@ -14,17 +14,17 @@ void shutdown_event_system(){
 }
 
 u64 register_listener(u64 e_type, event_listener func){
-  //
+  return 0;
 }
 
 b8 queue_event(event* new_event){
-  //
+  return TRUE;
 }
 
 b8 fire_event(event* new_event){
-  //
+  return TRUE;
 }
 
 b8 deregister_listener(u64 e_type, u64 listener_id){
-  //
+  return TRUE;
 }
