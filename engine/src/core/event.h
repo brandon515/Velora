@@ -46,7 +46,7 @@ VAPI b8 queue_event(event* new_event);
 VAPI b8 fire_event(event* new_event);
 
 /*!
- * @brief Detaches listener from a specific event
+ * @brief deletes listener from the lineup
  * @param listener_id A u64 that was given when the listener asked to listen to the event
  * @result Returns FALSE if the listener has already been removed, TRUE if the listener was successfully detached
  */
