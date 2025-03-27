@@ -14,6 +14,7 @@ typedef struct _event{
  */
 typedef enum _event_id{
   ENGINE_CLOSE_GAME,
+  ENGINE_WINDOW_RESIZE,
   ENGINE_INPUT_KEYBOARD,
   ENGINE_EVENT_ID_END,
 } event_id;
