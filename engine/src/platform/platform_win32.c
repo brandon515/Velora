@@ -201,11 +201,6 @@ void platform_sleep(u64 ms){
   Sleep(ms);
 }
 
-struct _resize_data{
-  u64 new_width;
-  u64 new_height;
-};
-
 LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
   switch (uMsg){
     case WM_ERASEBKGND:
@@ -217,7 +212,7 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
           .event_data_size = 0,
           .event_data = 0,
         };
-        queue_event(&new_event);
+        fire_event(&new_event);
         return 0;
       }
     case WM_DESTROY:
