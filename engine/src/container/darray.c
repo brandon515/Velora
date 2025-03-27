@@ -107,6 +107,7 @@ void darray_free(darray* arr){
 
 void darray_clear(darray* arr){
   vzero_memory(arr->data, arr->cap*arr->stride);
+  arr->length = 0;
 }
 
 darray* darray_drain(darray* arr, u64 num_of_items){
@@ -120,5 +121,6 @@ darray* darray_drain(darray* arr, u64 num_of_items){
   vcopy_memory(&buffer, arr->data+mem_location, backend_mem_size);
   vzero_memory(arr->data, darray_mem_size);
   vcopy_memory(arr->data, &buffer, backend_mem_size);
+  arr->length -= num_of_items;
   return arr;
 }
