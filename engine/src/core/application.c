@@ -23,6 +23,12 @@ b8 close_event_handler(event* event){
   return FALSE;
 }
 
+b8 window_resize_handler(event* event){
+  u64* dat = (u64*)event->event_data;
+  VINFO("New width: %d", dat[0]);
+  VINFO("New height: %d", dat[1]);
+  return TRUE;
+}
 
 b8 application_start(game* game_inst){
   if(initialized){
