@@ -13,6 +13,7 @@ typedef struct _event{
  * good since ENGINE_EVENT_ID_END is unused.
  */
 typedef enum _event_id{
+  ENGINE_CLOSE_GAME,
   ENGINE_INPUT_KEYBOARD,
   ENGINE_EVENT_ID_END,
 } event_id;
@@ -46,11 +47,10 @@ VAPI b8 fire_event(event* new_event);
 
 /*!
  * @brief Detaches listener from a specific event
- * @param e_type  A u64 that signifies the type of event the listener wants to be detatched from
  * @param listener_id A u64 that was given when the listener asked to listen to the event
- * @result Returns FALSE if the listener isn't attached to an event, TRUE if the listener was successfully detached
+ * @result Returns FALSE if the listener has already been removed, TRUE if the listener was successfully detached
  */
-VAPI b8 deregister_listener(u64 e_type, u64 listener_id);
+VAPI b8 deregister_listener(u64 listener_id);
 
 /*!
  * @brief Works through the event queue within the time limit. The time limit may go over by a bit, the function won't stop processing an event only between events

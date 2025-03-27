@@ -6,45 +6,34 @@
 // typedef b8 (*event_listener)(event* event);
 
 typedef struct _event_listener_data{
-  u64 id;
+  u64 listen_id;
+  u64 event_id;
   event_listener function;
 } event_listener_data;
 
 static darray* event_queue = NULL;
-static int_map* event_listeners = NULL;
+static darray* event_listeners = NULL;
 static u64 listener_id = 0;
 
 void initiate_event_system(){
   event_queue = darray_new(sizeof(event));
-  event_listeners = map_new(sizeof(darray*));
-  for(int i = ENGINE_INPUT_KEYBOARD; i < ENGINE_EVENT_ID_END; i++){
-    darray* temp = darray_new(sizeof(event_listener_data));
-    map_set_item(event_listeners, i, &temp);
-  }
+  event_listeners = darray_new(sizeof(event_listener_data));
 }
 
 void shutdown_event_system(){
   darray_free(event_queue);
-  darray** dat = (darray**)event_listeners->data->data;
-  for(int i = 0; i < event_listeners->data->length; i++){
-    darray_free(dat[i]);
-  }
-  map_free(event_listeners);
+  darray_free(event_listeners);
 }
 
 u64 register_listener(u64 e_type, event_listener func){
-  darray* listener_array;
-  if(map_get_item(event_listeners, e_type, &listener_array) == FALSE){
-    listener_array = darray_new(sizeof(event_listener_data));
-    map_set_item(event_listeners, e_type, &listener_array);
-  }
   u64 ret_id = listener_id;
   listener_id++;
   event_listener_data dat = {
-    .id = ret_id,
+    .listen_id = ret_id,
+    .event_id = e_type,
     .function = func,
   };
-  darray_push(listener_array, &dat);
+  darray_push(event_listeners, &dat);
   return ret_id;
 }
 
@@ -58,7 +47,7 @@ b8 pump_events(f64 time_limit){
   event* queue = (event*)event_queue->data;
   for(int i = 0; i < event_queue->length; i++){
     if(fire_event(&queue[i]) == FALSE){
-      VWARN("Event with id %d is being fired without any listeners", queue[i].event_type);
+      VWARN("Events are being fired without any listeners");
     }
     f64 benchmark_time = platform_get_absolute_time();
     f64 duration = benchmark_time - start_time;
@@ -73,17 +62,14 @@ b8 pump_events(f64 time_limit){
 }
 
 b8 fire_event(event* new_event){
-  darray* listener_array;
-  if(map_get_item(event_listeners, new_event->event_type, &listener_array) == FALSE){
-    listener_array = darray_new(sizeof(event_listener_data));
-    map_set_item(event_listeners, new_event->event_type, &listener_array);
+  if(event_listeners->length == 0){
     return FALSE;
   }
-  if(listener_array->length == 0){
-    return FALSE;
-  }
-  event_listener_data* listeners = (event_listener_data*)listener_array->data;
-  for(int i = 0; i < listener_array->length; i++){
+  event_listener_data* listeners = (event_listener_data*)event_listeners->data;
+  for(int i = 0; i < event_listeners->length; i++){
+    if(listeners[i].event_id != new_event->event_type){
+      continue;
+    }
     if(listeners[i].function(new_event)){
       break;
     }
@@ -91,18 +77,14 @@ b8 fire_event(event* new_event){
   return TRUE;
 }
 
-b8 deregister_listener(u64 e_type, u64 listener_id){
-  darray* listener_array;
-  if(map_get_item(event_listeners, e_type, &listener_array) == FALSE){
+b8 deregister_listener(u64 listener_id){
+  if(event_listeners->length == 0){
     return FALSE;
   }
-  if(listener_array->length == 0){
-    return FALSE;
-  }
-  event_listener_data* listeners = (event_listener_data*)listener_array->data;
-  for(int i = 0; i < listener_array->length; i++){
-    if(listeners[i].id == listener_id){
-      darray_delete(listener_array, i);
+  event_listener_data* listeners = (event_listener_data*)event_listeners->data;
+  for(int i = 0; i < event_listeners->length; i++){
+    if(listeners[i].listen_id == listener_id){
+      darray_delete(event_listeners, i);
       return TRUE;
     }
   }
