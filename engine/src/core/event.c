@@ -10,23 +10,27 @@ static int_map* event_listeners = NULL;
 
 void initiate_event_system(){
   event_queue = darray_new(sizeof(event));
-  event_listeners = map_new(sizeof(darray));
+  event_listeners = map_new(sizeof(darray*));
   for(int i = ENGINE_INPUT_KEYBOARD; i < ENGINE_EVENT_ID_END; i++){
     darray* temp = darray_new(sizeof(event_listener));
-    map_set_item(event_listeners, i, temp);
+    map_set_item(event_listeners, i, &temp);
   }
 }
 
-//TODO: This is probably a memory leak. Look at it closer later
 void shutdown_event_system(){
   darray_free(event_queue);
+  darray** dat = (darray**)event_listeners->data->data;
+  for(int i = 0; i < event_listeners->data->length; i++){
+    darray_free(dat[i]);
+  }
   map_free(event_listeners);
 }
 
 u64 register_listener(u64 e_type, event_listener func){
-  darray* listener_array = darray_new(sizeof(event_listener));
-  if(map_get_item(event_listeners, e_type, listener_array) == FALSE){
-    map_set_item(event_listeners, e_type, listener_array);
+  darray* listener_array;
+  if(map_get_item(event_listeners, e_type, &listener_array) == FALSE){
+    listener_array = darray_new(sizeof(event_listener));
+    map_set_item(event_listeners, e_type, &listener_array);
   }
   u64 ret_id = listener_array->length;
   darray_push(listener_array, func);
