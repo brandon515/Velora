@@ -15,7 +15,7 @@ darray* darray_new(u64 stride){
 }
 
 darray* darray_reallocate(darray* arr){
-  char* buffer[arr->cap*arr->stride];
+  u8* buffer[arr->cap*arr->stride];
   u64 new_cap = arr->cap*REALLOCATE_MULTIPLIER;
   vcopy_memory(&buffer, arr->data, arr->cap*arr->stride);
   vfree(arr->data, arr->cap*arr->stride, MEMORY_TAG_DARRAY);
