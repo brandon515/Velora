@@ -3,6 +3,7 @@
 #include "game_types.h"
 #include "logger.h"
 #include "core/vmemory.h"
+#include "core/event.h"
 
 typedef struct _application_state{
   game* game_inst;
@@ -15,7 +16,13 @@ typedef struct _application_state{
 } application_state;
 
 static application_state app_state; 
-static b8 initialized = FALSE; 
+static b8 initialized = FALSE;
+
+b8 close_event_handler(event* event){
+  app_state.is_running = FALSE;
+  return FALSE;
+}
+
 
 b8 application_start(game* game_inst){
   if(initialized){
@@ -51,6 +58,8 @@ b8 application_start(game* game_inst){
     app_state.game_inst->app_config.start_pos_height
   );
 
+  register_listener(ENGINE_CLOSE_GAME, close_event_handler);
+
   initialized = TRUE;
   return TRUE;
 }
@@ -60,7 +69,7 @@ b8 application_run(){
   VINFO(mem_str);
   platform_free(mem_str, FALSE);
   while(app_state.is_running){
-    app_state.is_running = platform_pump_messages(&app_state.platform);
+    platform_pump_messages(&app_state.platform);
     if(app_state.is_suspended == FALSE){
       if(!app_state.game_inst->update(app_state.game_inst, 0.0f)){
         VFATAL("Game update function not able to run");

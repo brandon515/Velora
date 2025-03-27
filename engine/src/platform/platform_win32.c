@@ -5,6 +5,7 @@
 #if VPLATFORM_WINDOWS
 
 #include "core/logger.h"
+#include "core/event.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -200,8 +201,14 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
     case WM_ERASEBKGND:
       return 1;
     case WM_CLOSE:
-      // TODO: fire and event for the application to quit.
-      return 0;
+      {
+        event new_event ={
+          .event_type = ENGINE_CLOSE_GAME,
+          .event_data = 0,
+        };
+        fire_event(&new_event);
+        return 0;
+      }
     case WM_DESTROY:
       PostQuitMessage(0);
       return 0;
