@@ -6,6 +6,7 @@
 
 #include "core/logger.h"
 #include "core/event.h"
+#include "core/vmemory.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -196,6 +197,11 @@ void platform_sleep(u64 ms){
   Sleep(ms);
 }
 
+struct _resize_data{
+  u64 new_width;
+  u64 new_height;
+};
+
 LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
   switch (uMsg){
     case WM_ERASEBKGND:
@@ -214,10 +220,18 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       return 0;
     case WM_SIZE:{
       //TODO: actually use the updated window size for something
-      /*RECT r;
+      RECT r;
       GetClientRect(hwnd, &r);
       u32 width = r.right - r.left;
-      u32 height = r.bottom - r.top;*/
+      u32 height = r.bottom - r.top;
+      struct _resize_data *dat = (struct _resize_data*)vallocate(sizeof(struct _resize_data), MEMORY_TAG_EVENT_DATA);
+      dat->new_height = height;
+      dat->new_width = width;
+      event new_event = {
+        .event_type = ENGINE_WINDOW_RESIZE,
+        .event_data = (void*)dat,
+      };
+      queue_event(&new_event);
     } break;
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
