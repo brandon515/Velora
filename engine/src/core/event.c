@@ -1,6 +1,7 @@
 #include "event.h"
 #include "container/darray.h"
 #include "container/map.h"
+#include "core/vmemory.h"
 #include "platform/platform.h"
 
 // typedef b8 (*event_listener)(event* event);
@@ -74,6 +75,7 @@ b8 fire_event(event* new_event){
       break;
     }
   }
+  vfree(new_event->event_data, new_event->event_data_size, MEMORY_TAG_EVENT_DATA);
   return TRUE;
 }
 

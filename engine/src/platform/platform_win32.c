@@ -30,7 +30,7 @@ i32 x,
 i32 y,
 i32 width,
 i32 height){
-  plat_state->internal_state = malloc(sizeof(internal_state));
+  plat_state->internal_state = platform_allocate(sizeof(internal_state), FALSE);
   internal_state* state = (internal_state*)plat_state->internal_state;
 
   state->instance = GetModuleHandleA(0);
@@ -111,18 +111,22 @@ void platform_shutdown(platform_state* plat_state){
   }
 }
 
+void* platform_allocate(u64 size, b8 aligned){
+  void* ret = malloc(size);
+  platform_zero_memory(ret, size);
+  return ret;
+}
+
 b8 platform_pump_messages(platform_state* plat_state){
-  MSG msg = {};
-  while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)){
-    TranslateMessage(&msg);
-    DispatchMessage(&msg);
+  MSG* msg = (MSG*)platform_allocate(sizeof(MSG), FALSE);
+  while(PeekMessageA(msg, NULL, 0, 0, PM_REMOVE)){
+    TranslateMessage(msg);
+    DispatchMessageA(msg);
   }
+  platform_free((void*)msg, FALSE);
   return TRUE;
 }
 
-void* platform_allocate(u64 size, b8 aligned){
-  return malloc(size);
-}
 void platform_free(void* block, b8 aligned){
   free(block);
 }
@@ -156,7 +160,7 @@ b8 enable_virtual_terminal(DWORD output){
 }
 
 void windows_console_write(const char* message, log_level color, DWORD std_handle){
-  char* buffer = malloc(strlen(message)+256);
+  char* buffer = platform_allocate(strlen(message)+256, FALSE);
   static b8 warned = FALSE;
   if(enable_virtual_terminal(std_handle) == FALSE){
     if(warned == FALSE){ //Only put this message box out once
@@ -210,9 +214,10 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       {
         event new_event ={
           .event_type = ENGINE_CLOSE_GAME,
+          .event_data_size = 0,
           .event_data = 0,
         };
-        fire_event(&new_event);
+        queue_event(&new_event);
         return 0;
       }
     case WM_DESTROY:
@@ -224,13 +229,15 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       GetClientRect(hwnd, &r);
       u32 width = r.right - r.left;
       u32 height = r.bottom - r.top;
-      struct _resize_data *dat = (struct _resize_data*)vallocate(sizeof(struct _resize_data), MEMORY_TAG_EVENT_DATA);
-      dat->new_height = height;
-      dat->new_width = width;
+      u64 data_size = sizeof(u64)*2;
       event new_event = {
         .event_type = ENGINE_WINDOW_RESIZE,
-        .event_data = (void*)dat,
+        .event_data_size = data_size,
+        .event_data = vallocate(data_size, MEMORY_TAG_EVENT_DATA),
       };
+      u64* dat = (u64*)new_event.event_data;
+      dat[0] = width;
+      dat[1] = height;
       queue_event(&new_event);
     } break;
     case WM_KEYDOWN:

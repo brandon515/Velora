@@ -4,6 +4,7 @@
 
 typedef struct _event{
   u64 event_type;
+  u64 event_data_size;
   void* event_data;
 } event;
 

@@ -15,13 +15,14 @@ darray* darray_new(u64 stride){
 }
 
 darray* darray_reallocate(darray* arr){
-  u8* buffer[arr->cap*arr->stride];
   u64 new_cap = arr->cap*REALLOCATE_MULTIPLIER;
-  vcopy_memory(&buffer, arr->data, arr->cap*arr->stride);
-  vfree(arr->data, arr->cap*arr->stride, MEMORY_TAG_DARRAY);
-  arr->data = vallocate(new_cap, MEMORY_TAG_DARRAY);
-  vzero_memory(arr->data, new_cap);
-  vcopy_memory(arr->data, &buffer, arr->cap*arr->stride);
+  u64 current_mem_size = arr->cap*arr->stride;
+  u64 new_mem_size = new_cap*arr->stride;
+  u8 buffer[current_mem_size];
+  vcopy_memory(&buffer, arr->data, current_mem_size);
+  vfree(arr->data, current_mem_size, MEMORY_TAG_DARRAY);
+  arr->data = vallocate(new_mem_size, MEMORY_TAG_DARRAY);
+  vcopy_memory(arr->data, &buffer, current_mem_size);
   arr->cap = new_cap;
   return arr;
 }

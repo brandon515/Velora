@@ -65,6 +65,7 @@ b8 application_start(game* game_inst){
   );
 
   register_listener(ENGINE_CLOSE_GAME, close_event_handler);
+  register_listener(ENGINE_WINDOW_RESIZE, window_resize_handler);
 
   initialized = TRUE;
   return TRUE;
@@ -76,6 +77,7 @@ b8 application_run(){
   platform_free(mem_str, FALSE);
   while(app_state.is_running){
     platform_pump_messages(&app_state.platform);
+    pump_events(99.9f);
     if(app_state.is_suspended == FALSE){
       if(!app_state.game_inst->update(app_state.game_inst, 0.0f)){
         VFATAL("Game update function not able to run");
