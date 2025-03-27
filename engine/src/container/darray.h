@@ -74,3 +74,17 @@ VAPI darray* darray_delete(darray* arr, u64 index);
  * @param arr Pointer to dynamic array
  */
 VAPI void darray_free(darray* arr);
+
+/*!
+ * @brief Zeros out the memory of the dynamic array while leaving the cap intact
+ * @param arr Pointer to dynamic array
+ */
+VAPI void darray_clear(darray* arr);
+
+/*!
+ * @brief Deletes the first num_of_items items in the dynamic array in FIFO order
+ * @param arr Pointer to dynamic array
+ * @param num_of_items Number of items to delete
+ * @result Pointer to array, returns NULL if num_of_items is larger than the dynamic array's length
+ */
+VAPI darray* darray_drain(darray* arr, u64 num_of_items);
