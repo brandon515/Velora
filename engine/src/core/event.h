@@ -19,8 +19,8 @@ typedef enum _event_id{
 
 typedef b8 (*event_listener)(event* event);
 
-void initiate_event_system();
-void shutdown_event_system();
+VAPI void initiate_event_system();
+VAPI void shutdown_event_system();
 
 /*!
  * @brief Registers a listener to a specfic event
