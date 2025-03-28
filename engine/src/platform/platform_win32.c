@@ -201,6 +201,7 @@ void platform_sleep(u64 ms){
   Sleep(ms);
 }
 
+
 LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
   switch (uMsg){
     case WM_ERASEBKGND:
@@ -219,28 +220,34 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       PostQuitMessage(0);
       return 0;
     case WM_SIZE:{
-      //TODO: actually use the updated window size for something
       RECT r;
       GetClientRect(hwnd, &r);
       u32 width = r.right - r.left;
       u32 height = r.bottom - r.top;
-      u64 data_size = sizeof(u64)*2;
+      resize_data* dat = vallocate(sizeof(resize_data), MEMORY_TAG_EVENT_DATA);
+      dat->height = height;
+      dat->width = width;
       event new_event = {
         .event_type = ENGINE_WINDOW_RESIZE,
-        .event_data_size = data_size,
-        .event_data = vallocate(data_size, MEMORY_TAG_EVENT_DATA),
+        .event_data_size = sizeof(resize_data),
+        .event_data = dat,
       };
-      u64* dat = (u64*)new_event.event_data;
-      dat[0] = width;
-      dat[1] = height;
       queue_event(&new_event);
     } break;
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
     case WM_KEYUP:
     case WM_SYSKEYUP:{
-      // TODO: handle keyboard input
-      //b8 pressed = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
+      b8 pressed = (uMsg == WM_KEYDOWN || uMsg == WM_SYSKEYDOWN);
+      button_data* dat = vallocate(sizeof(button_data), MEMORY_TAG_EVENT_DATA);
+      dat->pressed = pressed;
+      dat->button_code = wParam;
+      event new_event = {
+        .event_type = ENGINE_INPUT_BUTTON,
+        .event_data_size = sizeof(button_data),
+        .event_data = dat,
+      };
+      queue_event(&new_event);
     } break;
     case WM_MOUSEMOVE:{
       //TODO: handle mouse input

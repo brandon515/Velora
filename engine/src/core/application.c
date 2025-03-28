@@ -23,10 +23,13 @@ b8 close_event_handler(event* event){
   return FALSE;
 }
 
+
 b8 window_resize_handler(event* event){
-  u64* dat = (u64*)event->event_data;
-  VINFO("New width: %d", dat[0]);
-  VINFO("New height: %d", dat[1]);
+  resize_data* dat = (resize_data*)event->event_data;
+  u64 width = dat->width;
+  u64 height = dat->height;
+  VINFO("New width: %d", width);
+  VINFO("New height: %d", height);
   return TRUE;
 }
 
@@ -72,9 +75,6 @@ b8 application_start(game* game_inst){
 }
 
 b8 application_run(){
-  char* mem_str = get_memory_usage_str();
-  VINFO(mem_str);
-  platform_free(mem_str, FALSE);
   while(app_state.is_running){
     platform_pump_messages(&app_state.platform);
     pump_events(99.9f);

@@ -6,7 +6,7 @@ typedef struct _event{
   u64 event_type;
   u64 event_data_size;
   void* event_data;
-} event;
+} event; 
 
 /* We mark the end of the event_id enum so that the game can create their own
  * custom event ids without trampling over the internal engine events. The game
@@ -16,7 +16,7 @@ typedef struct _event{
 typedef enum _event_id{
   ENGINE_CLOSE_GAME,
   ENGINE_WINDOW_RESIZE,
-  ENGINE_INPUT_KEYBOARD,
+  ENGINE_INPUT_BUTTON,
   ENGINE_EVENT_ID_END,
 } event_id;
 
@@ -34,7 +34,7 @@ VAPI void shutdown_event_system();
 VAPI u64 register_listener(u64 e_type, event_listener func);
 
 /*!
- * @brief Queues up an event to be dispatched in the main loop of the engine
+ * @brief Copies the data in the pointer to the dynamic array and queues up an event to be dispatched in the main loop of the engine
  * @param new_event  An event struct containing the data needed to process the event
  * @result Returns TRUE if the event was able to be queued, FALSE if not
  */
@@ -60,3 +60,15 @@ VAPI b8 deregister_listener(u64 listener_id);
  * @result Returns FALSE if the queue wasn't able to be emptied, TRUE if it was
  */
 b8 pump_events(f64 time_limit);
+
+// Engine event data structs
+
+typedef struct _resize_data{
+  u64 width;
+  u64 height;
+} resize_data;
+
+typedef struct _button_data{
+  u8 pressed;
+  u64 button_code;
+} button_data;

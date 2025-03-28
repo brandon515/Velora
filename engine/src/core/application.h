@@ -12,7 +12,6 @@ typedef struct _application_config{
     const char* name;
 } application_config;
 
-typedef struct _resize_data resize_data;
 
 VAPI b8 application_start(game* game_inst);
 
