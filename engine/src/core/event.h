@@ -19,6 +19,7 @@ typedef enum _event_id{
   ENGINE_INPUT_BUTTON,
   ENGINE_MOUSE_POSITION,
   ENGINE_MOUSE_WHEEL,
+  ENGINE_MOUSE_BUTTON,
   ENGINE_EVENT_ID_END,
 } event_id;
 
@@ -83,3 +84,19 @@ typedef struct _mouse_position_data{
 typedef struct _mouse_wheel_data{
   i8 direction;
 } mouse_wheel_data;
+
+
+typedef enum _mouse_button{
+  MOUSE_L_BUTTON,
+  MOUSE_R_BUTTON,
+  MOUSE_M_BUTTON,
+  MOUSE_X1_BUTTON,
+  MOUSE_X2_BUTTON,
+} mouse_button;
+
+typedef struct _mouse_button_data{
+  u8 pressed;
+  mouse_button button_code;
+  i32 x;
+  i32 y;
+} mouse_button_data;

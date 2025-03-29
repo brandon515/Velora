@@ -249,7 +249,6 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       queue_event(&new_event);
     } break;
     case WM_MOUSEMOVE:{
-      //TODO: handle mouse input
       i32 x_position = GET_X_LPARAM(lParam);
       i32 y_position = GET_Y_LPARAM(lParam);
       mouse_position_data* dat = vallocate(sizeof(mouse_position_data), MEMORY_TAG_EVENT_DATA);
@@ -281,10 +280,45 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
     case WM_RBUTTONDOWN:
     case WM_LBUTTONUP:
     case WM_MBUTTONUP:
-    case WM_RBUTTONUP: {
-      // TODO: handle mouse button input
-      //b8 pressed = (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN);
+    case WM_RBUTTONUP:{
+      b8 pressed = (uMsg == WM_LBUTTONDOWN || uMsg == WM_RBUTTONDOWN || uMsg == WM_MBUTTONDOWN);
+      mouse_button_data* dat = vallocate(sizeof(mouse_button_data), MEMORY_TAG_EVENT_DATA);
+      dat->x = GET_X_LPARAM(lParam);
+      dat->y = GET_Y_LPARAM(lParam);
+      dat->pressed = pressed;
+      if(uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONUP){
+        dat->button_code = MOUSE_L_BUTTON;
+      }else if(uMsg == WM_RBUTTONUP || uMsg == WM_RBUTTONDOWN){
+        dat->button_code = MOUSE_R_BUTTON;
+      }else if(uMsg == WM_MBUTTONUP || uMsg == WM_MBUTTONDOWN){
+        dat->button_code = MOUSE_M_BUTTON;
+      }
+      event new_event = {
+        .event_type = ENGINE_MOUSE_BUTTON,
+        .event_data_size = sizeof(mouse_button_data),
+        .event_data = dat,
+      };
+      queue_event(&new_event);
     } break;
+    case WM_XBUTTONDOWN:
+    case WM_XBUTTONUP:{
+      mouse_button_data* dat = vallocate(sizeof(mouse_button_data), MEMORY_TAG_EVENT_DATA);
+      dat->x = GET_X_LPARAM(lParam);
+      dat->y = GET_Y_LPARAM(lParam);
+      dat->pressed = (uMsg == WM_XBUTTONDOWN);
+      if(GET_XBUTTON_WPARAM(wParam) == XBUTTON1){
+        dat->button_code = MOUSE_X1_BUTTON;
+      }else{
+        dat->button_code = MOUSE_X2_BUTTON;
+      }
+      event new_event = {
+        .event_type = ENGINE_MOUSE_BUTTON,
+        .event_data_size = sizeof(mouse_button_data),
+        .event_data = dat,
+      };
+      queue_event(&new_event);
+      return TRUE; //return true as said in the windows api docs
+    }
   }
   return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
