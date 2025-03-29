@@ -263,11 +263,18 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       queue_event(&new_event);
     }break;
     case WM_MOUSEWHEEL:{
-      // TODO: handle mouse wheel input
-      /*i32 z_delta = GET_WHEEL_DELTA_WPARAM(wParam);
+      i32 z_delta = GET_WHEEL_DELTA_WPARAM(wParam);
       if(z_delta != 0){
         z_delta = (z_delta < 0) ? -1 : 1;
-      }*/
+      }
+      mouse_wheel_data* dat = vallocate(sizeof(mouse_wheel_data), MEMORY_TAG_EVENT_DATA);
+      dat->direction = z_delta;
+      event new_event = {
+        .event_type = ENGINE_MOUSE_WHEEL,
+        .event_data_size = sizeof(mouse_wheel_data),
+        .event_data = dat,
+      };
+      queue_event(&new_event);
     } break;
     case WM_LBUTTONDOWN:
     case WM_MBUTTONDOWN:

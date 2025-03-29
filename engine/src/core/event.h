@@ -18,6 +18,7 @@ typedef enum _event_id{
   ENGINE_WINDOW_RESIZE,
   ENGINE_INPUT_BUTTON,
   ENGINE_MOUSE_POSITION,
+  ENGINE_MOUSE_WHEEL,
   ENGINE_EVENT_ID_END,
 } event_id;
 
@@ -78,3 +79,7 @@ typedef struct _mouse_position_data{
   i32 x;
   i32 y;
 } mouse_position_data;
+
+typedef struct _mouse_wheel_data{
+  i8 direction;
+} mouse_wheel_data;
