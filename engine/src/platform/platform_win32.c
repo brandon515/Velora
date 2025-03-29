@@ -118,12 +118,11 @@ void* platform_allocate(u64 size, b8 aligned){
 }
 
 b8 platform_pump_messages(platform_state* plat_state){
-  MSG* msg = (MSG*)platform_allocate(sizeof(MSG), FALSE);
-  while(PeekMessageA(msg, NULL, 0, 0, PM_REMOVE)){
-    TranslateMessage(msg);
-    DispatchMessageA(msg);
+  MSG msg = {0};
+  while(PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE)){
+    TranslateMessage(&msg);
+    DispatchMessageA(&msg);
   }
-  platform_free((void*)msg, FALSE);
   return TRUE;
 }
 
@@ -251,8 +250,17 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
     } break;
     case WM_MOUSEMOVE:{
       //TODO: handle mouse input
-      //i32 x_position = GET_X_LPARAM(lParam);
-      //i32 y_position = GET_Y_LPARAM(lParam);
+      i32 x_position = GET_X_LPARAM(lParam);
+      i32 y_position = GET_Y_LPARAM(lParam);
+      mouse_position_data* dat = vallocate(sizeof(mouse_position_data), MEMORY_TAG_EVENT_DATA);
+      dat->x = x_position;
+      dat->y = y_position;
+      event new_event = {
+        .event_type = ENGINE_MOUSE_POSITION,
+        .event_data_size = sizeof(mouse_position_data),
+        .event_data = dat,
+      };
+      queue_event(&new_event);
     }break;
     case WM_MOUSEWHEEL:{
       // TODO: handle mouse wheel input

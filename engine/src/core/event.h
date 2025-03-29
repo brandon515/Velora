@@ -17,6 +17,7 @@ typedef enum _event_id{
   ENGINE_CLOSE_GAME,
   ENGINE_WINDOW_RESIZE,
   ENGINE_INPUT_BUTTON,
+  ENGINE_MOUSE_POSITION,
   ENGINE_EVENT_ID_END,
 } event_id;
 
@@ -72,3 +73,8 @@ typedef struct _button_data{
   u8 pressed;
   u64 button_code;
 } button_data;
+
+typedef struct _mouse_position_data{
+  i32 x;
+  i32 y;
+} mouse_position_data;
