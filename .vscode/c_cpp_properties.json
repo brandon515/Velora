@@ -10,7 +10,8 @@
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE",
-                "VEXPORT"
+                "VEXPORT",
+                "VULKAN_RENDER"
             ],
             "windowsSdkVersion": "10.0.22621.0",
             "compilerPath": "C:/Program Files/LLVM/bin/clang.exe",
@@ -29,7 +30,8 @@
                 "UNICODE",
                 "_UNICODE",
                 "VEXPORT",
-                "TESTING"
+                "TESTING",
+                "VULKAN_RENDER"
             ],
             "windowsSdkVersion": "10.0.22621.0",
             "compilerPath": "C:/Program Files/LLVM/bin/clang.exe",
