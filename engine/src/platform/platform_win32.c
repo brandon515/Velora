@@ -7,6 +7,7 @@
 #include "core/logger.h"
 #include "core/event.h"
 #include "core/vmemory.h"
+#include "render/velora_render.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,6 +94,11 @@ i32 height){
   i32 show_window_command_flags = should_activate ? SW_SHOW : SW_SHOWNOACTIVATE;
 
   ShowWindow(state->window, show_window_command_flags);
+
+  if(initiate_render_system(application_name) == FALSE){
+    VFATAL("Unable to start rendering system");
+    return FALSE;
+  }
 
   LARGE_INTEGER freq;
   QueryPerformanceFrequency(&freq);
