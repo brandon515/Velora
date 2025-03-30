@@ -23,16 +23,6 @@ b8 close_event_handler(event* event){
   return FALSE;
 }
 
-
-b8 window_resize_handler(event* event){
-  resize_data* dat = (resize_data*)event->event_data;
-  u64 width = dat->width;
-  u64 height = dat->height;
-  VINFO("New width: %d", width);
-  VINFO("New height: %d", height);
-  return TRUE;
-}
-
 b8 application_start(game* game_inst){
   if(initialized){
     VERROR("Application cannot be dual initialized");
@@ -68,7 +58,6 @@ b8 application_start(game* game_inst){
   );
 
   register_listener(ENGINE_CLOSE_GAME, close_event_handler);
-  register_listener(ENGINE_WINDOW_RESIZE, window_resize_handler);
 
   initialized = TRUE;
   return TRUE;
