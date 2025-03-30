@@ -54,4 +54,9 @@ u8 initiate_render_system(const char* application_name){
   }
   return TRUE;
 }
+
+void shutdown_render_system(){
+  vkDestroyInstance(instance, NULL);
+}
+
 #endif
