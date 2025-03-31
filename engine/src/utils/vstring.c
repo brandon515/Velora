@@ -1,6 +1,6 @@
 #include "vstring.h"
 
-u64 vstrlen(char* str){
+u64 vstrlen(const char* str){
   u64 len = 0;
   while((*str) != 0){
     len++;
@@ -9,7 +9,7 @@ u64 vstrlen(char* str){
   return len;
 }
 
-u8 vstrcmp(char* str1, char* str2){
+u8 vstrcmp(const char* str1, const char* str2){
   // Check the first character, if they're not equal we can short circuit
   if((*str1) != (*str2)){
     return FALSE;
