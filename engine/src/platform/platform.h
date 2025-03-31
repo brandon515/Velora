@@ -2,9 +2,11 @@
 
 #include "defines.h"
 #include "core/logger.h"
+#include "render/velora_render.h"
 
 typedef struct platform_state {
     void* internal_state;
+    render_state* render_state;
 } platform_state;
 
 b8 platform_startup(

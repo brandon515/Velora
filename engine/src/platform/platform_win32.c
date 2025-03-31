@@ -95,7 +95,7 @@ i32 height){
 
   ShowWindow(state->window, show_window_command_flags);
 
-  if(initiate_render_system(application_name) == FALSE){
+  if(initiate_render_system(plat_state->render_state, application_name) == FALSE){
     VFATAL("Unable to start rendering system");
     return FALSE;
   }
@@ -111,7 +111,7 @@ i32 height){
 void platform_shutdown(platform_state* plat_state){
   internal_state* state = (internal_state*)plat_state->internal_state;
   
-  shutdown_render_system();
+  shutdown_render_system(plat_state->render_state);
   if(state->window){
     DestroyWindow(state->window);
     state->window = 0;

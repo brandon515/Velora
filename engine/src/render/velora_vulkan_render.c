@@ -3,6 +3,7 @@
 #ifdef VULKAN_RENDER
 #include "velora_render.h"
 #include "core/logger.h"
+#include "core/vmemory.h"
 #include <vulkan/vulkan.h>
 #include "utils/vstring.h"
 #ifdef VPLATFORM_WINDOWS
@@ -13,9 +14,14 @@
 #include <vulkan/vulkan_wayland.h>
 #endif
 
-static VkInstance vulkan_instance;
+typedef struct _vulkan_state{
+  VkInstance* instance;
+  #ifdef _DEBUG
+  VkDebugUtilsMessengerEXT* debugMessenger;
+  #endif
+} vulkan_state;
+
 #ifdef _DEBUG
-static VkDebugUtilsMessengerEXT debugMessenger;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
   VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -64,10 +70,10 @@ void populate_debug_create_info(VkDebugUtilsMessengerCreateInfoEXT* createInfo){
   createInfo->pNext = NULL;
 }
 
-u8 initiate_validation_callback(VkInstance instance){
+u8 initiate_validation_callback(vulkan_state* state){
   VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
   populate_debug_create_info(&createInfo);
-  if(CreateDebugUtilsMessengerEXT(instance, &createInfo, NULL, &debugMessenger) != VK_SUCCESS){
+  if(CreateDebugUtilsMessengerEXT((*state->instance), &createInfo, NULL, state->debugMessenger) != VK_SUCCESS){
     VFATAL("Unable to create the validation layer callback");
     return FALSE;
   }
@@ -101,9 +107,7 @@ void enable_optional_feature(const char** enabled_layers, u32* current_count, co
   (*current_count)++;
 }
 
-
-
-u8 initiate_render_system(const char* application_name){
+u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   const char* enabled_layers[10]; //10 should be enough for now
   u32 num_of_layers = 0;
   const char* extensions[10]; //10 should be enough here too
@@ -114,7 +118,7 @@ u8 initiate_render_system(const char* application_name){
   #endif
   VkApplicationInfo appInfo = {
     .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-    .pApplicationName = application_name,
+    .pApplicationName = app_name,
     .applicationVersion = VK_MAKE_API_VERSION(0,0,1,0),
     .pEngineName = "Velora",
     .engineVersion = VK_MAKE_API_VERSION(0,0,1,0),
@@ -147,23 +151,36 @@ u8 initiate_render_system(const char* application_name){
   populate_debug_create_info(&debugCreateInfoInstance);
   createInfo.pNext= (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfoInstance;
   #endif
-  if(vkCreateInstance(&createInfo, NULL, &vulkan_instance) != VK_SUCCESS){
+  if(vkCreateInstance(&createInfo, NULL, state->instance) != VK_SUCCESS){
     VFATAL("Unable to start Vulkan instance");
     return FALSE;
   }
   #ifdef _DEBUG
-  if(initiate_validation_callback(vulkan_instance) == FALSE){
+  if(initiate_validation_callback(state) == FALSE){
     return FALSE;
   }
   #endif
   return TRUE;
 }
 
-void shutdown_render_system(){
+u8 initiate_render_system(render_state* state, const char* application_name){
+  state = vallocate(sizeof(render_state), MEMORY_TAG_RENDERER);
+  state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
+  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  if(create_vulkan_instance(vk_state, application_name) == FALSE){
+    return FALSE;
+  }
+  return TRUE;
+}
+
+void shutdown_render_system(render_state* state){
+  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   #ifdef _DEBUG
-  DestroyDebugUtilsMessengerEXT(vulkan_instance, debugMessenger, NULL);
+  DestroyDebugUtilsMessengerEXT((*vk_state->instance), (*vk_state->debugMessenger), NULL);
   #endif
-  vkDestroyInstance(vulkan_instance, NULL);
+  vkDestroyInstance((*vk_state->instance), NULL);
+  vfree(state->internal_render_state, sizeof(vulkan_state), MEMORY_TAG_RENDERER);
+  vfree(state, sizeof(render_state), MEMORY_TAG_RENDERER);
 }
 
 #endif
