@@ -4,6 +4,7 @@
 #include "velora_render.h"
 #include "core/logger.h"
 #include <vulkan/vulkan.h>
+#include "utils/vstring.h"
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -12,9 +13,105 @@
 #include <vulkan/vulkan_wayland.h>
 #endif
 
-static VkInstance instance;
+static VkInstance vulkan_instance;
+#ifdef _DEBUG
+static VkDebugUtilsMessengerEXT debugMessenger;
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+  VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+  VkDebugUtilsMessageTypeFlagsEXT messageType,
+  const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+  void* pUserData){
+    if(messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT){
+      VDEBUG(pCallbackData->pMessage);
+    }else if(messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT){
+      VINFO(pCallbackData->pMessage);
+    }else if(messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT){
+      VWARN(pCallbackData->pMessage);
+    }else if(messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT){
+      VERROR(pCallbackData->pMessage);
+    }
+    return VK_FALSE;
+  }
+
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+  PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+  if (func != NULL) {
+      return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+  } else {
+      return VK_ERROR_EXTENSION_NOT_PRESENT;
+  }
+}
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+  PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+  if (func != NULL) {
+      func(instance, debugMessenger, pAllocator);
+  }
+}
+
+void populate_debug_create_info(VkDebugUtilsMessengerCreateInfoEXT* createInfo){
+  createInfo->sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+  createInfo->messageSeverity = 
+  VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | 
+  VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | 
+  VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+  VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+  createInfo->messageType = 
+  VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
+  VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | 
+  VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+  createInfo->pfnUserCallback = debugCallback;
+  createInfo->pNext = NULL;
+}
+
+u8 initiate_validation_callback(VkInstance instance){
+  VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+  populate_debug_create_info(&createInfo);
+  if(CreateDebugUtilsMessengerEXT(instance, &createInfo, NULL, &debugMessenger) != VK_SUCCESS){
+    VFATAL("Unable to create the validation layer callback");
+    return FALSE;
+  }
+  return TRUE;
+}
+#endif
+
+u8 check_layer_support(const char** validation_layers, u32 num_of_layers){
+  u32 layerCount;
+  vkEnumerateInstanceLayerProperties(&layerCount, NULL);
+
+  VkLayerProperties availableLayers[layerCount];
+  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
+  for(int i = 0; i < num_of_layers; i++){
+    u8 layerFound = FALSE;
+    for(int j = 0; j < layerCount; j++){
+      if(vstrcmp(validation_layers[i], availableLayers[j].layerName) == TRUE){
+        layerFound = TRUE;
+        break;
+      }
+    }
+    if(layerFound == FALSE){
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+void enable_optional_feature(const char** enabled_layers, u32* current_count, const char* new_layer){
+  enabled_layers[(*current_count)] = new_layer;
+  (*current_count)++;
+}
+
+
 
 u8 initiate_render_system(const char* application_name){
+  const char* enabled_layers[10]; //10 should be enough for now
+  u32 num_of_layers = 0;
+  const char* extensions[10]; //10 should be enough here too
+  u32 extension_count = 0;
+  #ifdef _DEBUG
+  enable_optional_feature(enabled_layers, &num_of_layers, "VK_LAYER_KHRONOS_validation");
+  enable_optional_feature(extensions, &extension_count, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+  #endif
   VkApplicationInfo appInfo = {
     .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
     .pApplicationName = application_name,
@@ -23,40 +120,50 @@ u8 initiate_render_system(const char* application_name){
     .engineVersion = VK_MAKE_API_VERSION(0,0,1,0),
     .apiVersion = VK_API_VERSION_1_4,
   };
-  const char** extensions;
-  u32 extension_count;
   #ifdef VPLATFORM_WINDOWS
-  const char* extensionsForWin32[] = {
-    VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME
-  };
-  extensions = extensionsForWin32;
-  extension_count = 2;
+  enable_optional_feature(extensions, &extension_count, VK_KHR_SURFACE_EXTENSION_NAME);
+  enable_optional_feature(extensions, &extension_count, VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
   #elif VPLATFORM_LINUX
-  static const char *const extensionsForWayland[] = {
-    VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
-  };
-  extensions = &extensionsForWayland;
-  extension_count = 2;
+  enable_optional_feature(extensions, &extension_count, VK_KHR_SURFACE_EXTENSION_NAME);
+  enable_optional_feature(extensions, &extension_count, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
   #else
   VFATAL("Vulkan render backend chosen on unsupported system");
   return FALSE;
   #endif
+  if(check_layer_support(enabled_layers, num_of_layers) == FALSE){
+    VFATAL("At least one enabled Vulkan layer was not supported on this system");
+    return FALSE;
+  }
   VkInstanceCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
     .pApplicationInfo = &appInfo,
+    .ppEnabledExtensionNames = extensions,
     .enabledExtensionCount = extension_count,
-    .ppEnabledExtensionNames = extensions, // Extensions enabled by platform, using some pre-processor directives
-    .enabledLayerCount = 0, // We'll enable this later for debug layers
+    .ppEnabledLayerNames = enabled_layers,
+    .enabledLayerCount = num_of_layers,
   };
-  if(vkCreateInstance(&createInfo, NULL, &instance) != VK_SUCCESS){
+  #ifdef _DEBUG
+  VkDebugUtilsMessengerCreateInfoEXT debugCreateInfoInstance = {};
+  populate_debug_create_info(&debugCreateInfoInstance);
+  createInfo.pNext= (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfoInstance;
+  #endif
+  if(vkCreateInstance(&createInfo, NULL, &vulkan_instance) != VK_SUCCESS){
     VFATAL("Unable to start Vulkan instance");
     return FALSE;
   }
+  #ifdef _DEBUG
+  if(initiate_validation_callback(vulkan_instance) == FALSE){
+    return FALSE;
+  }
+  #endif
   return TRUE;
 }
 
 void shutdown_render_system(){
-  vkDestroyInstance(instance, NULL);
+  #ifdef _DEBUG
+  DestroyDebugUtilsMessengerEXT(vulkan_instance, debugMessenger, NULL);
+  #endif
+  vkDestroyInstance(vulkan_instance, NULL);
 }
 
 #endif
