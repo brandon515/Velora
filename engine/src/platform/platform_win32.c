@@ -103,8 +103,6 @@ i32 height){
 
   if(create_window_surface(plat_state->render_state, state->window, state->instance) == FALSE){
     VFATAL("Unable to create surface");
-    int i = 0;
-    if(i == 1){VINFO("blah");}
     return FALSE;
   }
 
