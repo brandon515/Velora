@@ -6,6 +6,7 @@
 #include "core/vmemory.h"
 #include <vulkan/vulkan.h>
 #include "utils/vstring.h"
+#include "vk_mem_alloc.h"
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -13,6 +14,8 @@
 #elif VPLATFORM_LINUX
 #include <vulkan/vulkan_wayland.h>
 #endif
+
+#define VELORA_VULKAN_API_VERSION VK_API_VERSION_1_4
 
 #define VEL_CHECK(expr)  \
   if(expr == FALSE){    \
@@ -25,6 +28,7 @@ typedef struct _vulkan_state{
   VkDevice logicalDevice;
   u32 graphicsQueueIndex;
   VkQueue graphicsQueue;
+  VmaAllocator allocator;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -157,7 +161,7 @@ u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
     .applicationVersion = VK_MAKE_API_VERSION(0,0,1,0),
     .pEngineName = "Velora",
     .engineVersion = VK_MAKE_API_VERSION(0,0,1,0),
-    .apiVersion = VK_API_VERSION_1_4,
+    .apiVersion = VELORA_VULKAN_API_VERSION,
   };
   #ifdef VPLATFORM_WINDOWS
   enable_optional_feature(extensions, &extension_count, VK_KHR_SURFACE_EXTENSION_NAME);
@@ -240,17 +244,32 @@ u8 create_logical_device(vulkan_state* state){
   return TRUE;
 }
 
+u8 create_vma_allocator(vulkan_state* state){
+  VmaAllocatorCreateInfo createInfo = {
+    .device = state->logicalDevice,
+    .physicalDevice = state->physicalDevice,
+    .instance = state->instance,
+    .vulkanApiVersion = VELORA_VULKAN_API_VERSION,
+  };
+  if(vmaCreateAllocator(&createInfo, &state->allocator) != VK_SUCCESS){
+    return FALSE;
+  }
+  return TRUE;
+}
+
 u8 initiate_render_system(render_state* state, const char* application_name){
   state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   VEL_CHECK(create_vulkan_instance(vk_state, application_name));
   VEL_CHECK(obtain_physical_device(vk_state));
   VEL_CHECK(create_logical_device(vk_state));
+  VEL_CHECK(create_vma_allocator(vk_state));
   return TRUE;
 }
 
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vmaDestroyAllocator(vk_state->allocator);
   vkDestroyDevice(vk_state->logicalDevice, NULL);
   #ifdef _DEBUG
   DestroyDebugUtilsMessengerEXT(vk_state->instance, vk_state->debugMessenger, NULL);
