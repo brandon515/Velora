@@ -24,5 +24,5 @@ FOR /R %%f in (*.cpp) do (
   clang++ -Wno-nullability-completeness -g -std=c++23 %%f -c -o ../obj/%%~nxf.o %includeFlags%
   SET objFiles=!objFiles! ../obj/%%~nxf.o
 )
-clang %objFiles% -o ../bin/%assembly%.dll %linkerFlags%
+clang -g %objFiles% -o ../bin/%assembly%.dll %linkerFlags%
 REM clang %cFilenames% %testFlags% -o ../bin/%assembly%_test.exe %testDefines% %includeFlags% %linkerFlags%
