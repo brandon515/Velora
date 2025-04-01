@@ -32,6 +32,7 @@ i32 y,
 i32 width,
 i32 height){
   plat_state->internal_state = platform_allocate(sizeof(internal_state), FALSE);
+  plat_state->render_state = platform_allocate(sizeof(render_state), FALSE);
   internal_state* state = (internal_state*)plat_state->internal_state;
 
   state->instance = GetModuleHandleA(0);

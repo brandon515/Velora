@@ -15,9 +15,9 @@
 #endif
 
 typedef struct _vulkan_state{
-  VkInstance* instance;
+  VkInstance instance;
   #ifdef _DEBUG
-  VkDebugUtilsMessengerEXT* debugMessenger;
+  VkDebugUtilsMessengerEXT debugMessenger;
   #endif
 } vulkan_state;
 
@@ -73,7 +73,7 @@ void populate_debug_create_info(VkDebugUtilsMessengerCreateInfoEXT* createInfo){
 u8 initiate_validation_callback(vulkan_state* state){
   VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
   populate_debug_create_info(&createInfo);
-  if(CreateDebugUtilsMessengerEXT((*state->instance), &createInfo, NULL, state->debugMessenger) != VK_SUCCESS){
+  if(CreateDebugUtilsMessengerEXT(state->instance, &createInfo, NULL, &(state->debugMessenger)) != VK_SUCCESS){
     VFATAL("Unable to create the validation layer callback");
     return FALSE;
   }
@@ -151,7 +151,7 @@ u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   populate_debug_create_info(&debugCreateInfoInstance);
   createInfo.pNext= (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfoInstance;
   #endif
-  if(vkCreateInstance(&createInfo, NULL, state->instance) != VK_SUCCESS){
+  if(vkCreateInstance(&createInfo, NULL, &state->instance) != VK_SUCCESS){
     VFATAL("Unable to start Vulkan instance");
     return FALSE;
   }
@@ -164,7 +164,6 @@ u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
 }
 
 u8 initiate_render_system(render_state* state, const char* application_name){
-  state = vallocate(sizeof(render_state), MEMORY_TAG_RENDERER);
   state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   if(create_vulkan_instance(vk_state, application_name) == FALSE){
@@ -176,9 +175,9 @@ u8 initiate_render_system(render_state* state, const char* application_name){
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   #ifdef _DEBUG
-  DestroyDebugUtilsMessengerEXT((*vk_state->instance), (*vk_state->debugMessenger), NULL);
+  DestroyDebugUtilsMessengerEXT(vk_state->instance, vk_state->debugMessenger, NULL);
   #endif
-  vkDestroyInstance((*vk_state->instance), NULL);
+  vkDestroyInstance(vk_state->instance, NULL);
   vfree(state->internal_render_state, sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vfree(state, sizeof(render_state), MEMORY_TAG_RENDERER);
 }
