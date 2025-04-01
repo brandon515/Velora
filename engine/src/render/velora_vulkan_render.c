@@ -14,8 +14,17 @@
 #include <vulkan/vulkan_wayland.h>
 #endif
 
+#define VEL_CHECK(expr)  \
+  if(expr == FALSE){    \
+    return FALSE;       \
+  }                     \
+
 typedef struct _vulkan_state{
   VkInstance instance;
+  VkPhysicalDevice physicalDevice;
+  VkDevice logicalDevice;
+  u32 graphicsQueueIndex;
+  VkQueue graphicsQueue;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -107,6 +116,32 @@ void enable_optional_feature(const char** enabled_layers, u32* current_count, co
   (*current_count)++;
 }
 
+u8 find_queue_family_index(VkPhysicalDevice device, VkQueueFlagBits queue_bit, u32* out_index){
+  u32 queueFamilyCount = 0;
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
+  if(queueFamilyCount == 0){
+    VFATAL("Chosen physical device has no queue families");
+    return FALSE;
+  }
+  VkQueueFamilyProperties props[queueFamilyCount];
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, props);
+
+  for(int i = 0; i < queueFamilyCount; i++){
+    if(props[i].queueFlags & queue_bit){
+      (*out_index) = i;
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device){
+  if(find_queue_family_index(device, VK_QUEUE_GRAPHICS_BIT, &state->graphicsQueueIndex) == FALSE){
+    return FALSE;
+  }
+  return TRUE;
+}
+
 u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   const char* enabled_layers[10]; //10 should be enough for now
   u32 num_of_layers = 0;
@@ -163,17 +198,60 @@ u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   return TRUE;
 }
 
+u8 obtain_physical_device(vulkan_state* state){
+  u32 deviceCount = 0;
+  vkEnumeratePhysicalDevices(state->instance, &deviceCount, NULL);
+  if(deviceCount == 0){
+    VFATAL("No GPU capable of supporting a vulkan renderer was found");
+    return FALSE;
+  }
+  VkPhysicalDevice devices[deviceCount];
+  vkEnumeratePhysicalDevices(state->instance, &deviceCount, devices);
+  for(int i = 0; i < deviceCount; deviceCount++){
+    if(is_physical_device_suitable(state, devices[i])){
+      state->physicalDevice = devices[i];
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+u8 create_logical_device(vulkan_state* state){
+  float queuePri = 1.0f;
+  VkDeviceQueueCreateInfo queueCreateInfo = {
+    .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+    .queueFamilyIndex = state->graphicsQueueIndex, //graphics queue
+    .queueCount = 1, //only one of them please
+    .pQueuePriorities = &queuePri,
+  };
+  VkPhysicalDeviceFeatures deviceFeatues = {0};
+  VkDeviceCreateInfo logicalDeviceCreateInfo ={
+    .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+    .pQueueCreateInfos = &queueCreateInfo,
+    .queueCreateInfoCount = 1,
+    .pEnabledFeatures = &deviceFeatues,
+    .enabledLayerCount = 0, //We would need to specify the validation layers in this if it was an older implementation of Vulkan, I can't care though
+  };
+  if(vkCreateDevice(state->physicalDevice, &logicalDeviceCreateInfo, NULL, &state->logicalDevice) != VK_SUCCESS){
+    VFATAL("Unable to create logical device");
+    return FALSE;
+  }
+  vkGetDeviceQueue(state->logicalDevice, state->graphicsQueueIndex, 0, &state->graphicsQueue);
+  return TRUE;
+}
+
 u8 initiate_render_system(render_state* state, const char* application_name){
   state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
-  if(create_vulkan_instance(vk_state, application_name) == FALSE){
-    return FALSE;
-  }
+  VEL_CHECK(create_vulkan_instance(vk_state, application_name));
+  VEL_CHECK(obtain_physical_device(vk_state));
+  VEL_CHECK(create_logical_device(vk_state));
   return TRUE;
 }
 
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vkDestroyDevice(vk_state->logicalDevice, NULL);
   #ifdef _DEBUG
   DestroyDebugUtilsMessengerEXT(vk_state->instance, vk_state->debugMessenger, NULL);
   #endif
