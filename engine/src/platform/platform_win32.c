@@ -101,6 +101,13 @@ i32 height){
     return FALSE;
   }
 
+  if(create_window_surface(plat_state->render_state, state->window, state->instance) == FALSE){
+    VFATAL("Unable to create surface");
+    int i = 0;
+    if(i == 1){VINFO("blah");}
+    return FALSE;
+  }
+
   LARGE_INTEGER freq;
   QueryPerformanceFrequency(&freq);
   clock_frequency = 1.0/(f64)freq.QuadPart;

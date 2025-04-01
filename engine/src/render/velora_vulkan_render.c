@@ -29,6 +29,7 @@ typedef struct _vulkan_state{
   u32 graphicsQueueIndex;
   VkQueue graphicsQueue;
   VmaAllocator allocator;
+  VkSurfaceKHR surface;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -267,8 +268,24 @@ u8 initiate_render_system(render_state* state, const char* application_name){
   return TRUE;
 }
 
+#ifdef VPLATFORM_WINDOWS
+u8 create_window_surface(render_state* state, HWND window, HINSTANCE handle){
+  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state; 
+  VkWin32SurfaceCreateInfoKHR createInfo = {
+    .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+    .hwnd = window,
+    .hinstance = handle,
+  };
+  if(vkCreateWin32SurfaceKHR(vk_state->instance, &createInfo, NULL, &vk_state->surface) != VK_SUCCESS){
+    return FALSE;
+  }
+  return TRUE;
+}
+#endif //VPLATFORM_WINDOWS
+
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vkDestroySurfaceKHR(vk_state->instance, vk_state->surface, NULL);
   vmaDestroyAllocator(vk_state->allocator);
   vkDestroyDevice(vk_state->logicalDevice, NULL);
   #ifdef _DEBUG
