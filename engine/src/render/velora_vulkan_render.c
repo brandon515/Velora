@@ -123,34 +123,6 @@ void enable_optional_feature(const char** enabled_layers, u32* current_count, co
   (*current_count)++;
 }
 
-u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device){
-  u32 queueFamilyCount = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
-  if(queueFamilyCount == 0){
-    VFATAL("Chosen physical device has no queue families");
-    return FALSE;
-  }
-  VkQueueFamilyProperties props[queueFamilyCount];
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, props);
-
-  u8 graphicsQueueObtained = FALSE;
-  u8 presentQueueObtained = FALSE;
-  VkBool32 isPresentCapable;
-
-  for(int i = 0; i < queueFamilyCount; i++){
-    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, state->surface, &isPresentCapable);
-    if(props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
-      state->graphicsQueueIndex = i;
-      graphicsQueueObtained = TRUE;
-    }
-    if(isPresentCapable){
-      state->presentQueueIndex = i;
-      presentQueueObtained = TRUE;
-    }
-  }
-  return (graphicsQueueObtained && presentQueueObtained);
-}
-
 u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   const char* enabled_layers[10]; //10 should be enough for now
   u32 num_of_layers = 0;
@@ -178,6 +150,7 @@ u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   VFATAL("Vulkan render backend chosen on unsupported system");
   return FALSE;
   #endif
+  //enable_optional_feature(extensions, &extension_count, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
   if(check_layer_support(enabled_layers, num_of_layers) == FALSE){
     VFATAL("At least one enabled Vulkan layer was not supported on this system");
     return FALSE;
@@ -207,7 +180,54 @@ u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   return TRUE;
 }
 
-u8 obtain_physical_device(vulkan_state* state){
+u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, const char** extensions, u32 extensionCount){
+  u32 queueFamilyCount = 0;
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
+  if(queueFamilyCount == 0){
+    VFATAL("Chosen physical device has no queue families");
+    return FALSE;
+  }
+  VkQueueFamilyProperties props[queueFamilyCount];
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, props);
+
+  u8 graphicsQueueObtained = FALSE;
+  u8 presentQueueObtained = FALSE;
+  VkBool32 isPresentCapable;
+
+  for(int i = 0; i < queueFamilyCount; i++){
+    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, state->surface, &isPresentCapable);
+    if(props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
+      state->graphicsQueueIndex = i;
+      graphicsQueueObtained = TRUE;
+    }
+    if(isPresentCapable){
+      state->presentQueueIndex = i;
+      presentQueueObtained = TRUE;
+    }
+  }
+
+  u32 deviceExtensionCount = 0;
+  vkEnumerateDeviceExtensionProperties(device, NULL, &deviceExtensionCount, NULL);
+  if(deviceExtensionCount == 0){
+    return FALSE; // We need at least the swapchain extension
+  }
+
+  VkExtensionProperties exProps[deviceExtensionCount];
+  vkEnumerateDeviceExtensionProperties(device, NULL, &deviceExtensionCount, exProps);
+  u32 foundExtensions = 0;
+  for(int i = 0; i < extensionCount; i++){
+    for(int j = 0; j < deviceExtensionCount; j++){
+      if(vstrcmp(extensions[i], exProps[j].extensionName) == TRUE){
+        foundExtensions++;
+        break;//extension has been found, no need to keep looking
+      }
+    }
+  }
+
+  return (graphicsQueueObtained && presentQueueObtained && (foundExtensions == extensionCount));
+}
+
+u8 obtain_physical_device(vulkan_state* state, const char** extensions, u32 extensionCount){
   u32 deviceCount = 0;
   vkEnumeratePhysicalDevices(state->instance, &deviceCount, NULL);
   if(deviceCount == 0){
@@ -217,7 +237,7 @@ u8 obtain_physical_device(vulkan_state* state){
   VkPhysicalDevice devices[deviceCount];
   vkEnumeratePhysicalDevices(state->instance, &deviceCount, devices);
   for(int i = 0; i < deviceCount; deviceCount++){
-    if(is_physical_device_suitable(state, devices[i])){
+    if(is_physical_device_suitable(state, devices[i], extensions, extensionCount)){
       state->physicalDevice = devices[i];
       return TRUE;
     }
@@ -225,20 +245,30 @@ u8 obtain_physical_device(vulkan_state* state){
   return FALSE;
 }
 
-u8 create_logical_device(vulkan_state* state){
+void activate_queue(VkDeviceQueueCreateInfo* queueArray, u32* current_count, u32 queueFamilyIndex, u32 queueCount, float* queuePriories){
+  u32 i = (*current_count);
+  vzero_memory(&queueArray[i], sizeof(VkDeviceQueueCreateInfo));
+  queueArray[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+  queueArray[i].queueFamilyIndex = queueFamilyIndex;
+  queueArray[i].queueCount = queueCount;
+  queueArray[i].pQueuePriorities = queuePriories;
+  (*current_count)++;
+}
+
+u8 create_logical_device(vulkan_state* state, const char** extensions, u32 extensionCount){
   float queuePri = 1.0f;
-  VkDeviceQueueCreateInfo queueCreateInfo = {
-    .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-    .queueFamilyIndex = state->graphicsQueueIndex, //graphics queue
-    .queueCount = 1, //only one of them please
-    .pQueuePriorities = &queuePri,
-  };
+  VkDeviceQueueCreateInfo queueCreateInfos[10];
+  u32 queueCount = 0;
+  activate_queue(queueCreateInfos, &queueCount, state->graphicsQueueIndex, 1, &queuePri);
+  activate_queue(queueCreateInfos, &queueCount, state->presentQueueIndex, 1, &queuePri);
   VkPhysicalDeviceFeatures deviceFeatues = {0};
   VkDeviceCreateInfo logicalDeviceCreateInfo ={
     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-    .pQueueCreateInfos = &queueCreateInfo,
-    .queueCreateInfoCount = 1,
+    .pQueueCreateInfos = queueCreateInfos,
+    .queueCreateInfoCount = queueCount,
     .pEnabledFeatures = &deviceFeatues,
+    .ppEnabledExtensionNames = extensions,
+    .enabledExtensionCount = extensionCount,
     .enabledLayerCount = 0, //We would need to specify the validation layers in this if it was an older implementation of Vulkan, I can't care though
   };
   if(vkCreateDevice(state->physicalDevice, &logicalDeviceCreateInfo, NULL, &state->logicalDevice) != VK_SUCCESS){
@@ -246,6 +276,7 @@ u8 create_logical_device(vulkan_state* state){
     return FALSE;
   }
   vkGetDeviceQueue(state->logicalDevice, state->graphicsQueueIndex, 0, &state->graphicsQueue);
+  vkGetDeviceQueue(state->logicalDevice, state->presentQueueIndex, 0, &state->presentQueue);
   return TRUE;
 }
 
@@ -280,10 +311,16 @@ u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
 u8 initiate_render_system(render_state* state, const char* application_name, HWND window, HINSTANCE handle){
   state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+
+  const char* deviceExtensions[10];
+  u32 extensionCount = 0;
+
+  enable_optional_feature(deviceExtensions, &extensionCount, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+  
   VEL_CHECK(create_vulkan_instance(vk_state, application_name));
   VEL_CHECK(create_window_surface(vk_state, window, handle));
-  VEL_CHECK(obtain_physical_device(vk_state));
-  VEL_CHECK(create_logical_device(vk_state));
+  VEL_CHECK(obtain_physical_device(vk_state, deviceExtensions, extensionCount));
+  VEL_CHECK(create_logical_device(vk_state, deviceExtensions, extensionCount));
   VEL_CHECK(create_vma_allocator(vk_state));
   return TRUE;
 }
