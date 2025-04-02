@@ -96,13 +96,8 @@ i32 height){
 
   ShowWindow(state->window, show_window_command_flags);
 
-  if(initiate_render_system(plat_state->render_state, application_name) == FALSE){
+  if(initiate_render_system(plat_state->render_state, application_name, state->window, state->instance) == FALSE){
     VFATAL("Unable to start rendering system");
-    return FALSE;
-  }
-
-  if(create_window_surface(plat_state->render_state, state->window, state->instance) == FALSE){
-    VFATAL("Unable to create surface");
     return FALSE;
   }
 

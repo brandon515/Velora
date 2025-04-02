@@ -27,7 +27,9 @@ typedef struct _vulkan_state{
   VkPhysicalDevice physicalDevice;
   VkDevice logicalDevice;
   u32 graphicsQueueIndex;
+  u32 presentQueueIndex;
   VkQueue graphicsQueue;
+  VkQueue presentQueue;
   VmaAllocator allocator;
   VkSurfaceKHR surface;
   #ifdef _DEBUG
@@ -121,7 +123,7 @@ void enable_optional_feature(const char** enabled_layers, u32* current_count, co
   (*current_count)++;
 }
 
-u8 find_queue_family_index(VkPhysicalDevice device, VkQueueFlagBits queue_bit, u32* out_index){
+u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device){
   u32 queueFamilyCount = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
   if(queueFamilyCount == 0){
@@ -131,20 +133,22 @@ u8 find_queue_family_index(VkPhysicalDevice device, VkQueueFlagBits queue_bit, u
   VkQueueFamilyProperties props[queueFamilyCount];
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, props);
 
+  u8 graphicsQueueObtained = FALSE;
+  u8 presentQueueObtained = FALSE;
+  VkBool32 isPresentCapable;
+
   for(int i = 0; i < queueFamilyCount; i++){
-    if(props[i].queueFlags & queue_bit){
-      (*out_index) = i;
-      return TRUE;
+    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, state->surface, &isPresentCapable);
+    if(props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
+      state->graphicsQueueIndex = i;
+      graphicsQueueObtained = TRUE;
+    }
+    if(isPresentCapable){
+      state->presentQueueIndex = i;
+      presentQueueObtained = TRUE;
     }
   }
-  return FALSE;
-}
-
-u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device){
-  if(find_queue_family_index(device, VK_QUEUE_GRAPHICS_BIT, &state->graphicsQueueIndex) == FALSE){
-    return FALSE;
-  }
-  return TRUE;
+  return (graphicsQueueObtained && presentQueueObtained);
 }
 
 u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
@@ -258,27 +262,29 @@ u8 create_vma_allocator(vulkan_state* state){
   return TRUE;
 }
 
-u8 initiate_render_system(render_state* state, const char* application_name){
-  state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
-  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
-  VEL_CHECK(create_vulkan_instance(vk_state, application_name));
-  VEL_CHECK(obtain_physical_device(vk_state));
-  VEL_CHECK(create_logical_device(vk_state));
-  VEL_CHECK(create_vma_allocator(vk_state));
-  return TRUE;
-}
+
 
 #ifdef VPLATFORM_WINDOWS
-u8 create_window_surface(render_state* state, HWND window, HINSTANCE handle){
-  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state; 
+u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
     .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
     .hwnd = window,
     .hinstance = handle,
   };
-  if(vkCreateWin32SurfaceKHR(vk_state->instance, &createInfo, NULL, &vk_state->surface) != VK_SUCCESS){
+  if(vkCreateWin32SurfaceKHR(state->instance, &createInfo, NULL, &state->surface) != VK_SUCCESS){
     return FALSE;
   }
+  return TRUE;
+}
+
+u8 initiate_render_system(render_state* state, const char* application_name, HWND window, HINSTANCE handle){
+  state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
+  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  VEL_CHECK(create_vulkan_instance(vk_state, application_name));
+  VEL_CHECK(create_window_surface(vk_state, window, handle));
+  VEL_CHECK(obtain_physical_device(vk_state));
+  VEL_CHECK(create_logical_device(vk_state));
+  VEL_CHECK(create_vma_allocator(vk_state));
   return TRUE;
 }
 #endif //VPLATFORM_WINDOWS
