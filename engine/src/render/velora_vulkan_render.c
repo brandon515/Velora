@@ -22,6 +22,14 @@
     return FALSE;       \
   }                     \
 
+typedef struct _swapchain_support{
+  VkSurfaceCapabilitiesKHR surfaceCapabilities;
+  VkSurfaceFormatKHR* surfaceFormats;
+  u32 surfaceFormatCount;
+  VkPresentModeKHR* presentModes;
+  u32 presentModeCount;
+} swapchain_support;
+
 typedef struct _vulkan_state{
   VkInstance instance;
   VkPhysicalDevice physicalDevice;
@@ -32,6 +40,7 @@ typedef struct _vulkan_state{
   VkQueue presentQueue;
   VmaAllocator allocator;
   VkSurfaceKHR surface;
+  swapchain_support swapchainSupportDetails;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -293,7 +302,41 @@ u8 create_vma_allocator(vulkan_state* state){
   return TRUE;
 }
 
+u8 obtain_swapchain_info(vulkan_state* state){
+  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+    state->physicalDevice, 
+    state->surface, 
+    &state->swapchainSupportDetails.surfaceCapabilities
+  );
+  vkGetPhysicalDeviceSurfaceFormatsKHR(
+    state->physicalDevice, 
+    state->surface, 
+    &state->swapchainSupportDetails.surfaceFormatCount, 
+    NULL
+  );
+  if(state->swapchainSupportDetails.surfaceFormatCount == 0){
+    VFATAL("No surface formats for the chosen physical device");
+    return FALSE;
+  }
+  state->swapchainSupportDetails.surfaceFormats = vallocate(
+    sizeof(VkSurfaceFormatKHR)*(state->swapchainSupportDetails.surfaceFormatCount), 
+    MEMORY_TAG_RENDERER
+  );
+  vkGetPhysicalDeviceSurfaceFormatsKHR(
+    state->physicalDevice, 
+    state->surface, 
+    &state->swapchainSupportDetails.surfaceFormatCount, 
+    state->swapchainSupportDetails.surfaceFormats
+  );
+  return TRUE;
+}
 
+u8 create_swapchain(vulkan_state* state){
+  if(obtain_swapchain_info(state) == FALSE){
+    return FALSE;
+  }
+  return TRUE;
+}
 
 #ifdef VPLATFORM_WINDOWS
 u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
@@ -316,12 +359,13 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   u32 extensionCount = 0;
 
   enable_optional_feature(deviceExtensions, &extensionCount, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-  
+
   VEL_CHECK(create_vulkan_instance(vk_state, application_name));
   VEL_CHECK(create_window_surface(vk_state, window, handle));
   VEL_CHECK(obtain_physical_device(vk_state, deviceExtensions, extensionCount));
   VEL_CHECK(create_logical_device(vk_state, deviceExtensions, extensionCount));
   VEL_CHECK(create_vma_allocator(vk_state));
+  VEL_CHECK(create_swapchain(vk_state));
   return TRUE;
 }
 #endif //VPLATFORM_WINDOWS
