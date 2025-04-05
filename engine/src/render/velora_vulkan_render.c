@@ -17,10 +17,16 @@
 
 #define VELORA_VULKAN_API_VERSION VK_API_VERSION_1_4
 
-#define VEL_CHECK(expr)  \
+#define VEL_CHECK(expr) \
   if(expr == FALSE){    \
     return FALSE;       \
-  }                     \
+  }                     
+
+#define VK_CHECK(expr, msg) \
+  if(expr != VK_SUCCESS){   \
+    VFATAL(msg);            \
+    return FALSE;           \
+  }                       
 
 typedef struct _swapchain_support{
   VkSurfaceCapabilitiesKHR surfaceCapabilities;
@@ -98,20 +104,20 @@ void populate_debug_create_info(VkDebugUtilsMessengerCreateInfoEXT* createInfo){
 u8 initiate_validation_callback(vulkan_state* state){
   VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
   populate_debug_create_info(&createInfo);
-  if(CreateDebugUtilsMessengerEXT(state->instance, &createInfo, NULL, &(state->debugMessenger)) != VK_SUCCESS){
-    VFATAL("Unable to create the validation layer callback");
-    return FALSE;
-  }
+  VK_CHECK(
+    CreateDebugUtilsMessengerEXT(state->instance, &createInfo, NULL, &(state->debugMessenger)),
+    "Unable to create the validation layer callback"
+  );
   return TRUE;
 }
 #endif
 
 u8 check_layer_support(const char** validation_layers, u32 num_of_layers){
   u32 layerCount;
-  vkEnumerateInstanceLayerProperties(&layerCount, NULL);
+  VK_CHECK(vkEnumerateInstanceLayerProperties(&layerCount, NULL), "Unable to enumerate validation layers");
 
   VkLayerProperties availableLayers[layerCount];
-  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
+  VK_CHECK(vkEnumerateInstanceLayerProperties(&layerCount, availableLayers), "Unable to fill an array with validation layers available");
   for(int i = 0; i < num_of_layers; i++){
     u8 layerFound = FALSE;
     for(int j = 0; j < layerCount; j++){
@@ -177,10 +183,7 @@ u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   populate_debug_create_info(&debugCreateInfoInstance);
   createInfo.pNext= (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfoInstance;
   #endif
-  if(vkCreateInstance(&createInfo, NULL, &state->instance) != VK_SUCCESS){
-    VFATAL("Unable to start Vulkan instance");
-    return FALSE;
-  }
+  VK_CHECK(vkCreateInstance(&createInfo, NULL, &state->instance), "Unable to start Vulkan instance");
   #ifdef _DEBUG
   if(initiate_validation_callback(state) == FALSE){
     return FALSE;
@@ -204,7 +207,7 @@ u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, con
   VkBool32 isPresentCapable;
 
   for(int i = 0; i < queueFamilyCount; i++){
-    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, state->surface, &isPresentCapable);
+    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device, i, state->surface, &isPresentCapable), "Unable to check if this device is present capable");
     if(props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
       state->graphicsQueueIndex = i;
       graphicsQueueObtained = TRUE;
@@ -216,13 +219,13 @@ u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, con
   }
 
   u32 deviceExtensionCount = 0;
-  vkEnumerateDeviceExtensionProperties(device, NULL, &deviceExtensionCount, NULL);
+  VK_CHECK(vkEnumerateDeviceExtensionProperties(device, NULL, &deviceExtensionCount, NULL), "Unable to enumerate extentions on physical device");
   if(deviceExtensionCount == 0){
     return FALSE; // We need at least the swapchain extension
   }
 
   VkExtensionProperties exProps[deviceExtensionCount];
-  vkEnumerateDeviceExtensionProperties(device, NULL, &deviceExtensionCount, exProps);
+  VK_CHECK(vkEnumerateDeviceExtensionProperties(device, NULL, &deviceExtensionCount, exProps), "Unable to fill array with device extensions");
   u32 foundExtensions = 0;
   for(int i = 0; i < extensionCount; i++){
     for(int j = 0; j < deviceExtensionCount; j++){
@@ -238,13 +241,13 @@ u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, con
 
 u8 obtain_physical_device(vulkan_state* state, const char** extensions, u32 extensionCount){
   u32 deviceCount = 0;
-  vkEnumeratePhysicalDevices(state->instance, &deviceCount, NULL);
+  VK_CHECK(vkEnumeratePhysicalDevices(state->instance, &deviceCount, NULL), "Unable to enumerate physical devices");
   if(deviceCount == 0){
     VFATAL("No GPU capable of supporting a vulkan renderer was found");
     return FALSE;
   }
   VkPhysicalDevice devices[deviceCount];
-  vkEnumeratePhysicalDevices(state->instance, &deviceCount, devices);
+  VK_CHECK(vkEnumeratePhysicalDevices(state->instance, &deviceCount, devices), "Unable to fill array with phsyical devices");
   for(int i = 0; i < deviceCount; deviceCount++){
     if(is_physical_device_suitable(state, devices[i], extensions, extensionCount)){
       state->physicalDevice = devices[i];
@@ -280,10 +283,7 @@ u8 create_logical_device(vulkan_state* state, const char** extensions, u32 exten
     .enabledExtensionCount = extensionCount,
     .enabledLayerCount = 0, //We would need to specify the validation layers in this if it was an older implementation of Vulkan, I can't care though
   };
-  if(vkCreateDevice(state->physicalDevice, &logicalDeviceCreateInfo, NULL, &state->logicalDevice) != VK_SUCCESS){
-    VFATAL("Unable to create logical device");
-    return FALSE;
-  }
+  VK_CHECK(vkCreateDevice(state->physicalDevice, &logicalDeviceCreateInfo, NULL, &state->logicalDevice), "Unable to create logical device");
   vkGetDeviceQueue(state->logicalDevice, state->graphicsQueueIndex, 0, &state->graphicsQueue);
   vkGetDeviceQueue(state->logicalDevice, state->presentQueueIndex, 0, &state->presentQueue);
   return TRUE;
@@ -296,24 +296,22 @@ u8 create_vma_allocator(vulkan_state* state){
     .instance = state->instance,
     .vulkanApiVersion = VELORA_VULKAN_API_VERSION,
   };
-  if(vmaCreateAllocator(&createInfo, &state->allocator) != VK_SUCCESS){
-    return FALSE;
-  }
+  VK_CHECK(vmaCreateAllocator(&createInfo, &state->allocator), "Unable to create VMA allocator");
   return TRUE;
 }
 
 u8 obtain_swapchain_info(vulkan_state* state){
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+  VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
     state->physicalDevice, 
     state->surface, 
     &state->swapchainSupportDetails.surfaceCapabilities
-  );
-  vkGetPhysicalDeviceSurfaceFormatsKHR(
+  ), "Unable to get surface capabilities of the chosen phsyical device");
+  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
     state->physicalDevice, 
     state->surface, 
     &state->swapchainSupportDetails.surfaceFormatCount, 
     NULL
-  );
+  ), "Unabled to enumerate surface formats for chosen device");
   if(state->swapchainSupportDetails.surfaceFormatCount == 0){
     VFATAL("No surface formats for the chosen physical device");
     return FALSE;
@@ -322,12 +320,32 @@ u8 obtain_swapchain_info(vulkan_state* state){
     sizeof(VkSurfaceFormatKHR)*(state->swapchainSupportDetails.surfaceFormatCount), 
     MEMORY_TAG_RENDERER
   );
-  vkGetPhysicalDeviceSurfaceFormatsKHR(
+  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
     state->physicalDevice, 
     state->surface, 
     &state->swapchainSupportDetails.surfaceFormatCount, 
     state->swapchainSupportDetails.surfaceFormats
+  ), "Unable to fill array with surface formats for chosen physical device");
+  VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
+    state->physicalDevice,
+    state->surface,
+    &state->swapchainSupportDetails.presentModeCount,
+    NULL
+  ), "Unable to enumerate present modes for chosen physical device");
+  if(state->swapchainSupportDetails.presentModeCount == 0){
+    VFATAL("No present modes for this graphics card");
+    return FALSE;
+  }
+  state->swapchainSupportDetails.presentModes = vallocate(
+    sizeof(VkPresentModeKHR)*state->swapchainSupportDetails.presentModeCount, 
+    MEMORY_TAG_RENDERER
   );
+  VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
+    state->physicalDevice,
+    state->surface,
+    &state->swapchainSupportDetails.presentModeCount,
+    state->swapchainSupportDetails.presentModes
+  ), "Unable to fill array with present modes for chosen physical device");
   return TRUE;
 }
 
@@ -345,9 +363,10 @@ u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
     .hwnd = window,
     .hinstance = handle,
   };
-  if(vkCreateWin32SurfaceKHR(state->instance, &createInfo, NULL, &state->surface) != VK_SUCCESS){
-    return FALSE;
-  }
+  VK_CHECK(
+    vkCreateWin32SurfaceKHR(state->instance, &createInfo, NULL, &state->surface), 
+    "Unable to create windows surface for vulkan renderer"
+  );
   return TRUE;
 }
 
