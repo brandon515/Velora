@@ -7,6 +7,7 @@
 #include <vulkan/vulkan.h>
 #include "utils/vstring.h"
 #include "vk_mem_alloc.h"
+#include "utils/vint.h"
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -351,9 +352,47 @@ u8 create_vma_allocator(vulkan_state* state){
   return TRUE;
 }
 
+u8 choose_surface_format(vulkan_state* state, VkSurfaceFormatKHR *out_format){
+  for(int i = 0; i < state->swapchainSupportDetails.surfaceFormatCount; i++){
+    if(state->swapchainSupportDetails.surfaceFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+      && state->swapchainSupportDetails.surfaceFormats[i].format == VK_FORMAT_B8G8R8A8_SRGB){
+        (*out_format) = state->swapchainSupportDetails.surfaceFormats[i];
+        return TRUE;
+    }
+  }
+  VFATAL("No suitable surface formats found");
+  return FALSE;
+}
 
+u8 choose_present_mode(vulkan_state* state, VkPresentModeKHR* out_mode){
+  for(int i = 0; i < state->swapchainSupportDetails.presentModeCount; i++){
+    if(state->swapchainSupportDetails.presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR){
+      (*out_mode) = VK_PRESENT_MODE_MAILBOX_KHR;
+      return TRUE;
+    }
+  }
+  // FIFO is always there, we can remove this if we require only mailbox for some reason.
+  (*out_mode) = VK_PRESENT_MODE_FIFO_KHR;
+  return TRUE;
+}
+
+VkExtent2D choose_swapchain_extent(const VkSurfaceCapabilitiesKHR caps, u32 width, u32 height){
+  if(caps.currentExtent.width != U32_MAX){
+    return caps.currentExtent;
+  }
+  VkExtent2D extent = {
+    .height = vclamp(height, caps.minImageExtent.height, caps.maxImageExtent.height),
+    .width = vclamp(width, caps.minImageExtent.width, caps.maxImageExtent.width),
+  };
+  return extent;
+}
 
 u8 create_swapchain(vulkan_state* state, u32 width, u32 height){
+  VkSurfaceFormatKHR surfaceFormat;
+  VEL_CHECK(choose_surface_format(state, &surfaceFormat));
+  VkPresentModeKHR presentMode;
+  VEL_CHECK(choose_present_mode(state, &presentMode));
+  VkExtent2D extent = choose_swapchain_extent(state->swapchainSupportDetails.surfaceCapabilities, width, height);
   return TRUE;
 }
 
