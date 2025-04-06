@@ -192,6 +192,55 @@ u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   return TRUE;
 }
 
+u8 obtain_swapchain_info(vulkan_state* state, VkPhysicalDevice device){
+  VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+    device, 
+    state->surface, 
+    &state->swapchainSupportDetails.surfaceCapabilities
+  ), "Unable to get surface capabilities of the chosen phsyical device");
+  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
+    device, 
+    state->surface, 
+    &state->swapchainSupportDetails.surfaceFormatCount, 
+    NULL
+  ), "Unabled to enumerate surface formats for chosen device");
+  if(state->swapchainSupportDetails.surfaceFormatCount == 0){
+    VFATAL("No surface formats for the chosen physical device");
+    return FALSE;
+  }
+  state->swapchainSupportDetails.surfaceFormats = vallocate(
+    sizeof(VkSurfaceFormatKHR)*(state->swapchainSupportDetails.surfaceFormatCount), 
+    MEMORY_TAG_RENDERER
+  );
+  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
+    device, 
+    state->surface, 
+    &state->swapchainSupportDetails.surfaceFormatCount, 
+    state->swapchainSupportDetails.surfaceFormats
+  ), "Unable to fill array with surface formats for chosen physical device");
+  VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
+    device,
+    state->surface,
+    &state->swapchainSupportDetails.presentModeCount,
+    NULL
+  ), "Unable to enumerate present modes for chosen physical device");
+  if(state->swapchainSupportDetails.presentModeCount == 0){
+    VFATAL("No present modes for this graphics card");
+    return FALSE;
+  }
+  state->swapchainSupportDetails.presentModes = vallocate(
+    sizeof(VkPresentModeKHR)*state->swapchainSupportDetails.presentModeCount, 
+    MEMORY_TAG_RENDERER
+  );
+  VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
+    device,
+    state->surface,
+    &state->swapchainSupportDetails.presentModeCount,
+    state->swapchainSupportDetails.presentModes
+  ), "Unable to fill array with present modes for chosen physical device");
+  return TRUE;
+}
+
 u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, const char** extensions, u32 extensionCount){
   u32 queueFamilyCount = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
@@ -236,7 +285,9 @@ u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, con
     }
   }
 
-  return (graphicsQueueObtained && presentQueueObtained && (foundExtensions == extensionCount));
+  u8 swapchainSuitable = obtain_swapchain_info(state, device);
+
+  return (swapchainSuitable && graphicsQueueObtained && presentQueueObtained && (foundExtensions == extensionCount));
 }
 
 u8 obtain_physical_device(vulkan_state* state, const char** extensions, u32 extensionCount){
@@ -300,59 +351,9 @@ u8 create_vma_allocator(vulkan_state* state){
   return TRUE;
 }
 
-u8 obtain_swapchain_info(vulkan_state* state){
-  VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-    state->physicalDevice, 
-    state->surface, 
-    &state->swapchainSupportDetails.surfaceCapabilities
-  ), "Unable to get surface capabilities of the chosen phsyical device");
-  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
-    state->physicalDevice, 
-    state->surface, 
-    &state->swapchainSupportDetails.surfaceFormatCount, 
-    NULL
-  ), "Unabled to enumerate surface formats for chosen device");
-  if(state->swapchainSupportDetails.surfaceFormatCount == 0){
-    VFATAL("No surface formats for the chosen physical device");
-    return FALSE;
-  }
-  state->swapchainSupportDetails.surfaceFormats = vallocate(
-    sizeof(VkSurfaceFormatKHR)*(state->swapchainSupportDetails.surfaceFormatCount), 
-    MEMORY_TAG_RENDERER
-  );
-  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
-    state->physicalDevice, 
-    state->surface, 
-    &state->swapchainSupportDetails.surfaceFormatCount, 
-    state->swapchainSupportDetails.surfaceFormats
-  ), "Unable to fill array with surface formats for chosen physical device");
-  VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
-    state->physicalDevice,
-    state->surface,
-    &state->swapchainSupportDetails.presentModeCount,
-    NULL
-  ), "Unable to enumerate present modes for chosen physical device");
-  if(state->swapchainSupportDetails.presentModeCount == 0){
-    VFATAL("No present modes for this graphics card");
-    return FALSE;
-  }
-  state->swapchainSupportDetails.presentModes = vallocate(
-    sizeof(VkPresentModeKHR)*state->swapchainSupportDetails.presentModeCount, 
-    MEMORY_TAG_RENDERER
-  );
-  VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
-    state->physicalDevice,
-    state->surface,
-    &state->swapchainSupportDetails.presentModeCount,
-    state->swapchainSupportDetails.presentModes
-  ), "Unable to fill array with present modes for chosen physical device");
-  return TRUE;
-}
 
-u8 create_swapchain(vulkan_state* state){
-  if(obtain_swapchain_info(state) == FALSE){
-    return FALSE;
-  }
+
+u8 create_swapchain(vulkan_state* state, u32 width, u32 height){
   return TRUE;
 }
 
@@ -384,7 +385,9 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(obtain_physical_device(vk_state, deviceExtensions, extensionCount));
   VEL_CHECK(create_logical_device(vk_state, deviceExtensions, extensionCount));
   VEL_CHECK(create_vma_allocator(vk_state));
-  VEL_CHECK(create_swapchain(vk_state));
+  LPRECT winSize;
+  GetClientRect(window, winSize);
+  VEL_CHECK(create_swapchain(vk_state, winSize->right, winSize->bottom));
   return TRUE;
 }
 #endif //VPLATFORM_WINDOWS
