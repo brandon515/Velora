@@ -519,7 +519,18 @@ void shutdown_render_system(render_state* state){
   for(int i = 0; i < vk_state->swapchainImageCount; i++){
     vkDestroyImageView(vk_state->logicalDevice, vk_state->swapchainImageViews[i], NULL);
   }
+  vfree(vk_state->swapchainImages, sizeof(VkImageView)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
   vkDestroySwapchainKHR(vk_state->logicalDevice, vk_state->swapchain, NULL);
+  vfree(
+    vk_state->swapchainSupportDetails.surfaceFormats, 
+    sizeof(VkSurfaceFormatKHR)*vk_state->swapchainSupportDetails.surfaceFormatCount, 
+    MEMORY_TAG_RENDERER
+  );
+  vfree(
+    vk_state->swapchainSupportDetails.presentModes, 
+    sizeof(VkPresentModeKHR)*vk_state->swapchainSupportDetails.presentModeCount, 
+    MEMORY_TAG_RENDERER
+  );
   vkDestroySurfaceKHR(vk_state->instance, vk_state->surface, NULL);
   vmaDestroyAllocator(vk_state->allocator);
   vkDestroyDevice(vk_state->logicalDevice, NULL);
