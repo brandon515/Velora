@@ -53,6 +53,7 @@ typedef struct _vulkan_state{
   u32 swapchainImageCount;
   VkExtent2D swapchainExtent;
   VkSwapchainKHR swapchain;
+  VkImageView* swapchainImageViews;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -443,6 +444,40 @@ u8 create_swapchain(vulkan_state* state, u32 width, u32 height){
   return TRUE;
 }
 
+u8 create_swapchain_image_views(vulkan_state* state){
+  state->swapchainImageViews = vallocate(sizeof(VkImageView)*state->swapchainImageCount, MEMORY_TAG_RENDERER);
+  for(int i = 0; i < state->swapchainImageCount; i++){
+    VkComponentMapping compMapping = {
+      .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+    };
+    VkImageSubresourceRange subresRange = {
+      .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+      .baseMipLevel = 0,
+      .levelCount = 1,
+      .baseArrayLayer = 0,
+      .layerCount = 1
+    };
+    VkImageViewCreateInfo createInfo = {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+      .image = state->swapchainImages[i],
+      .viewType = VK_IMAGE_VIEW_TYPE_2D,
+      .format = state->swapchainFormat,
+      .components = compMapping,
+      .subresourceRange = subresRange,
+    };
+    VK_CHECK(vkCreateImageView(
+      state->logicalDevice,
+      &createInfo,
+      NULL,
+      &state->swapchainImageViews[i]
+    ), "Unable to create image view");
+  }
+  return TRUE;
+}
+
 #ifdef VPLATFORM_WINDOWS
 u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
@@ -474,12 +509,16 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   RECT winSize;
   GetClientRect(window, &winSize);
   VEL_CHECK(create_swapchain(vk_state, winSize.right, winSize.bottom));
+  VEL_CHECK(create_swapchain_image_views(vk_state));
   return TRUE;
 }
 #endif //VPLATFORM_WINDOWS
 
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  for(int i = 0; i < vk_state->swapchainImageCount; i++){
+    vkDestroyImageView(vk_state->logicalDevice, vk_state->swapchainImageViews[i], NULL);
+  }
   vkDestroySwapchainKHR(vk_state->logicalDevice, vk_state->swapchain, NULL);
   vkDestroySurfaceKHR(vk_state->instance, vk_state->surface, NULL);
   vmaDestroyAllocator(vk_state->allocator);
