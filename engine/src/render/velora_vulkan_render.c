@@ -48,6 +48,11 @@ typedef struct _vulkan_state{
   VmaAllocator allocator;
   VkSurfaceKHR surface;
   swapchain_support swapchainSupportDetails;
+  VkFormat swapchainFormat;
+  VkImage* swapchainImages;
+  u32 swapchainImageCount;
+  VkExtent2D swapchainExtent;
+  VkSwapchainKHR swapchain;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -390,9 +395,51 @@ VkExtent2D choose_swapchain_extent(const VkSurfaceCapabilitiesKHR caps, u32 widt
 u8 create_swapchain(vulkan_state* state, u32 width, u32 height){
   VkSurfaceFormatKHR surfaceFormat;
   VEL_CHECK(choose_surface_format(state, &surfaceFormat));
+  state->swapchainFormat = surfaceFormat.format;
   VkPresentModeKHR presentMode;
   VEL_CHECK(choose_present_mode(state, &presentMode));
-  VkExtent2D extent = choose_swapchain_extent(state->swapchainSupportDetails.surfaceCapabilities, width, height);
+  state->swapchainExtent = choose_swapchain_extent(state->swapchainSupportDetails.surfaceCapabilities, width, height);
+  u32 imageCount = state->swapchainSupportDetails.surfaceCapabilities.minImageCount+1;
+  if(
+    state->swapchainSupportDetails.surfaceCapabilities.maxImageCount > 0 && 
+    imageCount > state->swapchainSupportDetails.surfaceCapabilities.maxImageCount
+  ){
+    imageCount = state->swapchainSupportDetails.surfaceCapabilities.maxImageCount;
+  }
+  VkSwapchainCreateInfoKHR createInfo = {
+    .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+    .surface = state->surface,
+    .minImageCount = imageCount,
+    .imageFormat = surfaceFormat.format,
+    .imageColorSpace = surfaceFormat.colorSpace,
+    .presentMode = presentMode,
+    .imageExtent = state->swapchainExtent,
+    .imageArrayLayers = 1, // The only reason this would be more than one is for streoscopic 3d games
+    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+    .preTransform = state->swapchainSupportDetails.surfaceCapabilities.currentTransform,
+    .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+    .clipped = VK_TRUE,
+    .oldSwapchain = VK_NULL_HANDLE,
+  };
+  if(state->graphicsQueueIndex != state->presentQueueIndex){
+    u32 indices[2];
+    indices[0] = state->graphicsQueueIndex;
+    indices[1] = state->presentQueueIndex;
+    createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+    createInfo.queueFamilyIndexCount = 2;
+    createInfo.pQueueFamilyIndices = indices;
+  }else{
+    createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.queueFamilyIndexCount = 0; // Optional, not accessed in exclusive mode
+    createInfo.pQueueFamilyIndices = VK_NULL_HANDLE; // Optional, not accessed in exclusive mode
+  }
+  VK_CHECK(
+    vkCreateSwapchainKHR(state->logicalDevice, &createInfo, NULL, &state->swapchain), 
+    "Unable to create swapchain"
+  );
+  vkGetSwapchainImagesKHR(state->logicalDevice, state->swapchain, &state->swapchainImageCount, NULL);
+  state->swapchainImages = vallocate(sizeof(VkImage)*state->swapchainImageCount, MEMORY_TAG_RENDERER);
+  vkGetSwapchainImagesKHR(state->logicalDevice, state->swapchain, &state->swapchainImageCount, state->swapchainImages);
   return TRUE;
 }
 
@@ -424,15 +471,16 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(obtain_physical_device(vk_state, deviceExtensions, extensionCount));
   VEL_CHECK(create_logical_device(vk_state, deviceExtensions, extensionCount));
   VEL_CHECK(create_vma_allocator(vk_state));
-  LPRECT winSize;
-  GetClientRect(window, winSize);
-  VEL_CHECK(create_swapchain(vk_state, winSize->right, winSize->bottom));
+  RECT winSize;
+  GetClientRect(window, &winSize);
+  VEL_CHECK(create_swapchain(vk_state, winSize.right, winSize.bottom));
   return TRUE;
 }
 #endif //VPLATFORM_WINDOWS
 
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vkDestroySwapchainKHR(vk_state->logicalDevice, vk_state->swapchain, NULL);
   vkDestroySurfaceKHR(vk_state->instance, vk_state->surface, NULL);
   vmaDestroyAllocator(vk_state->allocator);
   vkDestroyDevice(vk_state->logicalDevice, NULL);
