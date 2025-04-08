@@ -478,6 +478,11 @@ u8 create_swapchain_image_views(vulkan_state* state){
   return TRUE;
 }
 
+u8 create_graphics_pipeline(vulkan_state* state){
+  //
+  return TRUE;
+}
+
 #ifdef VPLATFORM_WINDOWS
 u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
@@ -510,6 +515,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   GetClientRect(window, &winSize);
   VEL_CHECK(create_swapchain(vk_state, winSize.right, winSize.bottom));
   VEL_CHECK(create_swapchain_image_views(vk_state));
+  VEL_CHECK(create_graphics_pipeline(vk_state));
   return TRUE;
 }
 #endif //VPLATFORM_WINDOWS
