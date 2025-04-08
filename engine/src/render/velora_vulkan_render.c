@@ -8,6 +8,7 @@
 #include "utils/vstring.h"
 #include "vk_mem_alloc.h"
 #include "utils/vint.h"
+#include "utils/vfile.h"
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -478,8 +479,26 @@ u8 create_swapchain_image_views(vulkan_state* state){
   return TRUE;
 }
 
+VkShaderModule get_shader_module(vulkan_state* state, const char* shaderFileName){
+  FILE* shaderFile = fopen(shaderFileName, "rb");
+  u64 shaderFileSize = get_file_size(shaderFile);
+  u8* shaderFileContents = vallocate(shaderFileSize, MEMORY_TAG_RENDERER);
+  VEL_CHECK(get_file_contents(shaderFile, shaderFileContents));
+  VkShaderModuleCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+    .codeSize = shaderFileSize,
+    .pCode = (u32*)shaderFileContents
+  };
+  VkShaderModule ret_mod;
+  VK_CHECK(vkCreateShaderModule(state->logicalDevice, &createInfo, NULL, &ret_mod), "Failed to create shader module");
+  return ret_mod;
+}
+
 u8 create_graphics_pipeline(vulkan_state* state){
-  //
+  VkShaderModule vertMod = get_shader_module(state, "vert.spv");
+  VkShaderModule fragMod = get_shader_module(state, "frag.spv");
+  vkDestroyShaderModule(state->logicalDevice, vertMod, NULL);
+  vkDestroyShaderModule(state->logicalDevice, fragMod, NULL);
   return TRUE;
 }
 
