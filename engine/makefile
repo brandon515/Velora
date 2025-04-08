@@ -2,6 +2,8 @@ C_SOURCES = $(wildcard src/*/*.c) $(wildcard src/*.c)
 CPP_SOURCES = $(wildcard src/*/*.cpp) $(wildcard src/*.cpp)
 HEADERS = $(wildcard src/*/*.h) $(wildcard src/*.h)
 OBJS = $(patsubst %.c, ../obj/%.o, $(notdir $(C_SOURCES))) $(patsubst %.cpp, ../obj/%.o, $(notdir $(CPP_SOURCES)))
+SHADERS = $(wildcard src/*/*.glsl)
+SPV = $(patsubst %.glsl, ../bin/%.spv, $(notdir $(SHADERS)))
 CC = clang
 CXX = clang++
 
@@ -12,7 +14,9 @@ I_FLAGS = -Isrc -I$(VULKAN_SDK)/Include
 L_FLAGS = -shared -luser32 -lvulkan-1 -L$(VULKAN_SDK)/Lib
 DEFINES = -D_DEBUG -DVEXPORT -DVULKAN_RENDER -D_CRT_SECURE_NO_WARNINGS
 
-../bin/engine.dll: $(OBJS)
+ALL: $(SPV) ../bin/engine.dll
+
+../bin/engine.dll: $(OBJS) 
 	$(CC) -g $^ -o ../bin/engine.dll $(L_FLAGS)
 
 ../obj/%.o: src/*/%.c
@@ -20,3 +24,6 @@ DEFINES = -D_DEBUG -DVEXPORT -DVULKAN_RENDER -D_CRT_SECURE_NO_WARNINGS
 
 ../obj/%.o: src/*/%.cpp
 	$(CXX) $(CPP_FLAGS) $^ -c -o $@ $(I_FLAGS)
+
+../bin/%.spv: src/*/%.glsl
+	glslc $^ -o $@
