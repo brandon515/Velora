@@ -5,7 +5,7 @@ ECHO "Building everything..."
 
 
 PUSHD engine
-CALL build.bat
+make
 POPD
 IF %ERRORLEVEL% NEQ 0 (echo Error:%ERRORLEVEL% && exit)
 

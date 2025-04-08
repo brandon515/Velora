@@ -6,7 +6,7 @@ echo "Building everything..."
 
 
 pushd engine
-source build.sh
+make
 popd
 
 ERRORLEVEL=$?

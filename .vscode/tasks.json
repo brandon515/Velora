@@ -4,7 +4,7 @@
           "type": "shell",
           "label": "Build Engine",
           "windows": {
-              "command": "${workspaceFolder}/engine/build.bat"
+              "command": "make"
           },
           "linux": {
               "command": "${workspaceFolder}/engine/build.sh"
