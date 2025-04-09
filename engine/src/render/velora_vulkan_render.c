@@ -722,6 +722,20 @@ u8 create_frame_buffers(vulkan_state* state){
 }
 
 u8 create_command_pool(vulkan_state* state){
+  VkCommandPoolCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+    .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+    .queueFamilyIndex = state->graphicsQueueIndex,
+  };
+  VK_CHECK(
+    vkCreateCommandPool(
+      state->logicalDevice,
+      &createInfo,
+      NULL,
+      &state->commandPool
+    ), 
+    "Unable to create command pool"
+  );
   return TRUE;
 }
 
@@ -760,12 +774,14 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_render_pass(vk_state));
   VEL_CHECK(create_graphics_pipeline(vk_state));
   VEL_CHECK(create_frame_buffers(vk_state));
+  VEL_CHECK(create_command_pool(vk_state));
   return TRUE;
 }
 #endif //VPLATFORM_WINDOWS
 
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vkDestroyCommandPool(vk_state->logicalDevice, vk_state->commandPool, NULL);
   for(int i = 0; i< vk_state->swapchainImageCount; i++){
     vkDestroyFramebuffer(vk_state->logicalDevice, vk_state->frameBuffers[i], NULL);
   }
