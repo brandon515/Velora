@@ -497,6 +497,66 @@ VkShaderModule get_shader_module(vulkan_state* state, const char* shaderFileName
 u8 create_graphics_pipeline(vulkan_state* state){
   VkShaderModule vertMod = get_shader_module(state, "vert.spv");
   VkShaderModule fragMod = get_shader_module(state, "frag.spv");
+  VkPipelineShaderStageCreateInfo vertexCreateInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    .stage = VK_SHADER_STAGE_VERTEX_BIT,
+    .module = vertMod,
+    .pName = "main", // The name of the entry point function in the GLSL script
+    .pSpecializationInfo = NULL,
+  };
+  VkPipelineShaderStageCreateInfo fragmentCreateInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+    .module = fragMod,
+    .pName = "main", // The name of the entry point function in the GLSL script
+    .pSpecializationInfo = NULL,
+  };
+  VkPipelineShaderStageCreateInfo shaderStages[] = {vertexCreateInfo, fragmentCreateInfo};
+  u32 dynamicStateCount = 2;
+  VkDynamicState dynamicStates[] = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR,
+  };
+  VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+    .dynamicStateCount = dynamicStateCount,
+    .pDynamicStates = dynamicStates,
+  };
+  //Vertex buffer stuff goes into this create info
+  VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+    .vertexBindingDescriptionCount = 0,
+    .pVertexBindingDescriptions = NULL,
+    .vertexAttributeDescriptionCount = 0,
+    .pVertexAttributeDescriptions = NULL,
+  };
+  VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+    .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+    .primitiveRestartEnable = VK_FALSE,
+  };
+  VkViewport viewport = {
+    .x = 0.0f,
+    .y = 0.0f,
+    .width = (float)state->swapchainExtent.width,
+    .height = (float)state->swapchainExtent.height,
+    .minDepth = 0.0f,
+    .maxDepth = 1.0f,
+  };
+  VkRect2D scissor = {
+    .offset = {
+      .x = 0,
+      .y = 0
+    },
+    .extent = state->swapchainExtent
+  };
+  VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+    .viewportCount = 1,
+    .pViewports = &viewport,
+    .scissorCount = 1,
+    .pScissors = &scissor,
+  };
   vkDestroyShaderModule(state->logicalDevice, vertMod, NULL);
   vkDestroyShaderModule(state->logicalDevice, fragMod, NULL);
   return TRUE;
