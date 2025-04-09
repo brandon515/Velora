@@ -60,6 +60,7 @@ typedef struct _vulkan_state{
   VkPipeline graphicsPipeline;
   VkFramebuffer* frameBuffers;
   VkCommandPool commandPool;
+  VkCommandBuffer commandBuffer;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -347,7 +348,15 @@ u8 create_logical_device(vulkan_state* state, const char** extensions, u32 exten
     .enabledExtensionCount = extensionCount,
     .enabledLayerCount = 0, //We would need to specify the validation layers in this if it was an older implementation of Vulkan, I can't care though
   };
-  VK_CHECK(vkCreateDevice(state->physicalDevice, &logicalDeviceCreateInfo, NULL, &state->logicalDevice), "Unable to create logical device");
+  VK_CHECK(
+    vkCreateDevice(
+      state->physicalDevice, 
+      &logicalDeviceCreateInfo, 
+      NULL, 
+      &state->logicalDevice
+    ), 
+    "Unable to create logical device"
+  );
   vkGetDeviceQueue(state->logicalDevice, state->graphicsQueueIndex, 0, &state->graphicsQueue);
   vkGetDeviceQueue(state->logicalDevice, state->presentQueueIndex, 0, &state->presentQueue);
   return TRUE;
@@ -739,6 +748,24 @@ u8 create_command_pool(vulkan_state* state){
   return TRUE;
 }
 
+u8 create_command_buffer(vulkan_state* state){
+  VkCommandBufferAllocateInfo allocInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .commandPool = state->commandPool,
+    .commandBufferCount = 1,
+    .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+  };
+  VK_CHECK(
+    vkAllocateCommandBuffers(
+      state->logicalDevice, 
+      &allocInfo, 
+      &state->commandBuffer
+    ), 
+    "Unable to allocate command buffers"
+  );
+  return TRUE;
+}
+
 #ifdef VPLATFORM_WINDOWS
 u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
@@ -775,6 +802,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_graphics_pipeline(vk_state));
   VEL_CHECK(create_frame_buffers(vk_state));
   VEL_CHECK(create_command_pool(vk_state));
+  VEL_CHECK(create_command_buffer(vk_state));
   return TRUE;
 }
 #endif //VPLATFORM_WINDOWS
