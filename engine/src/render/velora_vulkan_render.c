@@ -55,6 +55,9 @@ typedef struct _vulkan_state{
   VkExtent2D swapchainExtent;
   VkSwapchainKHR swapchain;
   VkImageView* swapchainImageViews;
+  VkRenderPass renderPass;
+  VkPipelineLayout pipelineLayout;
+  VkPipeline graphicsPipeline;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -494,6 +497,37 @@ VkShaderModule get_shader_module(vulkan_state* state, const char* shaderFileName
   return ret_mod;
 }
 
+u8 create_render_pass(vulkan_state* state){
+  VkAttachmentDescription colorAttachment = {
+    .format = state->swapchainFormat,
+    .samples = VK_SAMPLE_COUNT_1_BIT, // This will change if multi sampling is enabled
+    .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, // What to do with the attachment (the swapchain image), Clear clears it out
+    .storeOp = VK_ATTACHMENT_STORE_OP_STORE, // Store makes the render results stored so we can read it later
+    .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE, // We disabled stencil buffer stuff so this doesn't matter
+    .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // We don't care about maintainining the image incoming, we're going to clear it anyway
+    .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, // We're going to render it into the window so it needs to be ready
+  };
+  VkAttachmentReference colorAttachmentRef = { // This is the layout(location = 0) out vec4 outColor in the fragment shader
+    .attachment = 0,
+    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+  };
+  VkSubpassDescription subpass = {
+    .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+    .colorAttachmentCount = 1,
+    .pColorAttachments = &colorAttachmentRef,
+  };
+  VkRenderPassCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+    .attachmentCount = 1,
+    .pAttachments = &colorAttachment,
+    .subpassCount = 1,
+    .pSubpasses = &subpass,
+  };
+  VK_CHECK(vkCreateRenderPass(state->logicalDevice, &createInfo, NULL, &state->renderPass), "Unable to create render pass");
+  return TRUE;
+}
+
 u8 create_graphics_pipeline(vulkan_state* state){
   VkShaderModule vertMod = get_shader_module(state, "vert.spv");
   VkShaderModule fragMod = get_shader_module(state, "frag.spv");
@@ -557,6 +591,98 @@ u8 create_graphics_pipeline(vulkan_state* state){
     .scissorCount = 1,
     .pScissors = &scissor,
   };
+  VkPipelineRasterizationStateCreateInfo rasterizer = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+    .depthClampEnable = VK_FALSE,
+    .rasterizerDiscardEnable = VK_FALSE,
+    .polygonMode = VK_POLYGON_MODE_FILL, // The other modes are good for wireframes and vertex points but requires enabling a GPU feature in the logical device
+    .lineWidth = 1.0f,
+    .cullMode = VK_CULL_MODE_BACK_BIT,
+    .frontFace = VK_FRONT_FACE_CLOCKWISE,
+    .depthBiasEnable = VK_FALSE,
+    .depthBiasConstantFactor = 0.0f, //Optional when depthBias is set to false
+    .depthBiasClamp = 0.0f, //Optional when depthBias is set to false
+    .depthBiasSlopeFactor = 0.0f, //Optional when depthBias is set to false
+  };
+  VkPipelineMultisampleStateCreateInfo multiSampling = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+    .sampleShadingEnable = VK_FALSE, // This disables multisampling. The rest of the values are optional when this is false.
+    .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+    .minSampleShading = 1.0f,
+    .pSampleMask = NULL,
+    .alphaToCoverageEnable = VK_FALSE,
+    .alphaToOneEnable = VK_FALSE,
+  };
+  VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+    .colorWriteMask = 
+      VK_COLOR_COMPONENT_R_BIT |
+      VK_COLOR_COMPONENT_G_BIT |
+      VK_COLOR_COMPONENT_B_BIT |
+      VK_COLOR_COMPONENT_A_BIT, // This is bitwise AND'd against the combined colors, how they're combined is described below
+    .blendEnable = VK_FALSE, // This disables colorblending, the rest of the values are optional while this is false
+    .srcColorBlendFactor = VK_BLEND_FACTOR_ONE, // Factor to multiply the src color
+    .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO, // Factor to mutiply the dst color
+    .colorBlendOp = VK_BLEND_OP_ADD, // How to combine the src and dst color, this case add them
+    .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+    .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+    .alphaBlendOp = VK_BLEND_OP_ADD,
+  };
+  VkPipelineColorBlendStateCreateInfo colorBlending = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+    .logicOpEnable = VK_FALSE, //This overrides blend enable if true
+    .logicOp = VK_LOGIC_OP_COPY,
+    .attachmentCount = 1,
+    .pAttachments = &colorBlendAttachment,
+    .blendConstants[0] = 0.0f,
+    .blendConstants[1] = 0.0f,
+    .blendConstants[2] = 0.0f,
+    .blendConstants[3] = 0.0f,
+  };
+  VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+    .setLayoutCount = 0,
+    .pSetLayouts = NULL,
+    .pushConstantRangeCount = 0,
+    .pPushConstantRanges = NULL,
+  };
+  VK_CHECK(
+    vkCreatePipelineLayout(
+      state->logicalDevice, 
+      &pipelineLayoutInfo, 
+      NULL, 
+      &state->pipelineLayout
+    ), 
+    "Unable to create pipeline layout"
+  );
+  VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
+    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+    .stageCount = 2,
+    .pStages = shaderStages, // Programmable shader stages, this time it's just vertex and fragment
+    .pVertexInputState = &vertexInputCreateInfo,
+    .pInputAssemblyState = &inputAssemblyCreateInfo,
+    .pViewportState = &viewportStateCreateInfo,
+    .pRasterizationState = &rasterizer,
+    .pMultisampleState = &multiSampling,
+    .pDepthStencilState = NULL, // We disabled stencil buffers
+    .pColorBlendState = &colorBlending,
+    .pDynamicState = &dynamicStateCreateInfo,
+    .layout = state->pipelineLayout,
+    .renderPass = state->renderPass,
+    .subpass = 0,
+    .basePipelineHandle = VK_NULL_HANDLE,
+    .basePipelineIndex = -1,
+  };
+  VK_CHECK(
+    vkCreateGraphicsPipelines(
+      state->logicalDevice, 
+      VK_NULL_HANDLE, 
+      1, 
+      &pipelineCreateInfo, 
+      NULL, 
+      &state->graphicsPipeline
+    ), 
+    "Unable to create graphics pipeline"
+  );
   vkDestroyShaderModule(state->logicalDevice, vertMod, NULL);
   vkDestroyShaderModule(state->logicalDevice, fragMod, NULL);
   return TRUE;
@@ -594,6 +720,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   GetClientRect(window, &winSize);
   VEL_CHECK(create_swapchain(vk_state, winSize.right, winSize.bottom));
   VEL_CHECK(create_swapchain_image_views(vk_state));
+  VEL_CHECK(create_render_pass(vk_state));
   VEL_CHECK(create_graphics_pipeline(vk_state));
   return TRUE;
 }
@@ -601,6 +728,9 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
 
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vkDestroyPipeline(vk_state->logicalDevice, vk_state->graphicsPipeline, NULL);
+  vkDestroyPipelineLayout(vk_state->logicalDevice, vk_state->pipelineLayout, NULL);
+  vkDestroyRenderPass(vk_state->logicalDevice, vk_state->renderPass, NULL);
   for(int i = 0; i < vk_state->swapchainImageCount; i++){
     vkDestroyImageView(vk_state->logicalDevice, vk_state->swapchainImageViews[i], NULL);
   }
