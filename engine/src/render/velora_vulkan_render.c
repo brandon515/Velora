@@ -58,6 +58,8 @@ typedef struct _vulkan_state{
   VkRenderPass renderPass;
   VkPipelineLayout pipelineLayout;
   VkPipeline graphicsPipeline;
+  VkFramebuffer* frameBuffers;
+  VkCommandPool commandPool;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -688,6 +690,41 @@ u8 create_graphics_pipeline(vulkan_state* state){
   return TRUE;
 }
 
+u8 create_frame_buffers(vulkan_state* state){
+  state->frameBuffers = vallocate(
+    sizeof(VkFramebuffer)*state->swapchainImageCount, 
+    MEMORY_TAG_RENDERER
+  );
+  for(int i = 0; i < state->swapchainImageCount; i++){
+    VkImageView attachments[] = {
+      state->swapchainImageViews[i],
+    };
+    VkFramebufferCreateInfo createInfo = {
+      .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+      .renderPass = state->renderPass,
+      .attachmentCount = 1,
+      .pAttachments = attachments,
+      .width = state->swapchainExtent.width,
+      .height = state->swapchainExtent.height,
+      .layers = 1,
+    };
+    VK_CHECK(
+      vkCreateFramebuffer(
+        state->logicalDevice, 
+        &createInfo, 
+        NULL, 
+        &state->frameBuffers[i]
+      ), 
+      "Unable to create framebuffer"
+    );
+  }
+  return TRUE;
+}
+
+u8 create_command_pool(vulkan_state* state){
+  return TRUE;
+}
+
 #ifdef VPLATFORM_WINDOWS
 u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
@@ -722,12 +759,17 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_swapchain_image_views(vk_state));
   VEL_CHECK(create_render_pass(vk_state));
   VEL_CHECK(create_graphics_pipeline(vk_state));
+  VEL_CHECK(create_frame_buffers(vk_state));
   return TRUE;
 }
 #endif //VPLATFORM_WINDOWS
 
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  for(int i = 0; i< vk_state->swapchainImageCount; i++){
+    vkDestroyFramebuffer(vk_state->logicalDevice, vk_state->frameBuffers[i], NULL);
+  }
+  vfree(vk_state->frameBuffers, sizeof(VkFramebuffer)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
   vkDestroyPipeline(vk_state->logicalDevice, vk_state->graphicsPipeline, NULL);
   vkDestroyPipelineLayout(vk_state->logicalDevice, vk_state->pipelineLayout, NULL);
   vkDestroyRenderPass(vk_state->logicalDevice, vk_state->renderPass, NULL);
