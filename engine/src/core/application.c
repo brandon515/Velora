@@ -4,6 +4,7 @@
 #include "logger.h"
 #include "core/vmemory.h"
 #include "core/event.h"
+#include "render/velora_render.h"
 
 typedef struct _application_state{
   game* game_inst;
@@ -66,7 +67,9 @@ b8 application_start(game* game_inst){
 b8 application_run(){
   while(app_state.is_running){
     platform_pump_messages(&app_state.platform);
+    render_preframe(app_state.platform.render_state);
     pump_events(99.9f);
+    render_frame(app_state.platform.render_state);
     if(app_state.is_suspended == FALSE){
       if(!app_state.game_inst->update(app_state.game_inst, 0.0f)){
         VFATAL("Game update function not able to run");
@@ -79,6 +82,7 @@ b8 application_run(){
         break;
       }
     }
+    render_postframe(app_state.platform.render_state);
   }
   platform_shutdown(&app_state.platform);
 
