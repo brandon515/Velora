@@ -768,6 +768,50 @@ u8 create_command_buffer(vulkan_state* state){
   return TRUE;
 }
 
+u8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
+  if(swapchainImageIndex >= state->swapchainImageCount){
+    VFATAL("Attempted to record command buffer for swapchain image that doesn't exist");
+    return FALSE;
+  }
+  VkCommandBufferBeginInfo beginInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .flags = 0,
+    .pInheritanceInfo = NULL,
+  };
+  VK_CHECK(vkBeginCommandBuffer(state->commandBuffer, &beginInfo), "Unable to start recording commander buffer");
+
+  VkClearValue clearColor = {{{0.0f,0.0f,0.0f,1.0f}}};
+  VkRenderPassBeginInfo renderPassInfo = {
+    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+    .renderPass = state->renderPass,
+    .framebuffer = state->frameBuffers[swapchainImageIndex],
+    .renderArea.offset = {0,0},
+    .renderArea.extent = state->swapchainExtent,
+    .clearValueCount = 1,
+    .pClearValues = &clearColor,
+  };
+  vkCmdBeginRenderPass(state->commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBindPipeline(state->commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->graphicsPipeline);
+  VkViewport viewport = {
+    .x = 0.0f,
+    .y = 0.0f,
+    .width = (float)state->swapchainExtent.width,
+    .height = (float)state->swapchainExtent.height,
+    .minDepth = 0.0f,
+    .maxDepth = 1.0f,
+  };
+  vkCmdSetViewport(state->commandBuffer, 0, 1, &viewport);
+  VkRect2D scissor = {
+    .offset = {0,0},
+    .extent = state->swapchainExtent,
+  };
+  vkCmdSetScissor(state->commandBuffer, 0, 1, &scissor);
+  vkCmdDraw(state->commandBuffer, 3, 1, 0, 0);
+  vkCmdEndRenderPass(state->commandBuffer);
+  VK_CHECK(vkEndCommandBuffer(state->commandBuffer), "Unable to end recording of command buffer");
+  return TRUE;
+}
+
 #ifdef VPLATFORM_WINDOWS
 u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
