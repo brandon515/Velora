@@ -498,6 +498,7 @@ VkShaderModule get_shader_module(vulkan_state* state, const char* shaderFileName
   u64 shaderFileSize = get_file_size(shaderFile);
   u8* shaderFileContents = vallocate(shaderFileSize, MEMORY_TAG_RENDERER);
   VEL_CHECK(get_file_contents(shaderFile, shaderFileContents));
+  fclose(shaderFile);
   VkShaderModuleCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
     .codeSize = shaderFileSize,
@@ -505,6 +506,7 @@ VkShaderModule get_shader_module(vulkan_state* state, const char* shaderFileName
   };
   VkShaderModule ret_mod;
   VK_CHECK(vkCreateShaderModule(state->logicalDevice, &createInfo, NULL, &ret_mod), "Failed to create shader module");
+  vfree(shaderFileContents, shaderFileSize, MEMORY_TAG_RENDERER);
   return ret_mod;
 }
 
