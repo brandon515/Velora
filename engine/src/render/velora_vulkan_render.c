@@ -889,4 +889,17 @@ void shutdown_render_system(render_state* state){
   vfree(state, sizeof(render_state), MEMORY_TAG_RENDERER);
 }
 
+u8 render_preframe(render_state* state){
+  return TRUE;
+}
+
+u8 render_frame(render_state* state){
+  return TRUE;
+}
+
+u8 render_postframe(render_state* state){
+  return TRUE;
+}
+
+
 #endif
