@@ -23,6 +23,11 @@ typedef enum _event_id{
   ENGINE_EVENT_ID_END,
 } event_id;
 
+/*!
+ * @brief Event listener function pointer
+ * @param event A pointer to the event to be processed
+ * @return TRUE if the event is consumed by the listener, FALSE if the even should be pushed to other listeners
+ */
 typedef b8 (*event_listener)(event* event);
 
 VAPI void initiate_event_system();
@@ -69,6 +74,7 @@ b8 pump_events(f64 time_limit);
 typedef struct _resize_data{
   u64 width;
   u64 height;
+  void* render_data;
 } resize_data;
 
 typedef struct _button_data{
