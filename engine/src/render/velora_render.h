@@ -20,6 +20,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
 #elif VPLATFORM_LINUX
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
+#include "platform/xdg-shell-client-protocol.h"
 
 u8 initiate_render_system(render_state* state, const char* application_name, struct wl_display* display, struct wl_surface* surface);
 #endif
