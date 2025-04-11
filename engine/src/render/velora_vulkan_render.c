@@ -9,6 +9,7 @@
 #include "vk_mem_alloc.h"
 #include "utils/vint.h"
 #include "utils/vfile.h"
+#include <vulkan/vk_enum_string_helper.h>
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -24,11 +25,13 @@
     return FALSE;       \
   }                     
 
-#define VK_CHECK(expr, msg) \
-  if(expr != VK_SUCCESS){   \
-    VFATAL(msg);            \
-    return FALSE;           \
-  }                       
+#define VK_CHECK(expr, msg)                           \
+  {VkResult err = expr;                                \
+  if(err != VK_SUCCESS){                              \
+    VFATAL(msg);                                      \
+    VFATAL("Vulkan Error: %s", string_VkResult(err)); \
+    return FALSE;                                     \
+  }}                       
 
 typedef struct _swapchain_support{
   VkSurfaceCapabilitiesKHR surfaceCapabilities;
@@ -61,6 +64,8 @@ typedef struct _vulkan_state{
   VkFramebuffer* frameBuffers;
   VkCommandPool commandPool;
   VkCommandBuffer commandBuffer;
+  VkSemaphore imageAvailable, renderFinished;
+  VkFence inFlight;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -530,12 +535,22 @@ u8 create_render_pass(vulkan_state* state){
     .colorAttachmentCount = 1,
     .pColorAttachments = &colorAttachmentRef,
   };
+  VkSubpassDependency dependency = {
+    .srcSubpass = VK_SUBPASS_EXTERNAL, // This refers to the implicit subpass at the beginning of the pipeline
+    .dstSubpass = 0,
+    .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    .srcAccessMask = 0,
+    .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+  };
   VkRenderPassCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
     .attachmentCount = 1,
     .pAttachments = &colorAttachment,
     .subpassCount = 1,
     .pSubpasses = &subpass,
+    .dependencyCount = 1,
+    .pDependencies = &dependency,
   };
   VK_CHECK(vkCreateRenderPass(state->logicalDevice, &createInfo, NULL, &state->renderPass), "Unable to create render pass");
   return TRUE;
@@ -812,6 +827,29 @@ u8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
   return TRUE;
 }
 
+u8 create_sync_objects(vulkan_state* state){
+  VkSemaphoreCreateInfo semInfo = {
+    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+  };
+  VkFenceCreateInfo fenceInfo = {
+    .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+    .flags = VK_FENCE_CREATE_SIGNALED_BIT, // Make it so that the render loop doesn't hang on the fence for the first frame
+  };
+  VK_CHECK(
+    vkCreateSemaphore(state->logicalDevice, &semInfo, NULL, &state->imageAvailable),
+    "Unable to create Semaphore"
+  );
+  VK_CHECK(
+    vkCreateSemaphore(state->logicalDevice, &semInfo, NULL, &state->renderFinished),
+    "Unable to create Semaphore"
+  );
+  VK_CHECK(
+    vkCreateFence(state->logicalDevice, &fenceInfo, NULL, &state->inFlight),
+    "Unable to create fence"
+  );
+  return TRUE;
+}
+
 #ifdef VPLATFORM_WINDOWS
 u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
@@ -849,12 +887,17 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_frame_buffers(vk_state));
   VEL_CHECK(create_command_pool(vk_state));
   VEL_CHECK(create_command_buffer(vk_state));
+  VEL_CHECK(create_sync_objects(vk_state));
   return TRUE;
 }
 #endif //VPLATFORM_WINDOWS
 
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vkDeviceWaitIdle(vk_state->logicalDevice);
+  vkDestroySemaphore(vk_state->logicalDevice, vk_state->imageAvailable, NULL);
+  vkDestroySemaphore(vk_state->logicalDevice, vk_state->renderFinished, NULL);
+  vkDestroyFence(vk_state->logicalDevice, vk_state->inFlight, NULL);
   vkDestroyCommandPool(vk_state->logicalDevice, vk_state->commandPool, NULL);
   for(int i = 0; i< vk_state->swapchainImageCount; i++){
     vkDestroyFramebuffer(vk_state->logicalDevice, vk_state->frameBuffers[i], NULL);
@@ -890,14 +933,59 @@ void shutdown_render_system(render_state* state){
 }
 
 u8 render_preframe(render_state* state){
+  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vkWaitForFences(vk_state->logicalDevice, 1, &vk_state->inFlight, VK_TRUE, U64_MAX);
+  vkResetFences(vk_state->logicalDevice, 1, &vk_state->inFlight);
   return TRUE;
 }
 
 u8 render_frame(render_state* state){
+  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  u32 imageIndex = 0;
+  vkAcquireNextImageKHR(
+    vk_state->logicalDevice,
+    vk_state->swapchain,
+    U64_MAX,
+    vk_state->imageAvailable, //signal this semaphore once we get the image index
+    VK_NULL_HANDLE, // A fence to signal, we don't use it
+    &imageIndex
+  );
+  vkResetCommandBuffer(vk_state->commandBuffer, 0);
+  record_command_buffer(vk_state, imageIndex);
+  
+  VkSemaphore waitSemaphores[] = {vk_state->imageAvailable};
+  VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+  VkSemaphore signalSemaphores[] = {vk_state->renderFinished};
+  VkSubmitInfo submitInfo = {
+    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .waitSemaphoreCount = 1,
+    .pWaitSemaphores = waitSemaphores,
+    .pWaitDstStageMask = waitStages,
+    .commandBufferCount = 1,
+    .pCommandBuffers = &vk_state->commandBuffer,
+    .signalSemaphoreCount = 1,
+    .pSignalSemaphores = signalSemaphores,
+  };
+  VK_CHECK(
+    vkQueueSubmit(vk_state->graphicsQueue, 1, &submitInfo, vk_state->inFlight),
+    "Failed to submit draw command buffer"
+  );
+  VkSwapchainKHR swapChains[] = {vk_state->swapchain};
+  VkPresentInfoKHR presentInfo = {
+    .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+    .waitSemaphoreCount = 1,
+    .pWaitSemaphores = signalSemaphores,
+    .swapchainCount = 1,
+    .pSwapchains = swapChains,
+    .pImageIndices = &imageIndex,
+    .pResults = NULL, // This is only used when multiple swapchains are used
+  };
+  VK_CHECK(vkQueuePresentKHR(vk_state->presentQueue, &presentInfo), "Unable to present image to swapchain");
   return TRUE;
 }
 
 u8 render_postframe(render_state* state){
+  //vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   return TRUE;
 }
 
