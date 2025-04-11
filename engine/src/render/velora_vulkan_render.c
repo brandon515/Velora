@@ -15,6 +15,9 @@
 #include <windowsx.h>
 #include <vulkan/vulkan_win32.h>
 #elif VPLATFORM_LINUX
+#include <wayland-client.h>
+#include "platform/xdg-shell-client-protocol.h"
+#include <xkbcommon/xkbcommon.h>
 #include <vulkan/vulkan_wayland.h>
 #endif
 
@@ -850,6 +853,14 @@ u8 create_sync_objects(vulkan_state* state){
   return TRUE;
 }
 
+u8 pre_window_init(vulkan_state* state){
+  return TRUE;
+}
+
+u8 post_window_init(vulkan_state* state){
+  return TRUE;
+}
+
 #ifdef VPLATFORM_WINDOWS
 u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
@@ -890,7 +901,47 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_sync_objects(vk_state));
   return TRUE;
 }
-#endif //VPLATFORM_WINDOWS
+#elif VPLATFORM_LINUX
+u8 create_window_surface(vulkan_state* state, struct wl_display* display, struct wl_surface* surface){
+  VkWin32SurfaceCreateInfoKHR createInfo = {
+    .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+    .hwnd = window,
+    .hinstance = handle,
+  };
+  VK_CHECK(
+    vkCreateWin32SurfaceKHR(state->instance, &createInfo, NULL, &state->surface), 
+    "Unable to create windows surface for vulkan renderer"
+  );
+  return TRUE;
+}
+
+u8 initiate_render_system(render_state* state, const char* application_name, struct wl_display* display, struct wl_surface* surface){
+  state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
+  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+
+  const char* deviceExtensions[10];
+  u32 extensionCount = 0;
+
+  enable_optional_feature(deviceExtensions, &extensionCount, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+  VEL_CHECK(create_vulkan_instance(vk_state, application_name));
+  VEL_CHECK(create_window_surface(vk_state, window, handle));
+  VEL_CHECK(obtain_physical_device(vk_state, deviceExtensions, extensionCount));
+  VEL_CHECK(create_logical_device(vk_state, deviceExtensions, extensionCount));
+  VEL_CHECK(create_vma_allocator(vk_state));
+  RECT winSize;
+  GetClientRect(window, &winSize);
+  VEL_CHECK(create_swapchain(vk_state, winSize.right, winSize.bottom));
+  VEL_CHECK(create_swapchain_image_views(vk_state));
+  VEL_CHECK(create_render_pass(vk_state));
+  VEL_CHECK(create_graphics_pipeline(vk_state));
+  VEL_CHECK(create_frame_buffers(vk_state));
+  VEL_CHECK(create_command_pool(vk_state));
+  VEL_CHECK(create_command_buffer(vk_state));
+  VEL_CHECK(create_sync_objects(vk_state));
+  return TRUE;
+}
+#endif //VPLATFORM_*
 
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
