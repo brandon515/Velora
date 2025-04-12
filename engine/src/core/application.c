@@ -59,6 +59,7 @@ b8 application_start(game* game_inst){
   );
 
   register_listener(ENGINE_CLOSE_GAME, close_event_handler);
+  register_listener(ENGINE_WINDOW_RESIZE, resize_handler);// defined in the renderer code
 
   initialized = TRUE;
   return TRUE;

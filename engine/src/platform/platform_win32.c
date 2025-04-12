@@ -129,6 +129,21 @@ b8 platform_pump_messages(platform_state* plat_state){
   MSG msg = {0};
   while(PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE)){
     TranslateMessage(&msg);
+    if(msg.message == WM_SIZE){
+      UINT width = LOWORD(msg.lParam);
+      UINT height = HIWORD(msg.lParam);
+      resize_data* dat = vallocate(sizeof(resize_data), MEMORY_TAG_EVENT_DATA);
+      dat->height = height;
+      dat->width = width;
+      dat->render_data = plat_state->render_state;
+      event new_event = {
+        .event_type = ENGINE_WINDOW_RESIZE,
+        .event_data_size = sizeof(resize_data),
+        .event_data = dat,
+      };
+      queue_event(&new_event);
+      VINFO("And here");
+    }
     DispatchMessageA(&msg);
   }
   return TRUE;
@@ -226,21 +241,6 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
     case WM_DESTROY:
       PostQuitMessage(0);
       return 0;
-    case WM_SIZE:{
-      RECT r;
-      GetClientRect(hwnd, &r);
-      u32 width = r.right - r.left;
-      u32 height = r.bottom - r.top;
-      resize_data* dat = vallocate(sizeof(resize_data), MEMORY_TAG_EVENT_DATA);
-      dat->height = height;
-      dat->width = width;
-      event new_event = {
-        .event_type = ENGINE_WINDOW_RESIZE,
-        .event_data_size = sizeof(resize_data),
-        .event_data = dat,
-      };
-      queue_event(&new_event);
-    } break;
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
     case WM_KEYUP:
@@ -283,6 +283,9 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       };
       queue_event(&new_event);
     } break;
+    case WM_SIZE:
+      VINFO("Did it here");
+      break;
     case WM_LBUTTONDOWN:
     case WM_MBUTTONDOWN:
     case WM_RBUTTONDOWN:

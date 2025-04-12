@@ -10,6 +10,7 @@
 #include "utils/vint.h"
 #include "utils/vfile.h"
 #include <vulkan/vk_enum_string_helper.h>
+#include "core/event.h"
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -22,6 +23,7 @@
 #endif
 
 #define VELORA_VULKAN_API_VERSION VK_API_VERSION_1_4
+#define MAX_FRAMES_IN_FLIGHT 2
 
 #define VEL_CHECK(expr) \
   if(expr == FALSE){    \
@@ -29,7 +31,7 @@
   }                     
 
 #define VK_CHECK(expr, msg)                           \
-  {VkResult err = expr;                                \
+  {VkResult err = expr;                               \
   if(err != VK_SUCCESS){                              \
     VFATAL(msg);                                      \
     VFATAL("Vulkan Error: %s", string_VkResult(err)); \
@@ -66,9 +68,10 @@ typedef struct _vulkan_state{
   VkPipeline graphicsPipeline;
   VkFramebuffer* frameBuffers;
   VkCommandPool commandPool;
-  VkCommandBuffer commandBuffer;
-  VkSemaphore imageAvailable, renderFinished;
-  VkFence inFlight;
+  VkCommandBuffer* commandBuffer;
+  VkSemaphore* imageAvailable, *renderFinished;
+  VkFence* inFlight;
+  u32 currentFrame;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -501,6 +504,16 @@ u8 create_swapchain_image_views(vulkan_state* state){
   return TRUE;
 }
 
+void destroy_swapchain(vulkan_state* vk_state){
+  for(int i = 0; i< vk_state->swapchainImageCount; i++){
+    vkDestroyFramebuffer(vk_state->logicalDevice, vk_state->frameBuffers[i], NULL);
+  }
+  for(int i = 0; i < vk_state->swapchainImageCount; i++){
+    vkDestroyImageView(vk_state->logicalDevice, vk_state->swapchainImageViews[i], NULL);
+  }
+  vkDestroySwapchainKHR(vk_state->logicalDevice, vk_state->swapchain, NULL);
+}
+
 VkShaderModule get_shader_module(vulkan_state* state, const char* shaderFileName){
   FILE* shaderFile = fopen(shaderFileName, "rb");
   u64 shaderFileSize = get_file_size(shaderFile);
@@ -769,17 +782,18 @@ u8 create_command_pool(vulkan_state* state){
 }
 
 u8 create_command_buffer(vulkan_state* state){
+  state->commandBuffer = vallocate(sizeof(VkCommandBuffer)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   VkCommandBufferAllocateInfo allocInfo = {
     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
     .commandPool = state->commandPool,
-    .commandBufferCount = 1,
+    .commandBufferCount = MAX_FRAMES_IN_FLIGHT,
     .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
   };
   VK_CHECK(
     vkAllocateCommandBuffers(
       state->logicalDevice, 
       &allocInfo, 
-      &state->commandBuffer
+      state->commandBuffer
     ), 
     "Unable to allocate command buffers"
   );
@@ -796,7 +810,7 @@ u8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
     .flags = 0,
     .pInheritanceInfo = NULL,
   };
-  VK_CHECK(vkBeginCommandBuffer(state->commandBuffer, &beginInfo), "Unable to start recording commander buffer");
+  VK_CHECK(vkBeginCommandBuffer(state->commandBuffer[state->currentFrame], &beginInfo), "Unable to start recording commander buffer");
 
   VkClearValue clearColor = {{{0.0f,0.0f,0.0f,1.0f}}};
   VkRenderPassBeginInfo renderPassInfo = {
@@ -808,8 +822,8 @@ u8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
     .clearValueCount = 1,
     .pClearValues = &clearColor,
   };
-  vkCmdBeginRenderPass(state->commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-  vkCmdBindPipeline(state->commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->graphicsPipeline);
+  vkCmdBeginRenderPass(state->commandBuffer[state->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBindPipeline(state->commandBuffer[state->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, state->graphicsPipeline);
   VkViewport viewport = {
     .x = 0.0f,
     .y = 0.0f,
@@ -818,19 +832,22 @@ u8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
     .minDepth = 0.0f,
     .maxDepth = 1.0f,
   };
-  vkCmdSetViewport(state->commandBuffer, 0, 1, &viewport);
+  vkCmdSetViewport(state->commandBuffer[state->currentFrame], 0, 1, &viewport);
   VkRect2D scissor = {
     .offset = {0,0},
     .extent = state->swapchainExtent,
   };
-  vkCmdSetScissor(state->commandBuffer, 0, 1, &scissor);
-  vkCmdDraw(state->commandBuffer, 3, 1, 0, 0);
-  vkCmdEndRenderPass(state->commandBuffer);
-  VK_CHECK(vkEndCommandBuffer(state->commandBuffer), "Unable to end recording of command buffer");
+  vkCmdSetScissor(state->commandBuffer[state->currentFrame], 0, 1, &scissor);
+  vkCmdDraw(state->commandBuffer[state->currentFrame], 3, 1, 0, 0);
+  vkCmdEndRenderPass(state->commandBuffer[state->currentFrame]);
+  VK_CHECK(vkEndCommandBuffer(state->commandBuffer[state->currentFrame]), "Unable to end recording of command buffer");
   return TRUE;
 }
 
 u8 create_sync_objects(vulkan_state* state){
+  state->imageAvailable = vallocate(sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  state->renderFinished = vallocate(sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  state->inFlight = vallocate(sizeof(VkFence)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   VkSemaphoreCreateInfo semInfo = {
     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
   };
@@ -838,26 +855,36 @@ u8 create_sync_objects(vulkan_state* state){
     .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
     .flags = VK_FENCE_CREATE_SIGNALED_BIT, // Make it so that the render loop doesn't hang on the fence for the first frame
   };
-  VK_CHECK(
-    vkCreateSemaphore(state->logicalDevice, &semInfo, NULL, &state->imageAvailable),
-    "Unable to create Semaphore"
-  );
-  VK_CHECK(
-    vkCreateSemaphore(state->logicalDevice, &semInfo, NULL, &state->renderFinished),
-    "Unable to create Semaphore"
-  );
-  VK_CHECK(
-    vkCreateFence(state->logicalDevice, &fenceInfo, NULL, &state->inFlight),
-    "Unable to create fence"
-  );
+  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+    VK_CHECK(
+      vkCreateSemaphore(state->logicalDevice, &semInfo, NULL, &state->imageAvailable[i]),
+      "Unable to create Semaphore"
+    );
+    VK_CHECK(
+      vkCreateSemaphore(state->logicalDevice, &semInfo, NULL, &state->renderFinished[i]),
+      "Unable to create Semaphore"
+    );
+    VK_CHECK(
+      vkCreateFence(state->logicalDevice, &fenceInfo, NULL, &state->inFlight[i]),
+      "Unable to create fence"
+    );
+  }
   return TRUE;
 }
 
-u8 pre_window_init(vulkan_state* state){
-  return TRUE;
-}
+b8 resize_handler(event* newEvent){
+  if(newEvent->event_type == ENGINE_WINDOW_RESIZE){
+    resize_data* eventData = (resize_data*)newEvent->event_data;
+    render_state* ren_state = (render_state*)eventData->render_data;
+    vulkan_state* state = (vulkan_state*)ren_state->internal_render_state;
 
-u8 post_window_init(vulkan_state* state){
+    vkDeviceWaitIdle(state->logicalDevice);
+
+    destroy_swapchain(state);
+    create_swapchain(state, eventData->width, eventData->height);
+    create_swapchain_image_views(state);
+    create_frame_buffers(state);
+  }
   return TRUE;
 }
 
@@ -878,6 +905,7 @@ u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
 u8 initiate_render_system(render_state* state, const char* application_name, HWND window, HINSTANCE handle){
   state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vk_state->currentFrame = 0;
 
   const char* deviceExtensions[10];
   u32 extensionCount = 0;
@@ -946,22 +974,22 @@ u8 initiate_render_system(render_state* state, const char* application_name, str
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vkDeviceWaitIdle(vk_state->logicalDevice);
-  vkDestroySemaphore(vk_state->logicalDevice, vk_state->imageAvailable, NULL);
-  vkDestroySemaphore(vk_state->logicalDevice, vk_state->renderFinished, NULL);
-  vkDestroyFence(vk_state->logicalDevice, vk_state->inFlight, NULL);
-  vkDestroyCommandPool(vk_state->logicalDevice, vk_state->commandPool, NULL);
-  for(int i = 0; i< vk_state->swapchainImageCount; i++){
-    vkDestroyFramebuffer(vk_state->logicalDevice, vk_state->frameBuffers[i], NULL);
+  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+    vkDestroySemaphore(vk_state->logicalDevice, vk_state->imageAvailable[i], NULL);
+    vkDestroySemaphore(vk_state->logicalDevice, vk_state->renderFinished[i], NULL);
+    vkDestroyFence(vk_state->logicalDevice, vk_state->inFlight[i], NULL);
   }
+  vfree(vk_state->imageAvailable, sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  vfree(vk_state->renderFinished, sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  vfree(vk_state->inFlight, sizeof(VkFence)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  vkDestroyCommandPool(vk_state->logicalDevice, vk_state->commandPool, NULL);
+  vfree(vk_state->commandBuffer, sizeof(VkCommandBuffer)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vfree(vk_state->frameBuffers, sizeof(VkFramebuffer)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
   vkDestroyPipeline(vk_state->logicalDevice, vk_state->graphicsPipeline, NULL);
   vkDestroyPipelineLayout(vk_state->logicalDevice, vk_state->pipelineLayout, NULL);
   vkDestroyRenderPass(vk_state->logicalDevice, vk_state->renderPass, NULL);
-  for(int i = 0; i < vk_state->swapchainImageCount; i++){
-    vkDestroyImageView(vk_state->logicalDevice, vk_state->swapchainImageViews[i], NULL);
-  }
+  destroy_swapchain(vk_state);
   vfree(vk_state->swapchainImages, sizeof(VkImageView)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
-  vkDestroySwapchainKHR(vk_state->logicalDevice, vk_state->swapchain, NULL);
   vfree(
     vk_state->swapchainSupportDetails.surfaceFormats, 
     sizeof(VkSurfaceFormatKHR)*vk_state->swapchainSupportDetails.surfaceFormatCount, 
@@ -985,8 +1013,8 @@ void shutdown_render_system(render_state* state){
 
 u8 render_preframe(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
-  vkWaitForFences(vk_state->logicalDevice, 1, &vk_state->inFlight, VK_TRUE, U64_MAX);
-  vkResetFences(vk_state->logicalDevice, 1, &vk_state->inFlight);
+  vkWaitForFences(vk_state->logicalDevice, 1, &vk_state->inFlight[vk_state->currentFrame], VK_TRUE, U64_MAX);
+  vkResetFences(vk_state->logicalDevice, 1, &vk_state->inFlight[vk_state->currentFrame]);
   return TRUE;
 }
 
@@ -997,28 +1025,28 @@ u8 render_frame(render_state* state){
     vk_state->logicalDevice,
     vk_state->swapchain,
     U64_MAX,
-    vk_state->imageAvailable, //signal this semaphore once we get the image index
+    vk_state->imageAvailable[vk_state->currentFrame], //signal this semaphore once we get the image index
     VK_NULL_HANDLE, // A fence to signal, we don't use it
     &imageIndex
   );
-  vkResetCommandBuffer(vk_state->commandBuffer, 0);
+  vkResetCommandBuffer(vk_state->commandBuffer[vk_state->currentFrame], 0);
   record_command_buffer(vk_state, imageIndex);
   
-  VkSemaphore waitSemaphores[] = {vk_state->imageAvailable};
+  VkSemaphore waitSemaphores[] = {vk_state->imageAvailable[vk_state->currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-  VkSemaphore signalSemaphores[] = {vk_state->renderFinished};
+  VkSemaphore signalSemaphores[] = {vk_state->renderFinished[vk_state->currentFrame]};
   VkSubmitInfo submitInfo = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     .waitSemaphoreCount = 1,
     .pWaitSemaphores = waitSemaphores,
     .pWaitDstStageMask = waitStages,
     .commandBufferCount = 1,
-    .pCommandBuffers = &vk_state->commandBuffer,
+    .pCommandBuffers = &vk_state->commandBuffer[vk_state->currentFrame],
     .signalSemaphoreCount = 1,
     .pSignalSemaphores = signalSemaphores,
   };
   VK_CHECK(
-    vkQueueSubmit(vk_state->graphicsQueue, 1, &submitInfo, vk_state->inFlight),
+    vkQueueSubmit(vk_state->graphicsQueue, 1, &submitInfo, vk_state->inFlight[vk_state->currentFrame]),
     "Failed to submit draw command buffer"
   );
   VkSwapchainKHR swapChains[] = {vk_state->swapchain};
@@ -1031,12 +1059,20 @@ u8 render_frame(render_state* state){
     .pImageIndices = &imageIndex,
     .pResults = NULL, // This is only used when multiple swapchains are used
   };
-  VK_CHECK(vkQueuePresentKHR(vk_state->presentQueue, &presentInfo), "Unable to present image to swapchain");
+  VkResult err = vkQueuePresentKHR(vk_state->presentQueue, &presentInfo);
+  if(err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR){
+    //VINFO("Window has been changed in some way");
+    //VINFO("Vulkan status: %s", string_VkResult(err));
+  }else if(err != VK_SUCCESS){
+    VFATAL("Unable to present image to swapchain");
+    return FALSE;
+  }
   return TRUE;
 }
 
 u8 render_postframe(render_state* state){
-  //vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  vk_state->currentFrame = (vk_state->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
   return TRUE;
 }
 
