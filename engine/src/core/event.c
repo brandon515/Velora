@@ -9,6 +9,7 @@
 typedef struct _event_listener_data{
   u64 listen_id;
   u64 event_id;
+  void* state;
   event_listener function;
 } event_listener_data;
 
@@ -26,12 +27,13 @@ void shutdown_event_system(){
   darray_free(event_listeners);
 }
 
-u64 register_listener(u64 e_type, event_listener func){
+u64 register_listener(u64 e_type, event_listener func, void* state){
   u64 ret_id = listener_id;
   listener_id++;
   event_listener_data dat = {
     .listen_id = ret_id,
     .event_id = e_type,
+    .state = state,
     .function = func,
   };
   darray_push(event_listeners, &dat);
@@ -71,6 +73,7 @@ b8 fire_event(event* new_event){
     if(listeners[i].event_id != new_event->event_type){
       continue;
     }
+    new_event->event_state = listeners[i].state;
     if(listeners[i].function(new_event)){
       break;
     }

@@ -5,6 +5,7 @@
 typedef struct _event{
   u64 event_type;
   u64 event_data_size;
+  void* event_state;
   void* event_data;
 } event; 
 
@@ -39,7 +40,7 @@ VAPI void shutdown_event_system();
  * @param func  A function pointer of event_listener type that will process the event
  * @result The listenerID associated with that event. This is used to remove the listener later if needed
  */
-VAPI u64 register_listener(u64 e_type, event_listener func);
+VAPI u64 register_listener(u64 e_type, event_listener func, void* state);
 
 /*!
  * @brief Copies the data in the pointer to the dynamic array and queues up an event to be dispatched in the main loop of the engine
@@ -74,7 +75,6 @@ b8 pump_events(f64 time_limit);
 typedef struct _resize_data{
   u64 width;
   u64 height;
-  void* render_data;
 } resize_data;
 
 typedef struct _button_data{
