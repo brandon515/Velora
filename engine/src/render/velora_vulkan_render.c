@@ -72,7 +72,7 @@ typedef struct _vulkan_state{
   VkSemaphore* imageAvailable, *renderFinished;
   VkFence* inFlight;
   u32 currentFrame;
-  b8 windowNeedResize;
+  b8 windowResized;
   u32 newWidth, newHeight;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
@@ -875,19 +875,25 @@ u8 create_sync_objects(vulkan_state* state){
   return TRUE;
 }
 
+b8 recreate_swapchain(vulkan_state* state, u32 width, u32 height){
+  vkDeviceWaitIdle(state->logicalDevice);
+
+  destroy_swapchain(state);
+  VEL_CHECK(obtain_swapchain_info(state, state->physicalDevice));
+  VEL_CHECK(create_swapchain(state, width, height));
+  VEL_CHECK(create_swapchain_image_views(state));
+  VEL_CHECK(create_frame_buffers(state));
+  return TRUE;
+}
+
 b8 resize_handler(event* newEvent){
   if(newEvent->event_type == ENGINE_WINDOW_RESIZE){
     resize_data* eventData = (resize_data*)newEvent->event_data;
     render_state* ren_state = (render_state*)newEvent->event_state;
     vulkan_state* state = (vulkan_state*)ren_state->internal_render_state;
-
-    vkDeviceWaitIdle(state->logicalDevice);
-
-    destroy_swapchain(state);
-    obtain_swapchain_info(state, state->physicalDevice);
-    create_swapchain(state, eventData->width, eventData->height);
-    create_swapchain_image_views(state);
-    create_frame_buffers(state);
+    state->newHeight = eventData->height;
+    state->newWidth = eventData->width;
+    state->windowResized = TRUE;
   }
   return TRUE;
 }
@@ -1016,6 +1022,10 @@ void shutdown_render_system(render_state* state){
 
 u8 render_preframe(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  if(vk_state->windowResized){
+    VEL_CHECK(recreate_swapchain(vk_state, vk_state->newWidth, vk_state->newHeight));
+    vk_state->windowResized = FALSE;
+  }
   vkWaitForFences(vk_state->logicalDevice, 1, &vk_state->inFlight[vk_state->currentFrame], VK_TRUE, U64_MAX);
   vkResetFences(vk_state->logicalDevice, 1, &vk_state->inFlight[vk_state->currentFrame]);
   return TRUE;
@@ -1024,7 +1034,7 @@ u8 render_preframe(render_state* state){
 u8 render_frame(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   u32 imageIndex = 0;
-  vkAcquireNextImageKHR(
+  VkResult imageErr = vkAcquireNextImageKHR(
     vk_state->logicalDevice,
     vk_state->swapchain,
     U64_MAX,
@@ -1032,6 +1042,13 @@ u8 render_frame(render_state* state){
     VK_NULL_HANDLE, // A fence to signal, we don't use it
     &imageIndex
   );
+  if(imageErr == VK_ERROR_OUT_OF_DATE_KHR || imageErr == VK_SUBOPTIMAL_KHR){
+    //VINFO("Surface was changed in some way");
+    //VINFO("Vulkan Error: %s", string_VkResult(imageErr));
+  }else if(imageErr != VK_SUCCESS){
+    VFATAL("Unable to get next image from the swapchain");
+    VFATAL("Vulkan Error: %s", string_VkResult(imageErr));
+  }
   vkResetCommandBuffer(vk_state->commandBuffer[vk_state->currentFrame], 0);
   record_command_buffer(vk_state, imageIndex);
   
