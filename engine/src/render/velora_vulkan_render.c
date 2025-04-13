@@ -72,6 +72,8 @@ typedef struct _vulkan_state{
   VkSemaphore* imageAvailable, *renderFinished;
   VkFence* inFlight;
   u32 currentFrame;
+  b8 windowNeedResize;
+  u32 newWidth, newHeight;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -511,6 +513,7 @@ void destroy_swapchain(vulkan_state* vk_state){
   for(int i = 0; i < vk_state->swapchainImageCount; i++){
     vkDestroyImageView(vk_state->logicalDevice, vk_state->swapchainImageViews[i], NULL);
   }
+  vfree(vk_state->swapchainImages, sizeof(VkImageView)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
   vkDestroySwapchainKHR(vk_state->logicalDevice, vk_state->swapchain, NULL);
 }
 
@@ -875,12 +878,13 @@ u8 create_sync_objects(vulkan_state* state){
 b8 resize_handler(event* newEvent){
   if(newEvent->event_type == ENGINE_WINDOW_RESIZE){
     resize_data* eventData = (resize_data*)newEvent->event_data;
-    render_state* ren_state = (render_state*)eventData->render_data;
+    render_state* ren_state = (render_state*)newEvent->event_state;
     vulkan_state* state = (vulkan_state*)ren_state->internal_render_state;
 
     vkDeviceWaitIdle(state->logicalDevice);
 
     destroy_swapchain(state);
+    obtain_swapchain_info(state, state->physicalDevice);
     create_swapchain(state, eventData->width, eventData->height);
     create_swapchain_image_views(state);
     create_frame_buffers(state);
@@ -989,7 +993,6 @@ void shutdown_render_system(render_state* state){
   vkDestroyPipelineLayout(vk_state->logicalDevice, vk_state->pipelineLayout, NULL);
   vkDestroyRenderPass(vk_state->logicalDevice, vk_state->renderPass, NULL);
   destroy_swapchain(vk_state);
-  vfree(vk_state->swapchainImages, sizeof(VkImageView)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
   vfree(
     vk_state->swapchainSupportDetails.surfaceFormats, 
     sizeof(VkSurfaceFormatKHR)*vk_state->swapchainSupportDetails.surfaceFormatCount, 
