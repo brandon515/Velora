@@ -58,8 +58,8 @@ b8 application_start(game* game_inst){
     app_state.game_inst->app_config.start_pos_height
   );
 
-  register_listener(ENGINE_CLOSE_GAME, close_event_handler);
-  register_listener(ENGINE_WINDOW_RESIZE, resize_handler);// defined in the renderer code
+  register_listener(ENGINE_CLOSE_GAME, close_event_handler, NULL);
+  register_listener(ENGINE_WINDOW_RESIZE, resize_handler, app_state.platform.render_state);// defined in the renderer code
 
   initialized = TRUE;
   return TRUE;
