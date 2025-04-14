@@ -72,7 +72,7 @@ typedef struct _vulkan_state{
   VkSemaphore* imageAvailable, *renderFinished;
   VkFence* inFlight;
   u32 currentFrame;
-  b8 windowResized;
+  b8 windowResized, windowMinimized;
   u32 newWidth, newHeight;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
@@ -1023,16 +1023,25 @@ void shutdown_render_system(render_state* state){
 u8 render_preframe(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   if(vk_state->windowResized){
+    if(vk_state->newHeight == 0 && vk_state->newWidth == 0){
+      vk_state->windowMinimized = TRUE;
+      return TRUE;
+    }else{
+      vk_state->windowMinimized = FALSE;
+    }
     VEL_CHECK(recreate_swapchain(vk_state, vk_state->newWidth, vk_state->newHeight));
     vk_state->windowResized = FALSE;
   }
-  vkWaitForFences(vk_state->logicalDevice, 1, &vk_state->inFlight[vk_state->currentFrame], VK_TRUE, U64_MAX);
+  vkWaitForFences(vk_state->logicalDevice, 1, &vk_state->inFlight[vk_state->currentFrame], VK_TRUE, 1000000);
   vkResetFences(vk_state->logicalDevice, 1, &vk_state->inFlight[vk_state->currentFrame]);
   return TRUE;
 }
 
 u8 render_frame(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  if(vk_state->windowMinimized){
+    return TRUE;
+  }
   u32 imageIndex = 0;
   VkResult imageErr = vkAcquireNextImageKHR(
     vk_state->logicalDevice,
@@ -1042,20 +1051,7 @@ u8 render_frame(render_state* state){
     VK_NULL_HANDLE, // A fence to signal, we don't use it
     &imageIndex
   );
-  if(imageErr == VK_ERROR_OUT_OF_DATE_KHR || imageErr == VK_SUBOPTIMAL_KHR){
-    if(vk_state->windowResized){
-      VEL_CHECK(recreate_swapchain(vk_state, vk_state->newWidth, vk_state->newHeight));
-      vk_state->windowResized = FALSE;
-      VK_CHECK(vkAcquireNextImageKHR(
-        vk_state->logicalDevice,
-        vk_state->swapchain,
-        U64_MAX,
-        vk_state->imageAvailable[vk_state->currentFrame], //signal this semaphore once we get the image index
-        VK_NULL_HANDLE, // A fence to signal, we don't use it
-        &imageIndex
-      ), "Unable able to acqure next image from swapchain");
-    }
-  }else if(imageErr != VK_SUCCESS){
+  if(imageErr != VK_SUCCESS && imageErr != VK_ERROR_OUT_OF_DATE_KHR && imageErr != VK_SUBOPTIMAL_KHR){
     VFATAL("Unable to get next image from the swapchain");
     VFATAL("Vulkan Error: %s", string_VkResult(imageErr));
     return FALSE;
@@ -1091,9 +1087,7 @@ u8 render_frame(render_state* state){
     .pResults = NULL, // This is only used when multiple swapchains are used
   };
   VkResult err = vkQueuePresentKHR(vk_state->presentQueue, &presentInfo);
-  if(err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR){
-    //
-  }else if(err != VK_SUCCESS){
+  if(err != VK_SUCCESS && err != VK_ERROR_OUT_OF_DATE_KHR && err != VK_SUBOPTIMAL_KHR){
     VFATAL("Unable to present image to swapchain");
     VFATAL("Vulkan Error: %s", string_VkResult(imageErr));
     return FALSE;
@@ -1103,6 +1097,9 @@ u8 render_frame(render_state* state){
 
 u8 render_postframe(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  if(vk_state->windowMinimized){
+    return TRUE;
+  }
   vk_state->currentFrame = (vk_state->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
   return TRUE;
 }
