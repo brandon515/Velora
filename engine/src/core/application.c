@@ -19,7 +19,7 @@ typedef struct _application_state{
 static application_state app_state; 
 static b8 initialized = FALSE;
 
-b8 close_event_handler(event* event){
+b8 close_event_handler(event* event, void* state){
   app_state.is_running = FALSE;
   return FALSE;
 }

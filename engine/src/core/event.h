@@ -5,7 +5,6 @@
 typedef struct _event{
   u64 event_type;
   u64 event_data_size;
-  void* event_state;
   void* event_data;
 } event; 
 
@@ -29,7 +28,7 @@ typedef enum _event_id{
  * @param event A pointer to the event to be processed
  * @return TRUE if the event is consumed by the listener, FALSE if the even should be pushed to other listeners
  */
-typedef b8 (*event_listener)(event* event);
+typedef b8 (*event_listener)(event* event, void* state);
 
 VAPI void initiate_event_system();
 VAPI void shutdown_event_system();

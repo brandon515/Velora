@@ -13,7 +13,7 @@ u8 render_preframe(render_state* state);
 u8 render_frame(render_state* state);
 u8 render_postframe(render_state* state);
 
-b8 resize_handler(event* newEvent);
+b8 resize_handler(event* newEvent, void* state);
 
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>

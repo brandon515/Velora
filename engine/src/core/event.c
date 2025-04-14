@@ -73,8 +73,7 @@ b8 fire_event(event* new_event){
     if(listeners[i].event_id != new_event->event_type){
       continue;
     }
-    new_event->event_state = listeners[i].state;
-    if(listeners[i].function(new_event)){
+    if(listeners[i].function(new_event, listeners[i].state)){
       break;
     }
   }
