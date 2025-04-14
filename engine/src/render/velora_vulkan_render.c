@@ -1043,11 +1043,22 @@ u8 render_frame(render_state* state){
     &imageIndex
   );
   if(imageErr == VK_ERROR_OUT_OF_DATE_KHR || imageErr == VK_SUBOPTIMAL_KHR){
-    //VINFO("Surface was changed in some way");
-    //VINFO("Vulkan Error: %s", string_VkResult(imageErr));
+    if(vk_state->windowResized){
+      VEL_CHECK(recreate_swapchain(vk_state, vk_state->newWidth, vk_state->newHeight));
+      vk_state->windowResized = FALSE;
+      VK_CHECK(vkAcquireNextImageKHR(
+        vk_state->logicalDevice,
+        vk_state->swapchain,
+        U64_MAX,
+        vk_state->imageAvailable[vk_state->currentFrame], //signal this semaphore once we get the image index
+        VK_NULL_HANDLE, // A fence to signal, we don't use it
+        &imageIndex
+      ), "Unable able to acqure next image from swapchain");
+    }
   }else if(imageErr != VK_SUCCESS){
     VFATAL("Unable to get next image from the swapchain");
     VFATAL("Vulkan Error: %s", string_VkResult(imageErr));
+    return FALSE;
   }
   vkResetCommandBuffer(vk_state->commandBuffer[vk_state->currentFrame], 0);
   record_command_buffer(vk_state, imageIndex);
@@ -1081,10 +1092,10 @@ u8 render_frame(render_state* state){
   };
   VkResult err = vkQueuePresentKHR(vk_state->presentQueue, &presentInfo);
   if(err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR){
-    //VINFO("Window has been changed in some way");
-    //VINFO("Vulkan status: %s", string_VkResult(err));
+    //
   }else if(err != VK_SUCCESS){
     VFATAL("Unable to present image to swapchain");
+    VFATAL("Vulkan Error: %s", string_VkResult(imageErr));
     return FALSE;
   }
   return TRUE;
