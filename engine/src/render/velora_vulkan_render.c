@@ -886,10 +886,10 @@ b8 recreate_swapchain(vulkan_state* state, u32 width, u32 height){
   return TRUE;
 }
 
-b8 resize_handler(event* newEvent){
+b8 resize_handler(event* newEvent, void* state){
   if(newEvent->event_type == ENGINE_WINDOW_RESIZE){
     resize_data* eventData = (resize_data*)newEvent->event_data;
-    render_state* ren_state = (render_state*)newEvent->event_state;
+    render_state* ren_state = (render_state*)state;
     vulkan_state* state = (vulkan_state*)ren_state->internal_render_state;
     state->newHeight = eventData->height;
     state->newWidth = eventData->width;
@@ -1032,7 +1032,7 @@ u8 render_preframe(render_state* state){
     VEL_CHECK(recreate_swapchain(vk_state, vk_state->newWidth, vk_state->newHeight));
     vk_state->windowResized = FALSE;
   }
-  vkWaitForFences(vk_state->logicalDevice, 1, &vk_state->inFlight[vk_state->currentFrame], VK_TRUE, 1000000);
+  vkWaitForFences(vk_state->logicalDevice, 1, &vk_state->inFlight[vk_state->currentFrame], VK_TRUE, U64_MAX);
   vkResetFences(vk_state->logicalDevice, 1, &vk_state->inFlight[vk_state->currentFrame]);
   return TRUE;
 }
