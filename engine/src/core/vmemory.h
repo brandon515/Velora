@@ -21,7 +21,8 @@
   MEM_TAG(MEMORY_TAG_ENTITY_NODE)         \
   MEM_TAG(MEMORY_TAG_SCENE)               \
   MEM_TAG(MEMORY_TAG_INT_MAP)             \
-  MEM_TAG(MEMORY_TAG_EVENT_DATA)             \
+  MEM_TAG(MEMORY_TAG_EVENT_DATA)          \
+  MEM_TAG(MEMORY_TAG_INPUT_DATA)          \
   MEM_TAG(MEMORY_TAG_END_TAG)             \
 
 #define GENERATE_ENUM(ENUM) ENUM,
