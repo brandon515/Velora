@@ -15,9 +15,9 @@
  */
 typedef struct _darray{
   void* data;
-  u64 length, // number of elements in data
-    stride,   // size of a single element in data in bytes
-    cap;      // max number of elements for memory allocated in data
+  u64 length; // number of elements in data
+  u64 stride; // size of a single element in data in bytes
+  u64 cap;    // max number of elements for memory allocated in data
 } darray;
 
 /*!
