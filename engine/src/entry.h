@@ -13,23 +13,24 @@ int main(void){
   initialize_memory();
   initialize_logging();
   initiate_event_system();
-  game game_inst;
-  if(create_game(&game_inst) == FALSE){
+  application_state* app_state = vallocate(sizeof(application_state), MEMORY_TAG_APPLICATION);
+  app_state->game_inst = vallocate(sizeof(game), MEMORY_TAG_GAME);
+  if(create_game(app_state->game_inst) == FALSE){
     VFATAL("Could not create instance of the game.");
     return -1;
   }
 
-  if(!game_inst.initialize || !game_inst.on_resize || !game_inst.render || !game_inst.update){
+  if(!app_state->game_inst->initialize || !app_state->game_inst->on_resize || !app_state->game_inst->render || !app_state->game_inst->update){
     VFATAL("Game functions not set. Unable to start game instance.")
     return -2;
   }
 
-  if(application_start(&game_inst) == FALSE){
+  if(application_start(app_state) == FALSE){
     VFATAL("Application unable to start");
     return -3;
   }
 
-  if(application_run() == FALSE){
+  if(application_run(app_state) == FALSE){
     VFATAL("Application could not run main loop");
     return -4;
   }

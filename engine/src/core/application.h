@@ -1,6 +1,12 @@
 #pragma once
 
 #include "defines.h"
+#include "platform/platform.h"
+#include "logger.h"
+#include "core/vmemory.h"
+#include "core/event.h"
+#include "render/velora_render.h"
+#include "core/input.h"
 
 typedef struct _game game;
 
@@ -12,7 +18,19 @@ typedef struct _application_config{
     const char* name;
 } application_config;
 
+#include "game_types.h"
 
-VAPI b8 application_start(game* game_inst);
+typedef struct _application_state{
+    game* game_inst;
+    b8 is_running;
+    b8 is_suspended;
+    platform_state platform;
+    i16 width;
+    i16 height;
+    f64 last_time;
+    input_state input;
+  } application_state;
 
-VAPI b8 application_run();  
+VAPI b8 application_start(application_state* app_state);
+
+VAPI b8 application_run(application_state* app_state);  
