@@ -7,11 +7,10 @@
  * @brief A struct that abstracts away hardware input
  */
 typedef struct _input_action{
-  u64 action_id; /*The id that maps to the code that's spit out by the platform layer hardware */
+  i64 action_id; /*The id that maps to the code that's spit out by the platform layer hardware */
   i8 valueToMap;/*The value that the input mapping will be set to when this is pressed or changed in some way, this is unused for axis hardware like joysticks */
-  i8 curValue;/*The current value of the button or axis */
-  u64 listener_id[10]; /*An array of the event listener ids that keeps this value updated*/
-  u8 listener_count; /*The number of listener ids that are registered*/
+  u64 listener_id[10];
+  u64 listener_count;
 } input_action;
 
 /*!
@@ -20,8 +19,7 @@ typedef struct _input_action{
 typedef struct _input_mapping{
   const char* name; /*The plaintext name that can be referenced in the code itself to query state or get events about*/
   u64 id; /*An id that can be used to query state or get events, theoretically the name should be used to get this value*/
-  i8 value; /*The current value of the mapping.*/
-  darray* actions; /*The maximum value in this dynamic array (up to 1) is then subtracted by the maximum value of negative mappings and put in value */
+  darray* actions; /*The values of all the */
 } input_mapping;
 
 typedef struct _input_state{
@@ -44,10 +42,17 @@ VAPI b8 register_input_mapping(input_state* state, const char* input_name, u32* 
  * @param state A pointer to the input state that the action is being bound in
  * @param mapping_id The ID of the input mapping
  * @param action_id The hardware ID to map
- * @param action_value The value that the action has when activated
- * @param is_positive_mapping Whether the hardware action should be added or subtracted from the value of the input_mapping
  * @return TRUE if the input action was successfully bound, FALSE if the mapping_id doesn't exist.
  */
-VAPI b8 bind_input_action(input_state* state, u32 mapping_id, u64 action_id, u8 action_value, b8 is_positive_mapping);
+VAPI b8 bind_input_action(input_state* state, u64 mapping_id, i64 action_id);
+
+/**
+ * @brief Unbinds an existing hardware input from a game input
+ * @param state A pointer to the input state the the action was previous bound on
+ * @param mapping_id The ID of the input mapping
+ * @param action_id The ID of the action that should no longer be bound to the mapping
+ * @return TRUE if the action was successfully unbound from the mapping, FALSE if the mapping doesn't exist or if the action wasn't bound
+ */
+VAPI b8 unbind_input_action(input_state* state, u64 mapping_id, i64 action_id);
 
 b8 shutdown_input_sytem(input_state* state);

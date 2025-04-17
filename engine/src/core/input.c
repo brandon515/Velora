@@ -19,6 +19,12 @@ void register_input_action_liseners(input_action* action){
   add_listener(action, action_handler, ENGINE_MOUSE_WHEEL);
 }
 
+void deregister_input_action_listeners(input_action* action){
+  for(int i = 0; i < action->listener_count; i++){
+    deregister_listener(action->listener_id[i]);
+  }
+}
+
 b8 init_input_system(input_state* state){
   state->input_mappings = darray_new(sizeof(input_mapping));
   return TRUE;
@@ -35,7 +41,6 @@ b8 register_input_mapping(input_state* state, const char* input_name, u32* out_i
   input_mapping new_mapping = {
     .id = new_id,
     .name = input_name,
-    .value = 0,
     .actions = darray_new(sizeof(input_action*)),
   };
   darray_push(state->input_mappings, &new_mapping);
@@ -43,31 +48,51 @@ b8 register_input_mapping(input_state* state, const char* input_name, u32* out_i
   return TRUE;
 }
 
-b8 bind_input_action(input_state* state, u32 mapping_id, u64 action_id, u8 action_value, b8 is_positive_mapping){
+darray* get_input_action_darray(input_state* state, u64 mapping_id){
   input_mapping* curMaps = state->input_mappings->data;
-  darray* mapping = NULL;
   for(int i = 0; i < state->input_mappings->length; i++){
     if(curMaps[i].id == mapping_id){
-      mapping = curMaps[i].actions;
-      break;
+      return curMaps[i].actions;
     }
   }
+  return NULL;
+}
+
+b8 bind_input_action(input_state* state, u64 mapping_id, i64 action_id){
+  darray* mapping = get_input_action_darray(state, mapping_id);
   if(mapping == NULL){
     return FALSE;
   }
   input_action* curActions = (input_action*)mapping->data;
   for(int i = 0; i < mapping->length; i++){
     if(curActions[i].action_id == action_id){
-      curActions[i].valueToMap = action_value;
       return TRUE;
     }
   }
   input_action* newAction = vallocate(sizeof(input_action), MEMORY_TAG_INPUT_DATA);
   newAction->action_id = action_id;
-  newAction->valueToMap = action_value;
   newAction->listener_count = 0;
+  register_input_action_liseners(newAction);
   darray_push(mapping, &newAction);
   return TRUE;
+}
+
+b8 unbind_input_action(input_state* state, u64 mapping_id, i64 action_id){
+  darray* mapping = get_input_action_darray(state, mapping_id);
+  if(mapping == NULL){
+    return FALSE;
+  }
+  input_action** actions = (input_action**)mapping->data;
+  for(int i = 0; i < mapping->length; i++){
+    if(actions[i]->action_id == action_id){
+      input_action* curAction;
+      darray_remove(mapping, i, &curAction);
+      deregister_input_action_listeners(curAction);
+      vfree(curAction, sizeof(input_action), MEMORY_TAG_INPUT_DATA);
+      return TRUE;
+    }
+  }
+  return FALSE;
 }
 
 b8 shutdown_input_sytem(input_state *state){
