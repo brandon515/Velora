@@ -7,3 +7,13 @@ vec3 multiply_scalar(vec3 vector, f32 scalar){
   }
   return ret_vec;
 }
+
+u64 vclamp(u64 value, u64 minimum, u64 maximum){
+  if(value < minimum){
+    return minimum;
+  }else if(value > maximum){
+    return maximum;
+  }else{
+    return value;
+  }
+}
