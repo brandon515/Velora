@@ -26,6 +26,7 @@ typedef enum _event_id{
 /*!
  * @brief Event listener function pointer
  * @param event A pointer to the event to be processed
+ * @param state A pointer to the state that needs to be changed when this event fires, this can be NULL or unused
  * @return TRUE if the event is consumed by the listener, FALSE if the even should be pushed to other listeners
  */
 typedef b8 (*event_listener)(event* event, void* state);

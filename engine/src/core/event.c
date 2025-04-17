@@ -18,10 +18,10 @@ static darray* event_listeners = NULL;
 static u64 listener_id = 0;
 
 void initiate_event_system(){
-  if(event_queue != NULL){
+  if(event_queue == NULL){
     event_queue = darray_new(sizeof(event));
   }
-  if(event_listeners != NULL){
+  if(event_listeners == NULL){
     event_listeners = darray_new(sizeof(event_listener_data));
   }
 }
