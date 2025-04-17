@@ -11,6 +11,7 @@ typedef struct _input_action{
   i8 valueToMap;/*The value that the input mapping will be set to when this is pressed or changed in some way, this is unused for axis hardware like joysticks */
   u64 listener_id[10];
   u64 listener_count;
+  darray* mapping;
 } input_action;
 
 /*!
@@ -19,11 +20,12 @@ typedef struct _input_action{
 typedef struct _input_mapping{
   const char* name; /*The plaintext name that can be referenced in the code itself to query state or get events about*/
   u64 id; /*An id that can be used to query state or get events, theoretically the name should be used to get this value*/
-  darray* actions; /*The values of all the */
+  i8 curValue; /*The current value that is changed by all the actions*/
 } input_mapping;
 
 typedef struct _input_state{
   darray* input_mappings;
+  darray* input_actions;
 } input_state;
 
 b8 init_input_system(input_state* state);
