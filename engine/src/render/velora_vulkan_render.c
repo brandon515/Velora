@@ -7,7 +7,7 @@
 #include <vulkan/vulkan.h>
 #include "utils/vstring.h"
 #include "vk_mem_alloc.h"
-#include "utils/vint.h"
+#include "utils/vmath.h"
 #include "utils/vfile.h"
 #include <vulkan/vk_enum_string_helper.h>
 #include "core/event.h"
