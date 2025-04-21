@@ -88,8 +88,7 @@ typedef struct _vulkan_state{
   u32 currentFrame;
   b8 windowResized, windowMinimized;
   u32 newWidth, newHeight;
-  velora_buffer vertexBuffer;
-  velora_buffer indexBuffer;
+  velora_buffer vertexIndexBuffer;
   u64 vertexCount;
   u64 indexCount;
   #ifdef _DEBUG
@@ -907,10 +906,10 @@ u8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
     .extent = state->swapchainExtent,
   };
   vkCmdSetScissor(state->commandBuffer[state->currentFrame], 0, 1, &scissor);
-  VkBuffer vertexBuffers[] = {state->vertexBuffer.buffer};
+  VkBuffer vertexBuffers[] = {state->vertexIndexBuffer.buffer};
   VkDeviceSize offsets[] = {0};
   vkCmdBindVertexBuffers(state->commandBuffer[state->currentFrame], 0, 1, vertexBuffers, offsets);
-  vkCmdBindIndexBuffer(state->commandBuffer[state->currentFrame], state->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
+  vkCmdBindIndexBuffer(state->commandBuffer[state->currentFrame], state->vertexIndexBuffer.buffer, state->vertexCount*sizeof(vertex), VK_INDEX_TYPE_UINT16);
   vkCmdDrawIndexed(state->commandBuffer[state->currentFrame], state->indexCount, 1, 0, 0, 0);
   vkCmdEndRenderPass(state->commandBuffer[state->currentFrame]);
   VK_CHECK(vkEndCommandBuffer(state->commandBuffer[state->currentFrame]), "Unable to end recording of command buffer");
@@ -1042,7 +1041,14 @@ b8 create_exclusive_buffer(
   return TRUE;
 }
 
-b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* srcBuffer){
+b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* srcBuffer, VkDeviceSize dataSize, VkDeviceSize srcOffset, VkDeviceSize dstOffset){
+  if(dataSize+dstOffset > dstBuffer->memory_info.size){
+    VERROR("Attempted to copy data larger than the capacity of the destination buffer");
+    return FALSE;
+  }else if(dataSize+srcOffset > srcBuffer->memory_info.size){
+    VERROR("Attemped to copy data that's beyond the bounds of the source buffer");
+    return FALSE;
+  }
   VkCommandBufferAllocateInfo allocInfo = {
     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
     .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -1063,9 +1069,9 @@ b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* src
     "Unable to start recording on transfer command buffer"
   );
   VkBufferCopy copyRegion = {
-    .srcOffset = 0,
-    .dstOffset = 0,
-    .size = dstBuffer->memory_info.size,
+    .srcOffset = srcOffset,
+    .dstOffset = dstOffset,
+    .size = dataSize,
   };
   vkCmdCopyBuffer(commandBuffer, srcBuffer->buffer, dstBuffer->buffer, 1, &copyRegion);
   VK_CHECK(
@@ -1089,13 +1095,15 @@ b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* src
   return TRUE;
 }
 
-b8 create_vertex_buffer(vulkan_state *state, vertex* vertices){
-  const u64 bufferSize = sizeof(vertex)*state->vertexCount;
+b8 create_vertex_buffer(vulkan_state *state, vertex* vertices, u16* indices){
+  const VkDeviceSize vertexBufferSize = sizeof(vertex)*state->vertexCount;
+  const VkDeviceSize indexBufferSize = sizeof(u16)*state->indexCount;
+  const VkDeviceSize bufferSize = vertexBufferSize+indexBufferSize;
   if(state->transferQueueIndex == state->graphicsQueueIndex){
     VEL_CHECK(create_exclusive_buffer(
       state,
-      &state->vertexBuffer,
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      &state->vertexIndexBuffer,
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
       bufferSize,
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
       0
@@ -1107,8 +1115,8 @@ b8 create_vertex_buffer(vulkan_state *state, vertex* vertices){
     };
     VEL_CHECK(create_shared_buffer(
       state,
-      &state->vertexBuffer,
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      &state->vertexIndexBuffer,
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
       bufferSize,
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
       0,
@@ -1116,12 +1124,12 @@ b8 create_vertex_buffer(vulkan_state *state, vertex* vertices){
       2
     ));
   }
-  velora_buffer stagingBuffer = {0};
+  velora_buffer vertexStagingBuffer = {0};
   VEL_CHECK(create_exclusive_buffer(
     state,
-    &stagingBuffer,
+    &vertexStagingBuffer,
     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    bufferSize,
+    vertexBufferSize,
     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
   ));
@@ -1129,63 +1137,46 @@ b8 create_vertex_buffer(vulkan_state *state, vertex* vertices){
   VK_CHECK(vmaCopyMemoryToAllocation(
     state->allocator,
     vertices,
-    stagingBuffer.memory,
+    vertexStagingBuffer.memory,
     0,
-    stagingBuffer.memory_info.size
-  ), "Unable to fill vertex buffer with vertex data");
-
-  VEL_CHECK(copy_buffer(state, &state->vertexBuffer, &stagingBuffer));
-  destroy_velora_buffer(state, &stagingBuffer);
-  return TRUE;
-}
-
-b8 create_index_buffer(vulkan_state *state, u16* indicies){
-  VkDeviceSize bufferSize = sizeof(u16)*state->indexCount;
-
-  velora_buffer stagingBuffer = {0};
+    vertexBufferSize
+  ), "Unable to fill vertex staging buffer with vertex data");
+  velora_buffer indexStagingBuffer = {0};
   VEL_CHECK(create_exclusive_buffer(
     state,
-    &stagingBuffer,
+    &indexStagingBuffer,
     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    bufferSize,
-    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    indexBufferSize,
+    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
   ));
 
   VK_CHECK(vmaCopyMemoryToAllocation(
     state->allocator,
-    indicies,
-    stagingBuffer.memory,
+    indices,
+    indexStagingBuffer.memory,
     0,
-    bufferSize
-  ), "Unable to copy indicies into staging buffer");
-  if(state->transferQueueIndex == state->graphicsQueueIndex){
-    VEL_CHECK(create_exclusive_buffer(
-      state,
-      &state->indexBuffer,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-      bufferSize,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-      0
-    ));
-  }else{
-    u32 queueIndices[] = {
-      state->transferQueueIndex,
-      state->graphicsQueueIndex,
-    };
-    VEL_CHECK(create_shared_buffer(
-      state,
-      &state->indexBuffer,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-      bufferSize,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-      0,
-      queueIndices,
-      2
-    ));
-  }
-  copy_buffer(state, &state->indexBuffer, &stagingBuffer);
-  vmaDestroyBuffer(state->allocator, stagingBuffer.buffer, stagingBuffer.memory);
+    indexBufferSize
+  ), "Unable to fill index staging buffer with index data");
+
+  VEL_CHECK(copy_buffer(
+    state, 
+    &state->vertexIndexBuffer, 
+    &vertexStagingBuffer,
+    vertexBufferSize,
+    0,
+    0
+  ));
+  VEL_CHECK(copy_buffer(
+    state, 
+    &state->vertexIndexBuffer, 
+    &indexStagingBuffer,
+    indexBufferSize,
+    0,
+    vertexBufferSize
+  ));
+  destroy_velora_buffer(state, &vertexStagingBuffer);
+  destroy_velora_buffer(state, &indexStagingBuffer);
   return TRUE;
 }
 
@@ -1238,8 +1229,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_command_pool(vk_state));
   VEL_CHECK(create_command_buffer(vk_state));
   VEL_CHECK(create_sync_objects(vk_state));
-  VEL_CHECK(create_vertex_buffer(vk_state, vertices));
-  VEL_CHECK(create_index_buffer(vk_state, indices));
+  VEL_CHECK(create_vertex_buffer(vk_state, vertices, indices));
   return TRUE;
 }
 #elif VPLATFORM_LINUX
@@ -1288,8 +1278,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, str
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vkDeviceWaitIdle(vk_state->logicalDevice);
-  destroy_velora_buffer(vk_state, &vk_state->indexBuffer);
-  destroy_velora_buffer(vk_state, &vk_state->vertexBuffer);
+  destroy_velora_buffer(vk_state, &vk_state->vertexIndexBuffer);
   for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
     vkDestroySemaphore(vk_state->logicalDevice, vk_state->imageAvailable[i], NULL);
     vkDestroySemaphore(vk_state->logicalDevice, vk_state->renderFinished[i], NULL);
