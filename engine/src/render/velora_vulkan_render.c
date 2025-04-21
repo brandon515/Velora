@@ -303,15 +303,15 @@ u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, con
 
   for(int i = 0; i < queueFamilyCount; i++){
     VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device, i, state->surface, &isPresentCapable), "Unable to check if this device is present capable");
-    if(props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
+    if(graphicsQueueObtained == FALSE && props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
       state->graphicsQueueIndex = i;
       graphicsQueueObtained = TRUE;
     }
-    if(props[i].queueFlags & VK_QUEUE_TRANSFER_BIT && (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0){
+    if(transferQueueObtained == FALSE && props[i].queueFlags & VK_QUEUE_TRANSFER_BIT && (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0){
       state->transferQueueIndex = i;
       transferQueueObtained = TRUE;
     }
-    if(isPresentCapable){
+    if(presentQueueObtained == FALSE && isPresentCapable){
       state->presentQueueIndex = i;
       presentQueueObtained = TRUE;
     }
