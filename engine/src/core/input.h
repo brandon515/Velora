@@ -12,11 +12,11 @@ typedef enum hardware_input_type{
 } hardware_input_type;
 
 typedef union _hardware_input{
-  struct keyboard{
+  struct{
     u16 button;
   };
-  struct mouse_button{
-    b8 MOUSE
+  struct{
+    b8 MOUSE;
   };
 }hardware_input;
 
