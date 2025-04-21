@@ -36,7 +36,18 @@
     VFATAL(msg);                                      \
     VFATAL("Vulkan Error: %s", string_VkResult(err)); \
     return FALSE;                                     \
-  }}                       
+  }}        
+  
+typedef struct _velora_buffer{
+  VkBuffer buffer;
+  VmaAllocation memory;
+  VmaAllocationInfo memory_info;
+} velora_buffer;
+
+typedef struct _vertex {
+  vec2 pos;
+  vec3 color;
+} vertex;
 
 typedef struct _swapchain_support{
   VkSurfaceCapabilitiesKHR surfaceCapabilities;
@@ -52,8 +63,10 @@ typedef struct _vulkan_state{
   VkDevice logicalDevice;
   u32 graphicsQueueIndex;
   u32 presentQueueIndex;
+  u32 transferQueueIndex;
   VkQueue graphicsQueue;
   VkQueue presentQueue;
+  VkQueue transferQueue;
   VmaAllocator allocator;
   VkSurfaceKHR surface;
   swapchain_support swapchainSupportDetails;
@@ -69,11 +82,15 @@ typedef struct _vulkan_state{
   VkFramebuffer* frameBuffers;
   VkCommandPool commandPool;
   VkCommandBuffer* commandBuffer;
+  VkCommandPool transferPool;
   VkSemaphore* imageAvailable, *renderFinished;
   VkFence* inFlight;
   u32 currentFrame;
   b8 windowResized, windowMinimized;
   u32 newWidth, newHeight;
+  velora_buffer vertexBuffer;
+  vertex* vertices;
+  u64 vertexCount;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -171,6 +188,7 @@ u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   const char* extensions[10]; //10 should be enough here too
   u32 extension_count = 0;
   #ifdef _DEBUG
+  #define VK_KHRONOS_VALIDATION_VALIDATE_SYNC TRUE
   enable_optional_feature(enabled_layers, &num_of_layers, "VK_LAYER_KHRONOS_validation");
   enable_optional_feature(extensions, &extension_count, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
   #endif
@@ -279,6 +297,7 @@ u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, con
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, props);
 
   u8 graphicsQueueObtained = FALSE;
+  u8 transferQueueObtained = FALSE;
   u8 presentQueueObtained = FALSE;
   VkBool32 isPresentCapable;
 
@@ -288,10 +307,20 @@ u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, con
       state->graphicsQueueIndex = i;
       graphicsQueueObtained = TRUE;
     }
+    if(props[i].queueFlags & VK_QUEUE_TRANSFER_BIT && (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0){
+      state->transferQueueIndex = i;
+      transferQueueObtained = TRUE;
+    }
     if(isPresentCapable){
       state->presentQueueIndex = i;
       presentQueueObtained = TRUE;
     }
+  }
+
+  // No dedicated transfer queue exists, luckily graphics queues are implicitly transfer queues so just make those the same
+  if(transferQueueObtained == FALSE && graphicsQueueObtained == TRUE){
+    state->transferQueueIndex = state->graphicsQueueIndex;
+    transferQueueObtained = TRUE;
   }
 
   u32 deviceExtensionCount = 0;
@@ -314,7 +343,7 @@ u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, con
 
   u8 swapchainSuitable = obtain_swapchain_info(state, device);
 
-  return (swapchainSuitable && graphicsQueueObtained && presentQueueObtained && (foundExtensions == extensionCount));
+  return (swapchainSuitable && graphicsQueueObtained && transferQueueObtained && presentQueueObtained && (foundExtensions == extensionCount));
 }
 
 u8 obtain_physical_device(vulkan_state* state, const char** extensions, u32 extensionCount){
@@ -350,7 +379,12 @@ u8 create_logical_device(vulkan_state* state, const char** extensions, u32 exten
   VkDeviceQueueCreateInfo queueCreateInfos[10];
   u32 queueCount = 0;
   activate_queue(queueCreateInfos, &queueCount, state->graphicsQueueIndex, 1, &queuePri);
-  activate_queue(queueCreateInfos, &queueCount, state->presentQueueIndex, 1, &queuePri);
+  if(state->graphicsQueueIndex != state->presentQueueIndex){
+    activate_queue(queueCreateInfos, &queueCount, state->presentQueueIndex, 1, &queuePri);
+  }
+  if(state->graphicsQueueIndex != state->transferQueueIndex){
+    activate_queue(queueCreateInfos, &queueCount, state->transferQueueIndex, 1, &queuePri);
+  }
   VkPhysicalDeviceFeatures deviceFeatues = {0};
   VkDeviceCreateInfo logicalDeviceCreateInfo ={
     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -372,6 +406,7 @@ u8 create_logical_device(vulkan_state* state, const char** extensions, u32 exten
   );
   vkGetDeviceQueue(state->logicalDevice, state->graphicsQueueIndex, 0, &state->graphicsQueue);
   vkGetDeviceQueue(state->logicalDevice, state->presentQueueIndex, 0, &state->presentQueue);
+  vkGetDeviceQueue(state->logicalDevice, state->transferQueueIndex, 0, &state->transferQueue);
   return TRUE;
 }
 
@@ -603,13 +638,29 @@ u8 create_graphics_pipeline(vulkan_state* state){
     .dynamicStateCount = dynamicStateCount,
     .pDynamicStates = dynamicStates,
   };
-  //Vertex buffer stuff goes into this create info
+  VkVertexInputBindingDescription bindingDesc = {
+    .binding = 0,
+    .stride = sizeof(vertex),
+    .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+  };
+  const u8 numOfVertexStructMembers = 2;
+  VkVertexInputAttributeDescription vertexStructDesc[numOfVertexStructMembers];
+
+  vertexStructDesc[0].binding = 0;
+  vertexStructDesc[0].location = 0;
+  vertexStructDesc[0].format = VK_FORMAT_R32G32_SFLOAT;
+  vertexStructDesc[0].offset = offsetof(vertex, pos);
+
+  vertexStructDesc[1].binding = 0;
+  vertexStructDesc[1].location = 1;
+  vertexStructDesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+  vertexStructDesc[1].offset = offsetof(vertex, color);
   VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-    .vertexBindingDescriptionCount = 0,
-    .pVertexBindingDescriptions = NULL,
-    .vertexAttributeDescriptionCount = 0,
-    .pVertexAttributeDescriptions = NULL,
+    .vertexBindingDescriptionCount = 1,
+    .pVertexBindingDescriptions = &bindingDesc,
+    .vertexAttributeDescriptionCount = numOfVertexStructMembers,
+    .pVertexAttributeDescriptions = vertexStructDesc,
   };
   VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -781,6 +832,20 @@ u8 create_command_pool(vulkan_state* state){
     ), 
     "Unable to create command pool"
   );
+  VkCommandPoolCreateInfo transferInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+    .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+    .queueFamilyIndex = state->transferQueueIndex,
+  };
+  VK_CHECK(
+    vkCreateCommandPool(
+      state->logicalDevice,
+      &transferInfo,
+      NULL,
+      &state->transferPool
+    ),
+    "Unable to create transfer command pool"
+  );
   return TRUE;
 }
 
@@ -841,7 +906,10 @@ u8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
     .extent = state->swapchainExtent,
   };
   vkCmdSetScissor(state->commandBuffer[state->currentFrame], 0, 1, &scissor);
-  vkCmdDraw(state->commandBuffer[state->currentFrame], 3, 1, 0, 0);
+  VkBuffer vertexBuffers[] = {state->vertexBuffer.buffer};
+  VkDeviceSize offsets[] = {0};
+  vkCmdBindVertexBuffers(state->commandBuffer[state->currentFrame], 0, 1, vertexBuffers, offsets);
+  vkCmdDraw(state->commandBuffer[state->currentFrame], state->vertexCount, 1, 0, 0);
   vkCmdEndRenderPass(state->commandBuffer[state->currentFrame]);
   VK_CHECK(vkEndCommandBuffer(state->commandBuffer[state->currentFrame]), "Unable to end recording of command buffer");
   return TRUE;
@@ -898,6 +966,177 @@ b8 resize_handler(event* newEvent, void* state){
   return TRUE;
 }
 
+void destroy_velora_buffer(vulkan_state* state, velora_buffer* buffer){
+  vmaDestroyBuffer(
+    state->allocator, 
+    buffer->buffer,
+    buffer->memory
+  );
+}
+
+b8 create_shared_buffer(
+  vulkan_state *state, 
+  velora_buffer* buffer, 
+  VkBufferUsageFlagBits bufferUsage, 
+  VkDeviceSize bufferSize, 
+  VkMemoryPropertyFlags memoryType,
+  VmaAllocationCreateFlags vmaFlags,
+  u32* queueFamilyIndices,
+  u32 queueFamilyIndiciesCount
+){
+  VkBufferCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    .size = bufferSize,
+    .usage = bufferUsage,
+    .sharingMode = VK_SHARING_MODE_CONCURRENT,
+    .pQueueFamilyIndices = queueFamilyIndices,
+    .queueFamilyIndexCount = queueFamilyIndiciesCount,
+    .flags = 0,
+  };
+  VmaAllocationCreateInfo allocInfo = {
+    .usage = VMA_MEMORY_USAGE_AUTO,
+    .flags = vmaFlags,
+    .requiredFlags = memoryType,
+  };
+  VK_CHECK(vmaCreateBuffer(
+    state->allocator,
+    &createInfo,
+    &allocInfo,
+    &buffer->buffer,
+    &buffer->memory,
+    &buffer->memory_info 
+  ), "Unable to create vertex buffer");
+  return TRUE;
+}
+
+b8 create_exclusive_buffer(
+  vulkan_state *state, 
+  velora_buffer* buffer, 
+  VkBufferUsageFlagBits bufferUsage, 
+  VkDeviceSize bufferSize, 
+  VkMemoryPropertyFlags memoryType,
+  VmaAllocationCreateFlags vmaFlags
+){
+  VkBufferCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    .size = bufferSize,
+    .usage = bufferUsage,
+    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    .flags = 0,
+  };
+  VmaAllocationCreateInfo allocInfo = {
+    .usage = VMA_MEMORY_USAGE_AUTO,
+    .flags = vmaFlags,
+    .requiredFlags = memoryType,
+  };
+  VK_CHECK(vmaCreateBuffer(
+    state->allocator,
+    &createInfo,
+    &allocInfo,
+    &buffer->buffer,
+    &buffer->memory,
+    &buffer->memory_info 
+  ), "Unable to create vertex buffer");
+  return TRUE;
+}
+
+b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* srcBuffer){
+  VkCommandBufferAllocateInfo allocInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    .commandPool = state->transferPool,
+    .commandBufferCount = 1,
+  };
+  VkCommandBuffer commandBuffer;
+  VK_CHECK(
+    vkAllocateCommandBuffers(state->logicalDevice, &allocInfo, &commandBuffer),
+    "Unable to allocate command buffer from Transfer command pool"
+  );
+  VkCommandBufferBeginInfo beginInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+  };
+  VK_CHECK(
+    vkBeginCommandBuffer(commandBuffer, &beginInfo),
+    "Unable to start recording on transfer command buffer"
+  );
+  VkBufferCopy copyRegion = {
+    .srcOffset = 0,
+    .dstOffset = 0,
+    .size = dstBuffer->memory_info.size,
+  };
+  vkCmdCopyBuffer(commandBuffer, srcBuffer->buffer, dstBuffer->buffer, 1, &copyRegion);
+  VK_CHECK(
+    vkEndCommandBuffer(commandBuffer),
+    "Unable to end transfer command buffer recording"
+  );
+
+  VkSubmitInfo submitInfo = {
+    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .commandBufferCount = 1,
+    .pCommandBuffers = &commandBuffer
+  };
+  vkQueueSubmit(state->transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+  vkQueueWaitIdle(state->transferQueue);
+  vkFreeCommandBuffers(
+    state->logicalDevice,
+    state->transferPool,
+    1,
+    &commandBuffer
+  );
+  return TRUE;
+}
+
+b8 create_vertex_buffer(vulkan_state *state){
+  const u64 bufferSize = sizeof(vertex)*state->vertexCount;
+  if(state->transferQueueIndex == state->graphicsQueueIndex){
+    VEL_CHECK(create_exclusive_buffer(
+      state,
+      &state->vertexBuffer,
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      bufferSize,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      0
+    ));
+  }else{
+    u32 queueFamilyIndices[] = {
+      state->graphicsQueueIndex,
+      state->transferQueueIndex
+    };
+    VEL_CHECK(create_shared_buffer(
+      state,
+      &state->vertexBuffer,
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      bufferSize,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      0,
+      queueFamilyIndices,
+      2
+    ));
+  }
+  velora_buffer stagingBuffer = {0};
+  VEL_CHECK(create_exclusive_buffer(
+    state,
+    &stagingBuffer,
+    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    bufferSize,
+    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+  ));
+
+  VK_CHECK(vmaCopyMemoryToAllocation(
+    state->allocator,
+    state->vertices,
+    stagingBuffer.memory,
+    0,
+    stagingBuffer.memory_info.size
+  ), "Unable to fill vertex buffer with vertex data");
+
+  VEL_CHECK(copy_buffer(state, &state->vertexBuffer, &stagingBuffer));
+  destroy_velora_buffer(state, &stagingBuffer);
+  return TRUE;
+}
+
 #ifdef VPLATFORM_WINDOWS
 u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
@@ -916,6 +1155,12 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vk_state->currentFrame = 0;
+  //TODO: This is horrendous, delete it entirely when we load objects from HDD
+  vk_state->vertices = vallocate(sizeof(vertex)*3, MEMORY_TAG_RENDERER);
+  vk_state->vertices[0] = (vertex){ {{0.0f, -0.5f}}, {{1.0f, 1.0f, 1.0f}} };
+  vk_state->vertices[1] = (vertex){ {{0.5f, 0.5f}}, {{0.0f, 1.0f, 0.0f}} };
+  vk_state->vertices[2] = (vertex){ {{-0.5f, 0.5f}}, {{0.0f, 0.0f, 1.0f}} };
+  vk_state->vertexCount = 3;
 
   const char* deviceExtensions[10];
   u32 extensionCount = 0;
@@ -937,6 +1182,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_command_pool(vk_state));
   VEL_CHECK(create_command_buffer(vk_state));
   VEL_CHECK(create_sync_objects(vk_state));
+  VEL_CHECK(create_vertex_buffer(vk_state));
   return TRUE;
 }
 #elif VPLATFORM_LINUX
@@ -981,9 +1227,11 @@ u8 initiate_render_system(render_state* state, const char* application_name, str
 }
 #endif //VPLATFORM_*
 
+
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vkDeviceWaitIdle(vk_state->logicalDevice);
+  destroy_velora_buffer(vk_state, &vk_state->vertexBuffer);
   for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
     vkDestroySemaphore(vk_state->logicalDevice, vk_state->imageAvailable[i], NULL);
     vkDestroySemaphore(vk_state->logicalDevice, vk_state->renderFinished[i], NULL);
@@ -993,6 +1241,7 @@ void shutdown_render_system(render_state* state){
   vfree(vk_state->renderFinished, sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vfree(vk_state->inFlight, sizeof(VkFence)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vkDestroyCommandPool(vk_state->logicalDevice, vk_state->commandPool, NULL);
+  vkDestroyCommandPool(vk_state->logicalDevice, vk_state->transferPool, NULL);
   vfree(vk_state->commandBuffer, sizeof(VkCommandBuffer)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vfree(vk_state->frameBuffers, sizeof(VkFramebuffer)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
   vkDestroyPipeline(vk_state->logicalDevice, vk_state->graphicsPipeline, NULL);
