@@ -1095,7 +1095,7 @@ b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* src
   return TRUE;
 }
 
-b8 create_vertex_buffer(vulkan_state *state, vertex* vertices, u16* indices){
+b8 create_vertex_index_buffer(vulkan_state *state, vertex* vertices, u16* indices){
   const VkDeviceSize vertexBufferSize = sizeof(vertex)*state->vertexCount;
   const VkDeviceSize indexBufferSize = sizeof(u16)*state->indexCount;
   const VkDeviceSize bufferSize = vertexBufferSize+indexBufferSize;
@@ -1229,7 +1229,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_command_pool(vk_state));
   VEL_CHECK(create_command_buffer(vk_state));
   VEL_CHECK(create_sync_objects(vk_state));
-  VEL_CHECK(create_vertex_buffer(vk_state, vertices, indices));
+  VEL_CHECK(create_vertex_index_buffer(vk_state, vertices, indices));
   return TRUE;
 }
 #elif VPLATFORM_LINUX
