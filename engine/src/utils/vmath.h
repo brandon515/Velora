@@ -16,7 +16,7 @@ typedef union _vec2{
     f32 x;
     f32 y;
   };
-  f32 xy[3];
+  f32 xy[2];
 } vec2;
 
 vec3 multiply_scalar(vec3 vector, f32 scalar);
