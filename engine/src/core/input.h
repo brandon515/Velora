@@ -35,7 +35,7 @@ typedef struct _input_state{
   darray* input_bindings;
 } input_state;
 
-b8 init_input_system(input_state* state);
+b8 initiate_input_system(input_state* state);
 
 /**
  * @brief Register a front facing action for the game to keep track of

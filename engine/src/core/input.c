@@ -52,7 +52,7 @@ b8 action_handler(event* curEvent, void* state){
   return FALSE;
 }
 
-b8 init_input_system(input_state* state){
+b8 initiate_input_system(input_state* state){
   state->input_mappings = darray_new(sizeof(game_input*));
   state->input_bindings = darray_new(sizeof(input_binding*));
   return TRUE;
