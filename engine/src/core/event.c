@@ -81,7 +81,9 @@ b8 fire_event(event* new_event){
       break;
     }
   }
-  vfree(new_event->event_data, new_event->event_data_size, MEMORY_TAG_EVENT_DATA);
+  if(new_event->event_data_size != 0){
+    vfree(new_event->event_data, new_event->event_data_size, MEMORY_TAG_EVENT_DATA);
+  }
   return TRUE;
 }
 
