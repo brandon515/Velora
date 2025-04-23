@@ -28,6 +28,8 @@ b8 application_start(application_state *app_state){
     return FALSE;
   }
 
+  initiate_input_system(&app_state->game_inst->input);
+
   app_state->game_inst->on_resize(
     app_state->game_inst,
     app_state->game_inst->app_config.start_pos_width,
