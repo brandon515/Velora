@@ -28,7 +28,6 @@ typedef struct _application_state{
     i16 width;
     i16 height;
     f64 last_time;
-    input_state input;
   } application_state;
 
 VAPI b8 application_start(application_state* app_state);

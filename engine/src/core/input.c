@@ -3,39 +3,56 @@
 #include "core/event.h"
 #include "core/vmemory.h"
 
-b8 action_handler(event* event, void* state){
-  //input_action* action = (input_action*)state;
-  if(event->event_type == ENGINE_INPUT_BUTTON){
-    //
-  }else if(event->event_type == ENGINE_MOUSE_BUTTON){
-    //
-  }else if(event->event_type == ENGINE_MOUSE_POSITION){
-    //
-  }else if(event->event_type == ENGINE_MOUSE_WHEEL){
-    //
+b8 action_handler(event* curEvent, void* state){
+  input_binding* binding = (input_binding*)state;
+  event newEvent ={
+    .event_type = ENGINE_GAME_INPUT,
+    .event_data = binding->gInput,
+    .event_data_size = 0 //we don't want the event system to free the game input
+  };
+  if(curEvent->event_type == ENGINE_INPUT_BUTTON){
+    button_data* data = (button_data*)curEvent->event_data;
+    if(data->button_code == binding->action_data){
+      if(data->pressed == TRUE && binding->influencingInputValue == FALSE){
+        binding->gInput->curValue += binding->valueToMap;
+        binding->influencingInputValue = TRUE;
+        fire_event(&newEvent);
+      }else if(data->pressed == FALSE && binding->influencingInputValue == TRUE){
+        binding->gInput->curValue -= binding->valueToMap;
+        binding->influencingInputValue = FALSE;
+        fire_event(&newEvent);
+      }
+    }
+  }else if(curEvent->event_type == ENGINE_MOUSE_BUTTON){
+    mouse_button_data* data = (mouse_button_data*)curEvent->event_data;
+    if(data->button_code == binding->action_data){
+      if(data->pressed == TRUE && binding->influencingInputValue == FALSE){
+        binding->gInput->curValue += binding->valueToMap;
+        binding->influencingInputValue = TRUE;
+        fire_event(&newEvent);
+      }else if(data->pressed == FALSE && binding->influencingInputValue == TRUE){
+        binding->gInput->curValue -= binding->valueToMap;
+        binding->influencingInputValue = FALSE;
+        fire_event(&newEvent);
+      }
+    }
+  }else if(curEvent->event_type == ENGINE_MOUSE_POSITION){
+    mouse_position_data* data = (mouse_position_data*)curEvent->event_data;
+    if(binding->action_data == MOUSE_X_AXIS){
+      binding->gInput->curValue = data->x;
+    }else if(binding->action_data == MOUSE_Y_AXIS){
+      binding->gInput->curValue = data->y;
+    }
+    fire_event(&newEvent);
+  }else if(curEvent->event_type == ENGINE_MOUSE_WHEEL){
+    mouse_wheel_data* data = (mouse_wheel_data*)curEvent->event_data;
+    binding->gInput->curValue = data->direction;
+    fire_event(&newEvent);
   }
   return FALSE;
 }
 
-void add_listener(input_binding* action, event_listener func, event_id event){
-  action->listener_id[action->listener_count] = register_listener(event, func, action);
-  action->listener_count++;
-}
-
-void register_input_action_liseners(input_binding* action){
-  add_listener(action, action_handler, ENGINE_INPUT_BUTTON);
-  add_listener(action, action_handler, ENGINE_MOUSE_BUTTON);
-  add_listener(action, action_handler, ENGINE_MOUSE_POSITION);
-  add_listener(action, action_handler, ENGINE_MOUSE_WHEEL);
-}
-
-void deregister_input_action_listeners(input_binding* action){
-  for(int i = 0; i < action->listener_count; i++){
-    deregister_listener(action->listener_id[i]);
-  }
-}
-
-b8 init_input_system(input_state* state){
+b8 initiate_input_system(input_state* state){
   state->input_mappings = darray_new(sizeof(game_input*));
   state->input_bindings = darray_new(sizeof(input_binding*));
   return TRUE;
@@ -79,7 +96,7 @@ input_binding* get_input_binding(input_state* state, u64 action_id, u64 mapping_
   return NULL;
 }
 
-b8 bind_input_action(input_state* state, u64 mapping_id, i64 action_id, i8 valueToMap){
+b8 bind_input_action(input_state* state, u64 mapping_id, event_id action_id, i8 valueToMap){
   game_input* mapping = get_input_mapping(state, mapping_id);
   if(mapping == NULL){
     return FALSE;
@@ -88,27 +105,24 @@ b8 bind_input_action(input_state* state, u64 mapping_id, i64 action_id, i8 value
   if(binding == NULL){
     input_binding* newBinding = vallocate(sizeof(input_binding), MEMORY_TAG_INPUT_DATA);
     newBinding->action_id = action_id;
-    newBinding->listener_count = 0;
     newBinding->valueToMap = valueToMap;
     newBinding->influencingInputValue = FALSE;
     newBinding->gInput = mapping;
-    register_input_action_liseners(newBinding);
+    newBinding->listener_id = register_listener(action_id, action_handler, newBinding);
     darray_push(state->input_bindings, &newBinding);
-    binding = newBinding;
     return TRUE;
   }
   return FALSE;
 }
 
-b8 unbind_input_action(input_state* state, u64 mapping_id, i64 action_id){
-  /*input_action* action = get_input_action(state, action_id);
-  input_mapping** mappings = (input_mapping**) action->mapping->data;
-  for(int i = 0; i < action->mapping->length; i++){
-    if(mappings[i]->id == mapping_id){
-      darray_delete(action->mapping, i);
+b8 unbind_input_action(input_state* state, u64 mapping_id, event_id action_id){
+  input_binding** curActions = state->input_bindings->data;
+  for(int i = 0; i < state->input_bindings->length; i++){
+    if(curActions[i]->action_id == action_id && curActions[i]->gInput->id == mapping_id){
+      darray_delete(state->input_bindings, i);
       return TRUE;
     }
-  }*/
+  }
   return FALSE;
 }
 
