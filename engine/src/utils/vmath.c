@@ -88,8 +88,28 @@ void matrix_vec_multiply(f32* mat, f32* vec, u64 vecLength, f32* outVec){
   matrix_multiply(mat, vecLength, vecLength, vec, vecLength, 1, outVec);
 }
 
+void matrix_vec2_multiply(mat2x2 mat, vec2 vec, vec2* outVec){
+  matrix_vec_multiply(mat.mat, vec.xy, 2, outVec->xy);
+}
+
+void matrix_vec3_multiply(mat3x3 mat, vec3 vec, vec3* outVec){
+  matrix_vec_multiply(mat.mat, vec.xyz, 3, outVec->xyz);
+}
+
 void matrix_vec4_multiply(mat4x4 mat, vec4 vec, vec4* outVec){
   matrix_vec_multiply(mat.mat, vec.xyzw, 4, outVec->xyzw);
+}
+
+void matrix2_multiply(mat2x2 mat1, mat2x2 mat2, mat2x2* outMatrix){
+  matrix_multiply(mat1.mat, 2, 2, mat2.mat, 2, 2, outMatrix->mat);
+}
+
+void matrix3_multiply(mat3x3 mat1, mat3x3 mat2, mat3x3* outMatrix){
+  matrix_multiply(mat1.mat, 3, 3, mat2.mat, 3, 3, outMatrix->mat);
+}
+
+void matrix4_multiply(mat4x4 mat1, mat4x4 mat2, mat4x4* outMatrix){
+  matrix_multiply(mat1.mat, 4, 4, mat2.mat, 4, 4, outMatrix->mat);
 }
 
 u64 vclamp(u64 value, u64 minimum, u64 maximum){

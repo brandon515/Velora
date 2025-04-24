@@ -2,14 +2,6 @@
 
 #include "defines.h"
 
-typedef union _vec3{
-  struct {
-    f32 x;
-    f32 y;
-    f32 z;
-  };
-  f32 xyz[3];
-} vec3;
 
 typedef union _vec2{
   struct {
@@ -18,6 +10,15 @@ typedef union _vec2{
   };
   f32 xy[2];
 } vec2;
+
+typedef union _vec3{
+  struct {
+    f32 x;
+    f32 y;
+    f32 z;
+  };
+  f32 xyz[3];
+} vec3;
 
 typedef union _vec4 {
   struct {
@@ -30,6 +31,34 @@ typedef union _vec4 {
 } vec4;
 
 typedef vec4 quat;
+typedef union _mat2{
+  struct {
+    f32 a11;
+    f32 a21;
+    f32 a12;
+    f32 a22;
+  };
+  f32 mat[4];
+} mat2;
+
+typedef mat2 mat2x2;
+
+typedef union _mat3{
+  struct {
+    f32 a11;
+    f32 a21;
+    f32 a31;
+    f32 a12;
+    f32 a22;
+    f32 a32;
+    f32 a13;
+    f32 a23;
+    f32 a33;
+  };
+  f32 mat[9];
+} mat3;
+
+typedef mat3 mat3x3;
 
 /**
  * @brief The member variables are ayx where y is the row and x is the column and the origin is the upper left
@@ -117,12 +146,52 @@ b8 matrix_multiply(f32* mat1, u64 mat1Rows, u64 mat1Cols, f32* mat2, u64 mat2Row
 void matrix_vec_multiply(f32* mat, f32* vec, u64 vecLength, f32* outVec);
 
 /**
+ * @brief Type casting for multiplying a 2x2 matrix with a 4 member vector
+ * @param mat A 2x2 matrix passed by reference
+ * @param vec A 2 member vector passed by reference
+ * @param outVec A pointer to the vector with the results
+ */
+void matrix_vec2_multiply(mat2x2 mat, vec2 vec, vec2* outVec);
+
+/**
+ * @brief Type casting for multiplying a 2x2 matrix with another
+ * @param mat1 A 2x2 matrix passed by reference
+ * @param mat2 A 2x2 matrix passed by reference
+ * @param outMatrix A pointer to the vector with the results
+ */
+void matrix2_multiply(mat2x2 mat1, mat2x2 mat2, mat2x2* outMatrix);
+
+/**
+ * @brief Type casting for multiplying a 3x3 matrix with a 4 member vector
+ * @param mat A 3x3 matrix passed by reference
+ * @param vec A 3 member vector passed by reference
+ * @param outVec A pointer to the vector with the results
+ */
+void matrix_vec3_multiply(mat3x3 mat, vec3 vec, vec3* outVec);
+
+/**
+ * @brief Type casting for multiplying a 3x3 matrix with another
+ * @param mat1 A 3x3 matrix passed by reference
+ * @param mat2 A 3x3 matrix passed by reference
+ * @param outMatrix A pointer to the vector with the results
+ */
+void matrix3_multiply(mat3x3 mat1, mat3x3 mat2, mat3x3* outMatrix);
+
+/**
  * @brief Type casting for multiplying a 4x4 matrix with a 4 member vector
  * @param mat A 4x4 matrix passed by reference
  * @param vec A 4 member vector passed by reference
  * @param outVec A pointer to the vector with the results
  */
 void matrix_vec4_multiply(mat4x4 mat, vec4 vec, vec4* outVec);
+
+/**
+ * @brief Type casting for multiplying a 4x4 matrix with another
+ * @param mat1 A 4x4 matrix passed by reference
+ * @param mat2 A 4x4 matrix passed by reference
+ * @param outMatrix A pointer to the vector with the results
+ */
+void matrix4_multiply(mat4x4 mat1, mat4x4 mat2, mat4x4* outMatrix);
 
 /*! 
  * @brief Clamps the value between the minimum and maximum
