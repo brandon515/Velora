@@ -36,6 +36,19 @@ mat4 scaling_matrix(vec3 scale){
   return ret_matrix;
 }
 
+quat euler_to_quat(vec3 eulerDegreeAngles){
+  f32 pitch = eulerDegreeAngles.x*(V_PI/180);
+  f32 yaw = eulerDegreeAngles.y*(V_PI/180);
+  f32 roll = eulerDegreeAngles.z*(V_PI/180);
+
+  quat ret_quat = {0};
+  ret_quat.x = (sin(roll/2) * cos(pitch/2) * cos(yaw/2)) - (cos(roll/2) * sin(pitch/2) * sin(yaw/2));
+  ret_quat.y = (cos(roll/2) * sin(pitch/2) * cos(yaw/2)) + (sin(roll/2) * cos(pitch/2) * sin(yaw/2));
+  ret_quat.z = (cos(roll/2) * cos(pitch/2) * sin(yaw/2)) - (sin(roll/2) * sin(pitch/2) * cos(yaw/2));
+  ret_quat.w = (cos(roll/2) * cos(pitch/2) * cos(yaw/2)) + (sin(roll/2) * sin(pitch/2) * sin(yaw/2));
+  return ret_quat;
+}
+
 mat4 rotation_matrix(quat quaternion){
   mat4 ret_matrix = {0};
   f32 xx = quaternion.x*quaternion.x;
@@ -295,7 +308,8 @@ b8 orthographic_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 to
 }
 
 mat4 projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f32 aspectRatio, b8 perspective){
-  f32 top = tan(degreeView/2)*nearClip;
+  f32 radianView = degreeView*(V_PI/180);
+  f32 top = tan(radianView/2)*nearClip;
   f32 bottom = -top;
   f32 right = aspectRatio * top;
   f32 left = -right;

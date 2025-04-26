@@ -2,6 +2,7 @@
 
 #include "defines.h"
 
+#define V_PI 3.141592
 
 typedef union _vec2{
   struct {
@@ -246,6 +247,13 @@ b8 orthographic_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 to
  * @return A pass by reference 4x4 matrix containing the projection matrix
  */
 mat4 projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f32 aspectRatio, b8 perspective);
+
+/**
+ * @brief Turns the rotation in degrees around each access into a quaternion for the rotation matrix
+ * @param eulerDegreeAngles The angle around the 3 axies in degrees
+ * @return A pass by reference quaternion
+ */
+quat euler_to_quat(vec3 eulerDegreeAngles);
 
 /*! 
  * @brief Clamps the value between the minimum and maximum
