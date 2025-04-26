@@ -63,6 +63,17 @@ mat4 rotation_matrix(quat quaternion){
   return ret_matrix;
 }
 
+mat4 model_matrix(vec3 translation, quat rotation, vec3 scale){
+  mat4 transMatrix = translation_matrix(translation);
+  mat4 rotMatrix = rotation_matrix(rotation);
+  mat4 scaleMatrix = scaling_matrix(scale);
+  mat4 scratchMatrix = {0};
+  mat4 ret_matrix = {0};
+  matrix4_multiply(rotMatrix, scaleMatrix, &scratchMatrix);
+  matrix4_multiply(transMatrix, scratchMatrix, &ret_matrix);
+  return ret_matrix;
+}
+
 b8 matrix_multiply(f32* mat1, u64 mat1Rows, u64 mat1Cols, f32* mat2, u64 mat2Rows, u64 mat2Cols, f32* outMatrix){
   if(mat1Cols != mat2Rows){
     return FALSE;
@@ -110,6 +121,138 @@ void matrix3_multiply(mat3x3 mat1, mat3x3 mat2, mat3x3* outMatrix){
 
 void matrix4_multiply(mat4x4 mat1, mat4x4 mat2, mat4x4* outMatrix){
   matrix_multiply(mat1.mat, 4, 4, mat2.mat, 4, 4, outMatrix->mat);
+}
+
+b8 matrix4_invert(mat4x4 mat, mat4x4* outMatrix)
+{
+  float inv[16];
+  float* m = mat.mat;
+
+  inv[0] = m[5]  * m[10] * m[15] - 
+            m[5]  * m[11] * m[14] - 
+            m[9]  * m[6]  * m[15] + 
+            m[9]  * m[7]  * m[14] +
+            m[13] * m[6]  * m[11] - 
+            m[13] * m[7]  * m[10];
+
+  inv[4] = -m[4]  * m[10] * m[15] + 
+            m[4]  * m[11] * m[14] + 
+            m[8]  * m[6]  * m[15] - 
+            m[8]  * m[7]  * m[14] - 
+            m[12] * m[6]  * m[11] + 
+            m[12] * m[7]  * m[10];
+
+  inv[8] = m[4]  * m[9] * m[15] - 
+            m[4]  * m[11] * m[13] - 
+            m[8]  * m[5] * m[15] + 
+            m[8]  * m[7] * m[13] + 
+            m[12] * m[5] * m[11] - 
+            m[12] * m[7] * m[9];
+
+  inv[12] = -m[4]  * m[9] * m[14] + 
+              m[4]  * m[10] * m[13] +
+              m[8]  * m[5] * m[14] - 
+              m[8]  * m[6] * m[13] - 
+              m[12] * m[5] * m[10] + 
+              m[12] * m[6] * m[9];
+
+  inv[1] = -m[1]  * m[10] * m[15] + 
+            m[1]  * m[11] * m[14] + 
+            m[9]  * m[2] * m[15] - 
+            m[9]  * m[3] * m[14] - 
+            m[13] * m[2] * m[11] + 
+            m[13] * m[3] * m[10];
+
+  inv[5] = m[0]  * m[10] * m[15] - 
+            m[0]  * m[11] * m[14] - 
+            m[8]  * m[2] * m[15] + 
+            m[8]  * m[3] * m[14] + 
+            m[12] * m[2] * m[11] - 
+            m[12] * m[3] * m[10];
+
+  inv[9] = -m[0]  * m[9] * m[15] + 
+            m[0]  * m[11] * m[13] + 
+            m[8]  * m[1] * m[15] - 
+            m[8]  * m[3] * m[13] - 
+            m[12] * m[1] * m[11] + 
+            m[12] * m[3] * m[9];
+
+  inv[13] = m[0]  * m[9] * m[14] - 
+            m[0]  * m[10] * m[13] - 
+            m[8]  * m[1] * m[14] + 
+            m[8]  * m[2] * m[13] + 
+            m[12] * m[1] * m[10] - 
+            m[12] * m[2] * m[9];
+
+  inv[2] = m[1]  * m[6] * m[15] - 
+            m[1]  * m[7] * m[14] - 
+            m[5]  * m[2] * m[15] + 
+            m[5]  * m[3] * m[14] + 
+            m[13] * m[2] * m[7] - 
+            m[13] * m[3] * m[6];
+
+  inv[6] = -m[0]  * m[6] * m[15] + 
+            m[0]  * m[7] * m[14] + 
+            m[4]  * m[2] * m[15] - 
+            m[4]  * m[3] * m[14] - 
+            m[12] * m[2] * m[7] + 
+            m[12] * m[3] * m[6];
+
+  inv[10] = m[0]  * m[5] * m[15] - 
+            m[0]  * m[7] * m[13] - 
+            m[4]  * m[1] * m[15] + 
+            m[4]  * m[3] * m[13] + 
+            m[12] * m[1] * m[7] - 
+            m[12] * m[3] * m[5];
+
+  inv[14] = -m[0]  * m[5] * m[14] + 
+              m[0]  * m[6] * m[13] + 
+              m[4]  * m[1] * m[14] - 
+              m[4]  * m[2] * m[13] - 
+              m[12] * m[1] * m[6] + 
+              m[12] * m[2] * m[5];
+
+  inv[3] = -m[1] * m[6] * m[11] + 
+            m[1] * m[7] * m[10] + 
+            m[5] * m[2] * m[11] - 
+            m[5] * m[3] * m[10] - 
+            m[9] * m[2] * m[7] + 
+            m[9] * m[3] * m[6];
+
+  inv[7] = m[0] * m[6] * m[11] - 
+            m[0] * m[7] * m[10] - 
+            m[4] * m[2] * m[11] + 
+            m[4] * m[3] * m[10] + 
+            m[8] * m[2] * m[7] - 
+            m[8] * m[3] * m[6];
+
+  inv[11] = -m[0] * m[5] * m[11] + 
+              m[0] * m[7] * m[9] + 
+              m[4] * m[1] * m[11] - 
+              m[4] * m[3] * m[9] - 
+              m[8] * m[1] * m[7] + 
+              m[8] * m[3] * m[5];
+
+  inv[15] = m[0] * m[5] * m[10] - 
+            m[0] * m[6] * m[9] - 
+            m[4] * m[1] * m[10] + 
+            m[4] * m[2] * m[9] + 
+            m[8] * m[1] * m[6] - 
+            m[8] * m[2] * m[5];
+
+  float det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
+
+  if (det == 0){
+    return FALSE;
+  }
+
+  det = 1.0 / det;
+
+  for (int i = 0; i < 16; i++){
+    outMatrix->mat[i] = inv[i] * det;
+  }
+
+  return TRUE;
 }
 
 u64 vclamp(u64 value, u64 minimum, u64 maximum){

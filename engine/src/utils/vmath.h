@@ -193,6 +193,23 @@ void matrix_vec4_multiply(mat4x4 mat, vec4 vec, vec4* outVec);
  */
 void matrix4_multiply(mat4x4 mat1, mat4x4 mat2, mat4x4* outMatrix);
 
+/**
+ * @brief Shorthand to combine the translation, rotation and scale matrix into one
+ * @param translation A vector containined the translation required on the x, y, and z axies
+ * @param rotation A quaternion containing the rotation of the object
+ * @param scale A vector containined the scale of the object in the x, y, and z axies
+ * @return A pass by reference model matrix
+ */
+mat4 model_matrix(vec3 translation, quat rotation, vec3 scale);
+
+/**
+ * @brief This is ripped straight from MESA GLU implementation, black magic that is
+ * @param mat The matrix to be inverted
+ * @param outMatrix A pointer to the matrix to store the results
+ * @return TRUE if the matrix was succesfully inverted, FALSE if the matrix determinent is 0 so no inverse exists
+ */
+b8 matrix4_invert(mat4x4 mat, mat4x4* outMatrix);
+
 /*! 
  * @brief Clamps the value between the minimum and maximum
  * @param value An interger to be contained
