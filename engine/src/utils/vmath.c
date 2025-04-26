@@ -1,4 +1,5 @@
 #include "vmath.h"
+#include <math.h>
 
 vec3 multiply_scalar(vec3 vector, f32 scalar){
   vec3 ret_vec;
@@ -253,6 +254,58 @@ b8 matrix4_invert(mat4x4 mat, mat4x4* outMatrix)
   }
 
   return TRUE;
+}
+
+b8 perspective_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix){
+  (*outMatrix) = (mat4x4){0};
+  if(
+    (right-left) == 0 ||
+    (top-bottom) == 0 ||
+    (near-far) == 0
+  ){
+    return FALSE;
+  }
+  outMatrix->a11 = (2*near)/(right-left);
+  outMatrix->a22 = (2*near)/(top-bottom);
+  outMatrix->a13 = (right+left)/(right-left);
+  outMatrix->a23 = (top+bottom)/(top-bottom);
+  outMatrix->a33 = (far+near)/(near-far);
+  outMatrix->a43 = -1;
+  outMatrix->a34 = (2*far*near)/(near-far);
+  return TRUE;
+}
+
+b8 orthographic_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix){
+  (*outMatrix) = (mat4x4){0};
+  if(
+    (right-left) == 0 ||
+    (top-bottom) == 0 ||
+    (far-near) == 0
+  ){
+    return FALSE;
+  }
+  outMatrix->a11 = 2/(right-left);
+  outMatrix->a22 = 2/(top-bottom);
+  outMatrix->a33 = -2/(far-near);
+  outMatrix->a14 = -((right+left)/(right-left));
+  outMatrix->a24 = -((top+bottom)/(top-bottom));
+  outMatrix->a34 = -((far+near)/(far-near));
+  outMatrix->a44 = 1;
+  return TRUE;
+}
+
+mat4 projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f32 aspectRatio, b8 perspective){
+  f32 top = tan(degreeView/2)*nearClip;
+  f32 bottom = -top;
+  f32 right = aspectRatio * top;
+  f32 left = -right;
+  mat4x4 ret_matrix;
+  if(perspective == TRUE){
+    perspective_projection_matrix(nearClip, farClip, left, right, top, bottom, &ret_matrix);
+  }else{
+    orthographic_projection_matrix(nearClip, farClip, left, right, top, bottom, &ret_matrix);
+  }
+  return ret_matrix;
 }
 
 u64 vclamp(u64 value, u64 minimum, u64 maximum){
