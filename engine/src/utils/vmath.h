@@ -222,7 +222,7 @@ b8 matrix4_invert(mat4x4 mat, mat4x4* outMatrix);
  * @param outMatrix A pointer to the matrix to store the output
  * @return FALSE if left = right, top = bottom or near = far, TRUE otherwise
  */
-b8 perspective_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix);
+b8 perspective_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix);
 
 /**
  * @brief Creates a orthographic projection matrix
@@ -235,18 +235,27 @@ b8 perspective_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 top
  * @param outMatrix A pointer to the matrix to store the output
  * @return FALSE if left = right, top = bottom or near = far, TRUE otherwise
  */
-b8 orthographic_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix);
+b8 orthographic_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix);
 
 /**
- * @brief creates the projection matrix based on aspect ratio and field of view
+ * @brief creates a perspective projection matrix based on aspect ratio and field of view
  * @param nearClip The distance from the camera that the camera starts rendering
  * @param farClip The distance from the camera that the camera stops rendering
  * @param degreeView The field of view in degrees
  * @param aspectRatio The aspect ratio of the extent
- * @param perspective TRUE if a perspective projection is desired, FALSE if an orthographic projection is desired
  * @return A pass by reference 4x4 matrix containing the projection matrix
  */
-mat4 projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f32 aspectRatio, b8 perspective);
+mat4 perspective_projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f32 aspectRatio);
+
+/**
+ * @brief creates an orthographic projection matrix based on aspect ratio and field of view
+ * @param nearClip The distance from the camera that the camera starts rendering
+ * @param farClip The distance from the camera that the camera stops rendering
+ * @param topDistance The vertical size of the projection from center to top
+ * @param aspectRatio The aspect ratio of the extent
+ * @return A pass by reference 4x4 matrix containing the projection matrix
+ */
+mat4 orthographic_projection_matrix(f32 nearClip, f32 farClip, f32 topDistance, f32 aspectRatio);
 
 /**
  * @brief Turns the rotation in degrees around each access into a quaternion for the rotation matrix

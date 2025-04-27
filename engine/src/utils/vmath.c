@@ -269,7 +269,7 @@ b8 matrix4_invert(mat4x4 mat, mat4x4* outMatrix)
   return TRUE;
 }
 
-b8 perspective_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix){
+b8 perspective_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix){
   (*outMatrix) = (mat4x4){0};
   if(
     (right-left) == 0 ||
@@ -288,7 +288,7 @@ b8 perspective_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 top
   return TRUE;
 }
 
-b8 orthographic_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix){
+b8 orthographic_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix){
   (*outMatrix) = (mat4x4){0};
   if(
     (right-left) == 0 ||
@@ -307,18 +307,23 @@ b8 orthographic_projection_matrix(f32 near, f32 far, f32 left, f32 right, f32 to
   return TRUE;
 }
 
-mat4 projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f32 aspectRatio, b8 perspective){
+mat4 perspective_projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f32 aspectRatio){
   f32 radianView = degreeView*(V_PI/180);
   f32 top = tan(radianView/2)*nearClip;
   f32 bottom = -top;
   f32 right = aspectRatio * top;
   f32 left = -right;
   mat4x4 ret_matrix;
-  if(perspective == TRUE){
-    perspective_projection_matrix(nearClip, farClip, left, right, top, bottom, &ret_matrix);
-  }else{
-    orthographic_projection_matrix(nearClip, farClip, left, right, top, bottom, &ret_matrix);
-  }
+  perspective_matrix(nearClip, farClip, left, right, top, bottom, &ret_matrix);
+  return ret_matrix;
+}
+
+mat4 orthographic_projection_matrix(f32 nearClip, f32 farClip, f32 topDistance, f32 aspectRatio){
+  f32 bottom = -topDistance;
+  f32 right = aspectRatio * topDistance;
+  f32 left = -right;
+  mat4x4 ret_matrix;
+  orthographic_matrix(nearClip, farClip, left, right, topDistance, bottom, &ret_matrix);
   return ret_matrix;
 }
 
