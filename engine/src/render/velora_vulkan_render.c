@@ -1441,7 +1441,7 @@ void shutdown_render_system(render_state* state){
 
 #include <math.h>
 void update_uniform_buffer(vulkan_state* state){
-  vec3 position = {{0,0,-10}};
+  vec3 position = {{0,0,-20}};
   vec3 rotation = {{0,0,0}};
   vec3 scale = {{1,1,1}};
   mat4x4 modelMatrix = model_matrix(position, euler_to_quat(rotation), scale);
@@ -1452,7 +1452,8 @@ void update_uniform_buffer(vulkan_state* state){
   mat4x4 viewMatrix = {0};
   matrix4_invert(cameraModelMatrix, &viewMatrix);
   f32 aspectRatio = (float)state->swapchainExtent.width/(float)state->swapchainExtent.height;
-  mat4x4 projMatrix = projection_matrix(0.1, 30, 30, aspectRatio, TRUE);
+  mat4x4 projMatrix = perspective_projection_matrix(0.1, 30, 30, aspectRatio);
+  //orthographic_projection_matrix(0.1, 30, 2, aspectRatio);//perspective_projection_matrix(0.1, 30, 30, aspectRatio);
   ubo* uniformBufferMemory = (ubo*)state->uniformBuffer.memory_info.pMappedData;
   uniformBufferMemory[state->currentFrame].model = modelMatrix;
   uniformBufferMemory[state->currentFrame].view = viewMatrix;
