@@ -705,7 +705,7 @@ u8 create_graphics_pipeline(vulkan_state* state){
     .polygonMode = VK_POLYGON_MODE_FILL, // The other modes are good for wireframes and vertex points but requires enabling a GPU feature in the logical device
     .lineWidth = 1.0f,
     .cullMode = VK_CULL_MODE_BACK_BIT,
-    .frontFace = VK_FRONT_FACE_CLOCKWISE,
+    .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
     .depthBiasEnable = VK_FALSE,
     .depthBiasConstantFactor = 0.0f, //Optional when depthBias is set to false
     .depthBiasClamp = 0.0f, //Optional when depthBias is set to false
@@ -1320,7 +1320,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
     { {{0.5f, 0.5f}},   {{0.0f, 0.0f, 1.0f}} },
     { {{-0.5f, 0.5f}},  {{1.0f, 1.0f, 1.0f}} },
   };
-  u16 indices[] = {0,1,2,2,3,0};
+  u16 indices[] = {2,1,0,0,3,2};
   vk_state->vertexCount = 4;
   vk_state->indexCount = 6;
 
@@ -1439,8 +1439,10 @@ void shutdown_render_system(render_state* state){
   vfree(state, sizeof(render_state), MEMORY_TAG_RENDERER);
 }
 
+#include <math.h>
 void update_uniform_buffer(vulkan_state* state){
-  vec3 position = {{0,0,1}};
+  static f32 circleDegrees = 0;
+  vec3 position = {{0,0,-10}};
   vec3 rotation = {{0,0,0}};
   vec3 scale = {{1,1,1}};
   mat4x4 modelMatrix = model_matrix(position, euler_to_quat(rotation), scale);
@@ -1451,11 +1453,12 @@ void update_uniform_buffer(vulkan_state* state){
   mat4x4 viewMatrix = {0};
   matrix4_invert(cameraModelMatrix, &viewMatrix);
   f32 aspectRatio = (float)state->swapchainExtent.width/(float)state->swapchainExtent.height;
-  mat4x4 projMatrix = projection_matrix(0.1, 5, 180, aspectRatio, TRUE);
+  mat4x4 projMatrix = projection_matrix(0.1, 30, 30, aspectRatio, TRUE);
   ubo* uniformBufferMemory = (ubo*)state->uniformBuffer.memory_info.pMappedData;
   uniformBufferMemory[state->currentFrame].model = modelMatrix;
   uniformBufferMemory[state->currentFrame].view = viewMatrix;
   uniformBufferMemory[state->currentFrame].proj = projMatrix;
+  circleDegrees += 0.002f;
 }
 
 u8 render_preframe(render_state* state){
