@@ -37,7 +37,12 @@
     VFATAL("Vulkan Error: %s", string_VkResult(err)); \
     return FALSE;                                     \
   }}        
-  
+
+typedef struct _ubo{
+  mat4x4 model;
+  mat4x4 view;
+  mat4x4 proj;
+} ubo;
 typedef struct _velora_buffer{
   VkBuffer buffer;
   VmaAllocation memory;
@@ -77,6 +82,7 @@ typedef struct _vulkan_state{
   VkSwapchainKHR swapchain;
   VkImageView* swapchainImageViews;
   VkRenderPass renderPass;
+  VkDescriptorSetLayout descriptorSetLayout;
   VkPipelineLayout pipelineLayout;
   VkPipeline graphicsPipeline;
   VkFramebuffer* frameBuffers;
@@ -89,6 +95,9 @@ typedef struct _vulkan_state{
   b8 windowResized, windowMinimized;
   u32 newWidth, newHeight;
   velora_buffer vertexIndexBuffer;
+  velora_buffer uniformBuffer;
+  VkDescriptorPool descriptorPool;
+  VkDescriptorSet* descriptorSets;
   u64 vertexCount;
   u64 indexCount;
   #ifdef _DEBUG
@@ -738,8 +747,8 @@ u8 create_graphics_pipeline(vulkan_state* state){
   };
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-    .setLayoutCount = 0,
-    .pSetLayouts = NULL,
+    .setLayoutCount = 1,
+    .pSetLayouts = &state->descriptorSetLayout,
     .pushConstantRangeCount = 0,
     .pPushConstantRanges = NULL,
   };
@@ -910,6 +919,16 @@ u8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
   VkDeviceSize offsets[] = {0};
   vkCmdBindVertexBuffers(state->commandBuffer[state->currentFrame], 0, 1, vertexBuffers, offsets);
   vkCmdBindIndexBuffer(state->commandBuffer[state->currentFrame], state->vertexIndexBuffer.buffer, state->vertexCount*sizeof(vertex), VK_INDEX_TYPE_UINT16);
+  vkCmdBindDescriptorSets(
+    state->commandBuffer[state->currentFrame], 
+    VK_PIPELINE_BIND_POINT_GRAPHICS, 
+    state->pipelineLayout,
+    0,
+    1,
+    &state->descriptorSets[state->currentFrame],
+    0,
+    VK_NULL_HANDLE
+  );
   vkCmdDrawIndexed(state->commandBuffer[state->currentFrame], state->indexCount, 1, 0, 0, 0);
   vkCmdEndRenderPass(state->commandBuffer[state->currentFrame]);
   VK_CHECK(vkEndCommandBuffer(state->commandBuffer[state->currentFrame]), "Unable to end recording of command buffer");
@@ -1180,6 +1199,102 @@ b8 create_vertex_index_buffer(vulkan_state *state, vertex* vertices, u16* indice
   return TRUE;
 }
 
+b8 create_descriptor_set_layout(vulkan_state *state){
+  VkDescriptorSetLayoutBinding uboLayoutBinding = {
+    .binding = 0,
+    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    .descriptorCount = 1,
+    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+    .pImmutableSamplers = VK_NULL_HANDLE,
+  };
+  VkDescriptorSetLayoutCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+    .bindingCount = 1,
+    .pBindings = &uboLayoutBinding,
+  };
+  VK_CHECK(
+    vkCreateDescriptorSetLayout(
+      state->logicalDevice,
+      &createInfo,
+      NULL,
+      &state->descriptorSetLayout
+    ), "Unable to create descriptor set layout"
+  );
+  return TRUE;
+}
+
+b8 create_uniform_buffers(vulkan_state *state){
+  VEL_CHECK(create_exclusive_buffer(
+    state,
+    &state->uniformBuffer,
+    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+    sizeof(ubo)*MAX_FRAMES_IN_FLIGHT,
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+  ));
+  return TRUE;
+}
+
+b8 create_descriptor_pool(vulkan_state* state){
+  VkDescriptorPoolSize poolSize = {
+    .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    .descriptorCount = MAX_FRAMES_IN_FLIGHT,
+  };
+  VkDescriptorPoolCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+    .poolSizeCount = 1,
+    .pPoolSizes = &poolSize,
+    .maxSets = MAX_FRAMES_IN_FLIGHT,
+    .flags = 0,
+  };
+  VK_CHECK(vkCreateDescriptorPool(
+    state->logicalDevice,
+    &createInfo,
+    NULL,
+    &state->descriptorPool
+  ), "Unable to create descriptor pool");
+  return TRUE;
+}
+
+b8 create_descriptor_sets(vulkan_state* state){
+  state->descriptorSets = vallocate(sizeof(VkDescriptorSet)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT];
+  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+    vcopy_memory(&layouts[i], &state->descriptorSetLayout, sizeof(VkDescriptorSetLayout));
+  }
+  VkDescriptorSetAllocateInfo allocInfo = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+    .descriptorPool = state->descriptorPool,
+    .descriptorSetCount = MAX_FRAMES_IN_FLIGHT,
+    .pSetLayouts = layouts,
+  };
+  VK_CHECK(vkAllocateDescriptorSets(
+    state->logicalDevice,
+    &allocInfo,
+    state->descriptorSets
+  ), "Unable to allocate the descriptor sets");
+  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+    VkDescriptorBufferInfo bufferInfo = {
+      .buffer = state->uniformBuffer.buffer,
+      .offset = sizeof(ubo)*i,
+      .range = sizeof(ubo),
+    };
+    VkWriteDescriptorSet descriptorWrite = {
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .dstSet = state->descriptorSets[i],
+      .dstBinding = 0,
+      .dstArrayElement = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+      .descriptorCount = 1,
+      .pBufferInfo = &bufferInfo,
+      .pImageInfo = VK_NULL_HANDLE,
+      .pTexelBufferView = VK_NULL_HANDLE,
+    };
+    vkUpdateDescriptorSets(state->logicalDevice, 1, &descriptorWrite, 0, VK_NULL_HANDLE);
+  }
+  return TRUE;
+}
+
 #ifdef VPLATFORM_WINDOWS
 u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
@@ -1224,12 +1339,16 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_swapchain(vk_state, winSize.right, winSize.bottom));
   VEL_CHECK(create_swapchain_image_views(vk_state));
   VEL_CHECK(create_render_pass(vk_state));
+  VEL_CHECK(create_descriptor_set_layout(vk_state));
   VEL_CHECK(create_graphics_pipeline(vk_state));
   VEL_CHECK(create_frame_buffers(vk_state));
   VEL_CHECK(create_command_pool(vk_state));
   VEL_CHECK(create_command_buffer(vk_state));
   VEL_CHECK(create_sync_objects(vk_state));
   VEL_CHECK(create_vertex_index_buffer(vk_state, vertices, indices));
+  VEL_CHECK(create_uniform_buffers(vk_state));
+  VEL_CHECK(create_descriptor_pool(vk_state));
+  VEL_CHECK(create_descriptor_sets(vk_state));
   return TRUE;
 }
 #elif VPLATFORM_LINUX
@@ -1278,7 +1397,11 @@ u8 initiate_render_system(render_state* state, const char* application_name, str
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vkDeviceWaitIdle(vk_state->logicalDevice);
+  vfree(vk_state->descriptorSets, sizeof(VkDescriptorSet)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  vkDestroyDescriptorPool(vk_state->logicalDevice, vk_state->descriptorPool, NULL);
+  vkDestroyDescriptorSetLayout(vk_state->logicalDevice, vk_state->descriptorSetLayout, NULL);
   destroy_velora_buffer(vk_state, &vk_state->vertexIndexBuffer);
+  destroy_velora_buffer(vk_state, &vk_state->uniformBuffer);
   for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
     vkDestroySemaphore(vk_state->logicalDevice, vk_state->imageAvailable[i], NULL);
     vkDestroySemaphore(vk_state->logicalDevice, vk_state->renderFinished[i], NULL);
@@ -1314,6 +1437,25 @@ void shutdown_render_system(render_state* state){
   vkDestroyInstance(vk_state->instance, NULL);
   vfree(state->internal_render_state, sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vfree(state, sizeof(render_state), MEMORY_TAG_RENDERER);
+}
+
+void update_uniform_buffer(vulkan_state* state){
+  vec3 position = {{0,0,1}};
+  vec3 rotation = {{0,0,0}};
+  vec3 scale = {{1,1,1}};
+  mat4x4 modelMatrix = model_matrix(position, euler_to_quat(rotation), scale);
+  vec3 cameraPosition = {{0,0,0}};
+  vec3 cameraRotation = {{0,0,0}};
+  vec3 cameraScale = {{1,1,1}};
+  mat4x4 cameraModelMatrix = model_matrix(cameraPosition, euler_to_quat(cameraRotation), cameraScale);
+  mat4x4 viewMatrix = {0};
+  matrix4_invert(cameraModelMatrix, &viewMatrix);
+  f32 aspectRatio = (float)state->swapchainExtent.width/(float)state->swapchainExtent.height;
+  mat4x4 projMatrix = projection_matrix(0.1, 5, 180, aspectRatio, TRUE);
+  ubo* uniformBufferMemory = (ubo*)state->uniformBuffer.memory_info.pMappedData;
+  uniformBufferMemory[state->currentFrame].model = modelMatrix;
+  uniformBufferMemory[state->currentFrame].view = viewMatrix;
+  uniformBufferMemory[state->currentFrame].proj = projMatrix;
 }
 
 u8 render_preframe(render_state* state){
@@ -1358,6 +1500,7 @@ u8 render_frame(render_state* state){
   VkSemaphore waitSemaphores[] = {vk_state->imageAvailable[vk_state->currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   VkSemaphore signalSemaphores[] = {vk_state->renderFinished[vk_state->currentFrame]};
+  update_uniform_buffer(vk_state);
   VkSubmitInfo submitInfo = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     .waitSemaphoreCount = 1,
