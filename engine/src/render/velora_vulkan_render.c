@@ -1441,7 +1441,6 @@ void shutdown_render_system(render_state* state){
 
 #include <math.h>
 void update_uniform_buffer(vulkan_state* state){
-  static f32 circleDegrees = 0;
   vec3 position = {{0,0,-10}};
   vec3 rotation = {{0,0,0}};
   vec3 scale = {{1,1,1}};
@@ -1458,7 +1457,6 @@ void update_uniform_buffer(vulkan_state* state){
   uniformBufferMemory[state->currentFrame].model = modelMatrix;
   uniformBufferMemory[state->currentFrame].view = viewMatrix;
   uniformBufferMemory[state->currentFrame].proj = projMatrix;
-  circleDegrees += 0.002f;
 }
 
 u8 render_preframe(render_state* state){
