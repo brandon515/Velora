@@ -37,9 +37,9 @@ mat4 scaling_matrix(vec3 scale){
 }
 
 quat euler_to_quat(vec3 eulerDegreeAngles){
-  f32 pitch = eulerDegreeAngles.x*(V_PI/180);
-  f32 yaw = eulerDegreeAngles.y*(V_PI/180);
-  f32 roll = eulerDegreeAngles.z*(V_PI/180);
+  f32 pitch = eulerDegreeAngles.y*(V_PI/180);
+  f32 yaw = eulerDegreeAngles.z*(V_PI/180);
+  f32 roll = eulerDegreeAngles.x*(V_PI/180);
 
   quat ret_quat = {0};
   ret_quat.x = (sin(roll/2) * cos(pitch/2) * cos(yaw/2)) - (cos(roll/2) * sin(pitch/2) * sin(yaw/2));
