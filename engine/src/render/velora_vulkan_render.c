@@ -43,11 +43,18 @@ typedef struct _ubo{
   mat4x4 view;
   mat4x4 proj;
 } ubo;
+
 typedef struct _velora_buffer{
   VkBuffer buffer;
   VmaAllocation memory;
   VmaAllocationInfo memory_info;
 } velora_buffer;
+
+typedef struct _velora_image{
+  VkImage image;
+  VmaAllocation memory;
+  VmaAllocationInfo memory_info;
+}velora_image;
 
 typedef struct _vertex {
   vec2 pos;
@@ -1111,6 +1118,90 @@ b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* src
     1,
     &commandBuffer
   );
+  return TRUE;
+}
+
+b8 create_exclusive_image(
+  vulkan_state *state, 
+  velora_image* image,
+  u32 width,
+  u32 height,
+  VkImageUsageFlags flags,
+  VmaAllocationCreateFlags vmaFlags
+){
+  VkImageCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+    .imageType = VK_IMAGE_TYPE_2D,
+    .extent.width = width,
+    .extent.height = height,
+    .extent.depth = 1,
+    .mipLevels = 1,
+    .arrayLayers = 1,
+    .format = VK_FORMAT_R8G8B8A8_SRGB,
+    .tiling = VK_IMAGE_TILING_OPTIMAL,
+    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .usage = flags,//VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    .samples = VK_SAMPLE_COUNT_1_BIT,
+    .flags = 0,
+  };
+  VmaAllocationCreateInfo allocInfo = {
+    .usage = VMA_MEMORY_USAGE_AUTO,
+    .flags = vmaFlags,
+    .priority = 1.0f,
+  };
+  VK_CHECK(vmaCreateImage(
+    state->allocator,
+    &createInfo,
+    &allocInfo,
+    &image->image,
+    &image->memory,
+    &image->memory_info
+  ), "Unable to create image");
+  return TRUE;
+}
+
+b8 create_shared_image(
+  vulkan_state* state,
+  velora_image* image,
+  u32 width,
+  u32 height,
+  VkImageUsageFlags flags,
+  VmaAllocationCreateFlags vmaFlags,
+  u32* queueFamilyIndices,
+  u32 queueFamilyIndiciesCount
+){
+  VkImageCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+    .imageType = VK_IMAGE_TYPE_2D,
+    .extent.width = width,
+    .extent.height = height,
+    .extent.depth = 1,
+    .mipLevels = 1,
+    .arrayLayers = 1,
+    .format = VK_FORMAT_R8G8B8A8_SRGB,
+    .tiling = VK_IMAGE_TILING_OPTIMAL,
+    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .usage = flags,//VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    .sharingMode = VK_SHARING_MODE_CONCURRENT,
+    .pQueueFamilyIndices = queueFamilyIndices,
+    .queueFamilyIndexCount = queueFamilyIndiciesCount,
+    .samples = VK_SAMPLE_COUNT_1_BIT,
+    .flags = 0,
+  };
+  VmaAllocationCreateInfo allocInfo = {
+    .usage = VMA_MEMORY_USAGE_AUTO,
+    .flags = vmaFlags,
+    .priority = 1.0f,
+  };
+  VK_CHECK(vmaCreateImage(
+    state->allocator,
+    &createInfo,
+    &allocInfo,
+    &image->image,
+    &image->memory,
+    &image->memory_info
+  ), "Unable to create image");
   return TRUE;
 }
 
