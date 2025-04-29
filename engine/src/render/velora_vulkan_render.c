@@ -94,9 +94,9 @@ typedef struct _vulkan_state{
   VkPipelineLayout pipelineLayout;
   VkPipeline graphicsPipeline;
   VkFramebuffer* frameBuffers;
-  VkCommandPool commandPool;
+  VkCommandPool graphicsCommandPool;
   VkCommandBuffer* commandBuffer;
-  VkCommandPool transferPool;
+  VkCommandPool transferCommandPool;
   VkSemaphore* imageAvailable, *renderFinished;
   VkFence* inFlight;
   u32 currentFrame;
@@ -845,7 +845,7 @@ u8 create_command_pool(vulkan_state* state){
       state->logicalDevice,
       &createInfo,
       NULL,
-      &state->commandPool
+      &state->graphicsCommandPool
     ), 
     "Unable to create command pool"
   );
@@ -859,7 +859,7 @@ u8 create_command_pool(vulkan_state* state){
       state->logicalDevice,
       &transferInfo,
       NULL,
-      &state->transferPool
+      &state->transferCommandPool
     ),
     "Unable to create transfer command pool"
   );
@@ -870,7 +870,7 @@ u8 create_command_buffer(vulkan_state* state){
   state->commandBuffer = vallocate(sizeof(VkCommandBuffer)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   VkCommandBufferAllocateInfo allocInfo = {
     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-    .commandPool = state->commandPool,
+    .commandPool = state->graphicsCommandPool,
     .commandBufferCount = MAX_FRAMES_IN_FLIGHT,
     .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
   };
@@ -1119,14 +1119,14 @@ b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* src
     VERROR("Attemped to copy data that's beyond the bounds of the source buffer");
     return FALSE;
   }
-  VkCommandBuffer commandBuffer = begin_single_command(state, state->transferPool);
+  VkCommandBuffer commandBuffer = begin_single_command(state, state->transferCommandPool);
   VkBufferCopy copyRegion = {
     .srcOffset = srcOffset,
     .dstOffset = dstOffset,
     .size = dataSize,
   };
   vkCmdCopyBuffer(commandBuffer, srcBuffer->buffer, dstBuffer->buffer, 1, &copyRegion);
-  end_single_command(state, state->transferPool, state->transferQueue, commandBuffer);
+  end_single_command(state, state->transferCommandPool, state->transferQueue, commandBuffer);
   return TRUE;
 }
 
@@ -1398,7 +1398,7 @@ b8 create_descriptor_sets(vulkan_state* state){
 b8 transition_image_layout(vulkan_state* state, velora_image* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout){
   VkCommandBuffer commandBuffer = begin_single_command(
     state,
-    state->transferPool
+    state->graphicsCommandPool
   );
   VkAccessFlags srcAccessMask = 0;
   VkAccessFlags dstAccessMask = 0;
@@ -1449,7 +1449,7 @@ b8 transition_image_layout(vulkan_state* state, velora_image* image, VkFormat fo
 
   end_single_command(
     state,
-    state->transferPool,
+    state->graphicsCommandPool,
     state->graphicsQueue,
     commandBuffer
   );
@@ -1457,7 +1457,7 @@ b8 transition_image_layout(vulkan_state* state, velora_image* image, VkFormat fo
 }
 
 b8 copy_buffer_to_image(vulkan_state* state, velora_buffer* buffer, velora_image* image, u32 width, u32 height){
-  VkCommandBuffer commandBuffer = begin_single_command(state, state->transferPool);
+  VkCommandBuffer commandBuffer = begin_single_command(state, state->transferCommandPool);
   
   VkBufferImageCopy region = {
     .bufferOffset = 0,
@@ -1488,7 +1488,7 @@ b8 copy_buffer_to_image(vulkan_state* state, velora_buffer* buffer, velora_image
   
   end_single_command(
     state,
-    state->transferPool,
+    state->transferCommandPool,
     state->transferQueue,
     commandBuffer
   );
@@ -1696,8 +1696,8 @@ void shutdown_render_system(render_state* state){
   vfree(vk_state->imageAvailable, sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vfree(vk_state->renderFinished, sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vfree(vk_state->inFlight, sizeof(VkFence)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
-  vkDestroyCommandPool(vk_state->logicalDevice, vk_state->commandPool, NULL);
-  vkDestroyCommandPool(vk_state->logicalDevice, vk_state->transferPool, NULL);
+  vkDestroyCommandPool(vk_state->logicalDevice, vk_state->graphicsCommandPool, NULL);
+  vkDestroyCommandPool(vk_state->logicalDevice, vk_state->transferCommandPool, NULL);
   vfree(vk_state->commandBuffer, sizeof(VkCommandBuffer)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vfree(vk_state->frameBuffers, sizeof(VkFramebuffer)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
   vkDestroyPipeline(vk_state->logicalDevice, vk_state->graphicsPipeline, NULL);
