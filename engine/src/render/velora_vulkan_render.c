@@ -11,6 +11,7 @@
 #include "utils/vfile.h"
 #include <vulkan/vk_enum_string_helper.h>
 #include "core/event.h"
+#include "core/stb_image.h"
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -1067,6 +1068,41 @@ b8 create_exclusive_buffer(
   return TRUE;
 }
 
+VkCommandBuffer begin_single_command(vulkan_state* state, VkCommandPool commandPool){
+  VkCommandBufferAllocateInfo allocInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    .commandPool = commandPool,
+    .commandBufferCount = 1,
+  };
+
+  VkCommandBuffer commandBuffer;
+  vkAllocateCommandBuffers(state->logicalDevice, &allocInfo, &commandBuffer);
+
+  VkCommandBufferBeginInfo beginInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+  };
+
+  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+  return commandBuffer;
+}
+
+void end_single_command(vulkan_state* state, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer){
+  vkEndCommandBuffer(commandBuffer);
+
+  VkSubmitInfo submitInfo = {
+    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .commandBufferCount = 1,
+    .pCommandBuffers = &commandBuffer,
+  };
+  vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+  vkQueueWaitIdle(queue);
+
+  vkFreeCommandBuffers(state->logicalDevice, commandPool, 1, &commandBuffer);
+}
+
 b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* srcBuffer, VkDeviceSize dataSize, VkDeviceSize srcOffset, VkDeviceSize dstOffset){
   if(dataSize+dstOffset > dstBuffer->memory_info.size){
     VERROR("Attempted to copy data larger than the capacity of the destination buffer");
@@ -1075,49 +1111,14 @@ b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* src
     VERROR("Attemped to copy data that's beyond the bounds of the source buffer");
     return FALSE;
   }
-  VkCommandBufferAllocateInfo allocInfo = {
-    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-    .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-    .commandPool = state->transferPool,
-    .commandBufferCount = 1,
-  };
-  VkCommandBuffer commandBuffer;
-  VK_CHECK(
-    vkAllocateCommandBuffers(state->logicalDevice, &allocInfo, &commandBuffer),
-    "Unable to allocate command buffer from Transfer command pool"
-  );
-  VkCommandBufferBeginInfo beginInfo = {
-    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-  };
-  VK_CHECK(
-    vkBeginCommandBuffer(commandBuffer, &beginInfo),
-    "Unable to start recording on transfer command buffer"
-  );
+  VkCommandBuffer commandBuffer = begin_single_command(state, state->transferPool);
   VkBufferCopy copyRegion = {
     .srcOffset = srcOffset,
     .dstOffset = dstOffset,
     .size = dataSize,
   };
   vkCmdCopyBuffer(commandBuffer, srcBuffer->buffer, dstBuffer->buffer, 1, &copyRegion);
-  VK_CHECK(
-    vkEndCommandBuffer(commandBuffer),
-    "Unable to end transfer command buffer recording"
-  );
-
-  VkSubmitInfo submitInfo = {
-    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .commandBufferCount = 1,
-    .pCommandBuffers = &commandBuffer
-  };
-  vkQueueSubmit(state->transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-  vkQueueWaitIdle(state->transferQueue);
-  vkFreeCommandBuffers(
-    state->logicalDevice,
-    state->transferPool,
-    1,
-    &commandBuffer
-  );
+  end_single_command(state, state->transferPool, state->transferQueue, commandBuffer);
   return TRUE;
 }
 
@@ -1382,6 +1383,66 @@ b8 create_descriptor_sets(vulkan_state* state){
       .pTexelBufferView = VK_NULL_HANDLE,
     };
     vkUpdateDescriptorSets(state->logicalDevice, 1, &descriptorWrite, 0, VK_NULL_HANDLE);
+  }
+  return TRUE;
+}
+
+b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image){
+  int texWidth, texHeight, texChannels;
+  stbi_uc *pixels = stbi_load(
+    filePath,
+    &texWidth,
+    &texHeight,
+    &texChannels,
+    STBI_rgb_alpha
+  );
+  VkDeviceSize imageSize = texWidth * texHeight * texChannels;
+  if(!pixels){
+    VERROR("Unable to create texture");
+    return FALSE;
+  }
+  velora_buffer stagingBuffer;
+  create_exclusive_buffer(
+    state,
+    &stagingBuffer,
+    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    imageSize,
+    0,
+    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+  );
+  vmaCopyMemoryToAllocation(
+    state->allocator,
+    pixels,
+    stagingBuffer.memory,
+    0,
+    imageSize
+  );
+  stbi_image_free(pixels);
+
+  if(state->graphicsQueueIndex == state->transferQueueIndex){
+    create_exclusive_image(
+      state,
+      image,
+      texWidth,
+      texHeight,
+      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+    );
+  }else{
+    u32 queueFamilies[2] = {
+      state->graphicsQueueIndex,
+      state->transferQueueIndex
+    };
+    create_shared_image(
+      state,
+      image,
+      texWidth,
+      texHeight,
+      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+      queueFamilies,
+      2
+    );
   }
   return TRUE;
 }
