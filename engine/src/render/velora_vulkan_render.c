@@ -1002,6 +1002,14 @@ void destroy_velora_buffer(vulkan_state* state, velora_buffer* buffer){
   );
 }
 
+void destroy_velora_image(vulkan_state* state, velora_image* image){
+  vmaDestroyImage(
+    state->allocator,
+    image->image,
+    image->memory
+  );
+}
+
 b8 create_shared_buffer(
   vulkan_state *state, 
   velora_buffer* buffer, 
@@ -1387,6 +1395,106 @@ b8 create_descriptor_sets(vulkan_state* state){
   return TRUE;
 }
 
+b8 transition_image_layout(vulkan_state* state, velora_image* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout){
+  VkCommandBuffer commandBuffer = begin_single_command(
+    state,
+    state->transferPool
+  );
+  VkAccessFlags srcAccessMask = 0;
+  VkAccessFlags dstAccessMask = 0;
+
+  VkPipelineStageFlags srcStage = 0;
+  VkPipelineStageFlags dstStage = 0;
+
+  if(oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL){
+    srcAccessMask = 0;
+    dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+  }else if(oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL){
+    srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+  }else{
+    VERROR("Unsupported layout transition");
+    return FALSE;
+  }
+
+  VkImageMemoryBarrier barrier = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+    .oldLayout = oldLayout,
+    .newLayout = newLayout,
+    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .image = image->image,
+    .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    .subresourceRange.baseMipLevel = 0,
+    .subresourceRange.levelCount = 1,
+    .subresourceRange.baseArrayLayer = 0,
+    .subresourceRange.layerCount = 1,
+    .srcAccessMask = srcAccessMask,
+    .dstAccessMask = dstAccessMask,
+  };
+  vkCmdPipelineBarrier(
+    commandBuffer,
+    srcStage, dstStage,
+    0,
+    0, VK_NULL_HANDLE,
+    0, VK_NULL_HANDLE,
+    1, &barrier
+  );
+
+  end_single_command(
+    state,
+    state->transferPool,
+    state->graphicsQueue,
+    commandBuffer
+  );
+  return TRUE;
+}
+
+b8 copy_buffer_to_image(vulkan_state* state, velora_buffer* buffer, velora_image* image, u32 width, u32 height){
+  VkCommandBuffer commandBuffer = begin_single_command(state, state->transferPool);
+  
+  VkBufferImageCopy region = {
+    .bufferOffset = 0,
+    .bufferRowLength = 0,
+    .bufferImageHeight = 0,
+
+    .imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    .imageSubresource.mipLevel = 0,
+    .imageSubresource.baseArrayLayer = 0,
+    .imageSubresource.layerCount = 1,
+
+    .imageOffset = {0,0,0},
+    .imageExtent = {
+      width,
+      height,
+      1
+    },
+  };
+
+  vkCmdCopyBufferToImage(
+    commandBuffer,
+    buffer->buffer,
+    image->image,
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    1,
+    &region
+  );
+  
+  end_single_command(
+    state,
+    state->transferPool,
+    state->transferQueue,
+    commandBuffer
+  );
+  return TRUE;
+}
+
 b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image){
   int texWidth, texHeight, texChannels;
   stbi_uc *pixels = stbi_load(
@@ -1396,7 +1504,7 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
     &texChannels,
     STBI_rgb_alpha
   );
-  VkDeviceSize imageSize = texWidth * texHeight * texChannels;
+  VkDeviceSize imageSize = texWidth * texHeight * 4;
   if(!pixels){
     VERROR("Unable to create texture");
     return FALSE;
@@ -1444,6 +1552,29 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
       2
     );
   }
+  VEL_CHECK(transition_image_layout(
+    state,
+    image,
+    VK_FORMAT_R8G8B8A8_SRGB,
+    VK_IMAGE_LAYOUT_UNDEFINED,
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+  ));
+  VEL_CHECK(copy_buffer_to_image(
+    state,
+    &stagingBuffer,
+    image,
+    texWidth,
+    texHeight
+  ));
+  VEL_CHECK(transition_image_layout(
+    state, 
+    image, 
+    VK_FORMAT_R8G8B8A8_SRGB,
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+  ));
+
+  destroy_velora_buffer(state, &stagingBuffer);
   return TRUE;
 }
 
@@ -1501,6 +1632,9 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_uniform_buffers(vk_state));
   VEL_CHECK(create_descriptor_pool(vk_state));
   VEL_CHECK(create_descriptor_sets(vk_state));
+  velora_image image = {0};
+  VEL_CHECK(create_texture(vk_state, "texture.jpg", &image));
+  destroy_velora_image(vk_state, &image);
   return TRUE;
 }
 #elif VPLATFORM_LINUX
