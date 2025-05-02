@@ -524,36 +524,48 @@ u8 create_swapchain(vulkan_state* state, u32 width, u32 height){
   return TRUE;
 }
 
+b8 create_image_view(vulkan_state* state, VkImage image, VkFormat format, VkImageView* outView){
+  VkComponentMapping compMapping = {
+    .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+    .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+    .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+    .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+  };
+  VkImageSubresourceRange subresRange = {
+    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    .baseMipLevel = 0,
+    .levelCount = 1,
+    .baseArrayLayer = 0,
+    .layerCount = 1
+  };
+  VkImageViewCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+    .image = image,
+    .viewType = VK_IMAGE_VIEW_TYPE_2D,
+    .format = format,
+    .components = compMapping,
+    .subresourceRange = subresRange,
+  };
+  VK_CHECK(vkCreateImageView(
+    state->logicalDevice,
+    &createInfo,
+    NULL,
+    outView
+  ), "Unable to create image view");
+  return TRUE;
+}
+
 u8 create_swapchain_image_views(vulkan_state* state){
   state->swapchainImageViews = vallocate(sizeof(VkImageView)*state->swapchainImageCount, MEMORY_TAG_RENDERER);
   for(int i = 0; i < state->swapchainImageCount; i++){
-    VkComponentMapping compMapping = {
-      .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-      .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-      .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-      .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-    };
-    VkImageSubresourceRange subresRange = {
-      .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-      .baseMipLevel = 0,
-      .levelCount = 1,
-      .baseArrayLayer = 0,
-      .layerCount = 1
-    };
-    VkImageViewCreateInfo createInfo = {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-      .image = state->swapchainImages[i],
-      .viewType = VK_IMAGE_VIEW_TYPE_2D,
-      .format = state->swapchainFormat,
-      .components = compMapping,
-      .subresourceRange = subresRange,
-    };
-    VK_CHECK(vkCreateImageView(
-      state->logicalDevice,
-      &createInfo,
-      NULL,
-      &state->swapchainImageViews[i]
-    ), "Unable to create image view");
+    VEL_CHECK(
+      create_image_view(
+        state, 
+        state->swapchainImages[i], 
+        state->swapchainFormat, 
+        &state->swapchainImageViews[i]
+      )
+    );
   }
   return TRUE;
 }
