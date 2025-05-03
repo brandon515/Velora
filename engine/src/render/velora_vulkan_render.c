@@ -60,7 +60,7 @@ typedef struct _velora_image{
 }velora_image;
 
 typedef struct _vertex {
-  vec2 pos;
+  vec3 pos;
   vec3 color;
   vec2 texCoord;
 } vertex;
@@ -569,7 +569,7 @@ u8 create_swapchain_image_views(vulkan_state* state){
     VEL_CHECK(
       create_image_view(
         state, 
-        state->swapchainImages[i], 
+        state->swapchainImages[i],
         state->swapchainFormat, 
         &state->swapchainImageViews[i]
       )
@@ -685,7 +685,7 @@ u8 create_graphics_pipeline(vulkan_state* state){
 
   vertexStructDesc[0].binding = 0;
   vertexStructDesc[0].location = 0;
-  vertexStructDesc[0].format = VK_FORMAT_R32G32_SFLOAT;
+  vertexStructDesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
   vertexStructDesc[0].offset = offsetof(vertex, pos);
 
   vertexStructDesc[1].binding = 0;
@@ -1707,14 +1707,22 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   vk_state->currentFrame = 0;
   //TODO: This is horrendous, delete it entirely when we load objects from HDD
   vertex vertices[] = {
-    { {{-0.5f, -0.5f}}, {{1.0f, 0.0f, 0.0f}}, {{1.0f, 0.0f}} },
-    { {{0.5f, -0.5f}},  {{0.0f, 1.0f, 0.0f}}, {{0.0f, 0.0f}} },
-    { {{0.5f, 0.5f}},   {{0.0f, 0.0f, 1.0f}}, {{0.0f, 1.0f}} },
-    { {{-0.5f, 0.5f}},  {{1.0f, 1.0f, 1.0f}}, {{1.0f, 1.0f}} },
+    { {{-0.5f, -0.5f, 0.0f}}, {{1.0f, 0.0f, 0.0f}}, {{1.0f, 0.0f}} },
+    { {{0.5f, -0.5f, 0.0f}},  {{0.0f, 1.0f, 0.0f}}, {{0.0f, 0.0f}} },
+    { {{0.5f, 0.5f, 0.0f}},   {{0.0f, 0.0f, 1.0f}}, {{0.0f, 1.0f}} },
+    { {{-0.5f, 0.5f, 0.0f}},  {{1.0f, 1.0f, 1.0f}}, {{1.0f, 1.0f}} },
+
+    { {{-0.5f, -0.5f, -0.5f}}, {{1.0f, 0.0f, 0.0f}}, {{1.0f, 0.0f}} },
+    { {{0.5f, -0.5f, -0.5f}},  {{0.0f, 1.0f, 0.0f}}, {{0.0f, 0.0f}} },
+    { {{0.5f, 0.5f, -0.5f}},   {{0.0f, 0.0f, 1.0f}}, {{0.0f, 1.0f}} },
+    { {{-0.5f, 0.5f, -0.5f}},  {{1.0f, 1.0f, 1.0f}}, {{1.0f, 1.0f}} },
   };
-  u16 indices[] = {2,1,0,0,3,2};
-  vk_state->vertexCount = 4;
-  vk_state->indexCount = 6;
+  u16 indices[] = {
+    2,1,0,0,3,2,
+    6,5,4,4,7,6
+  };
+  vk_state->vertexCount = 8;
+  vk_state->indexCount = 12;
 
   const char* deviceExtensions[10];
   u32 extensionCount = 0;
