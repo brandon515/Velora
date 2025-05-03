@@ -83,8 +83,8 @@ mat4 model_matrix(vec3 translation, quat rotation, vec3 scale){
   mat4 scaleMatrix = scaling_matrix(scale);
   mat4 scratchMatrix = {0};
   mat4 ret_matrix = {0};
-  matrix4_multiply(rotMatrix, scaleMatrix, &scratchMatrix);
-  matrix4_multiply(transMatrix, scratchMatrix, &ret_matrix);
+  matrix4_multiply(rotMatrix, transMatrix, &scratchMatrix);
+  matrix4_multiply(scaleMatrix, scratchMatrix, &ret_matrix);
   return ret_matrix;
 }
 
