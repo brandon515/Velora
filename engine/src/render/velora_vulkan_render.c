@@ -55,11 +55,14 @@ typedef struct _velora_image{
   VkImage image;
   VmaAllocation memory;
   VmaAllocationInfo memory_info;
+  VkImageView view;
+  VkSampler sampler;
 }velora_image;
 
 typedef struct _vertex {
   vec2 pos;
   vec3 color;
+  vec2 texCoord;
 } vertex;
 
 typedef struct _swapchain_support{
@@ -108,6 +111,7 @@ typedef struct _vulkan_state{
   VkDescriptorSet* descriptorSets;
   u64 vertexCount;
   u64 indexCount;
+  velora_image texImage;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -360,7 +364,10 @@ u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, con
 
   u8 swapchainSuitable = obtain_swapchain_info(state, device);
 
-  return (swapchainSuitable && graphicsQueueObtained && transferQueueObtained && presentQueueObtained && (foundExtensions == extensionCount));
+  VkPhysicalDeviceFeatures supportedFeatures;
+  vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+
+  return (swapchainSuitable && graphicsQueueObtained && transferQueueObtained && presentQueueObtained && (foundExtensions == extensionCount) && supportedFeatures.samplerAnisotropy);
 }
 
 u8 obtain_physical_device(vulkan_state* state, const char** extensions, u32 extensionCount){
@@ -403,6 +410,7 @@ u8 create_logical_device(vulkan_state* state, const char** extensions, u32 exten
     activate_queue(queueCreateInfos, &queueCount, state->transferQueueIndex, 1, &queuePri);
   }
   VkPhysicalDeviceFeatures deviceFeatues = {0};
+  deviceFeatues.samplerAnisotropy = VK_TRUE;
   VkDeviceCreateInfo logicalDeviceCreateInfo ={
     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
     .pQueueCreateInfos = queueCreateInfos,
@@ -672,7 +680,7 @@ u8 create_graphics_pipeline(vulkan_state* state){
     .stride = sizeof(vertex),
     .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
   };
-  const u8 numOfVertexStructMembers = 2;
+  const u8 numOfVertexStructMembers = 3;
   VkVertexInputAttributeDescription vertexStructDesc[numOfVertexStructMembers];
 
   vertexStructDesc[0].binding = 0;
@@ -684,6 +692,11 @@ u8 create_graphics_pipeline(vulkan_state* state){
   vertexStructDesc[1].location = 1;
   vertexStructDesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
   vertexStructDesc[1].offset = offsetof(vertex, color);
+
+  vertexStructDesc[2].binding = 0;
+  vertexStructDesc[2].location = 2;
+  vertexStructDesc[2].format = VK_FORMAT_R32G32_SFLOAT;
+  vertexStructDesc[2].offset = offsetof(vertex, texCoord);
   VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
     .vertexBindingDescriptionCount = 1,
@@ -1015,6 +1028,16 @@ void destroy_velora_buffer(vulkan_state* state, velora_buffer* buffer){
 }
 
 void destroy_velora_image(vulkan_state* state, velora_image* image){
+  vkDestroySampler(
+    state->logicalDevice,
+    image->sampler,
+    VK_NULL_HANDLE
+  );
+  vkDestroyImageView(
+    state->logicalDevice,
+    image->view,
+    VK_NULL_HANDLE
+  );
   vmaDestroyImage(
     state->allocator,
     image->image,
@@ -1312,17 +1335,27 @@ b8 create_vertex_index_buffer(vulkan_state *state, vertex* vertices, u16* indice
 }
 
 b8 create_descriptor_set_layout(vulkan_state *state){
-  VkDescriptorSetLayoutBinding uboLayoutBinding = {
+  u32 descriptorCount = 2;
+  VkDescriptorSetLayoutBinding layoutBindings[descriptorCount];
+  layoutBindings[0] = (VkDescriptorSetLayoutBinding){
     .binding = 0,
     .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
     .descriptorCount = 1,
     .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
     .pImmutableSamplers = VK_NULL_HANDLE,
   };
+  
+  layoutBindings[1] = (VkDescriptorSetLayoutBinding){
+    .binding = 1,
+    .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    .descriptorCount = 1,
+    .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+    .pImmutableSamplers = VK_NULL_HANDLE,
+  };
   VkDescriptorSetLayoutCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-    .bindingCount = 1,
-    .pBindings = &uboLayoutBinding,
+    .bindingCount = descriptorCount,
+    .pBindings = layoutBindings,
   };
   VK_CHECK(
     vkCreateDescriptorSetLayout(
@@ -1348,14 +1381,22 @@ b8 create_uniform_buffers(vulkan_state *state){
 }
 
 b8 create_descriptor_pool(vulkan_state* state){
-  VkDescriptorPoolSize poolSize = {
+  u32 poolCount = 2;
+  VkDescriptorPoolSize poolSize[poolCount];
+  
+  poolSize[0] = (VkDescriptorPoolSize){
     .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
     .descriptorCount = MAX_FRAMES_IN_FLIGHT,
   };
+  poolSize[1] = (VkDescriptorPoolSize){
+    .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    .descriptorCount = MAX_FRAMES_IN_FLIGHT,
+  };
+
   VkDescriptorPoolCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-    .poolSizeCount = 1,
-    .pPoolSizes = &poolSize,
+    .poolSizeCount = poolCount,
+    .pPoolSizes = poolSize,
     .maxSets = MAX_FRAMES_IN_FLIGHT,
     .flags = 0,
   };
@@ -1391,7 +1432,15 @@ b8 create_descriptor_sets(vulkan_state* state){
       .offset = sizeof(ubo)*i,
       .range = sizeof(ubo),
     };
-    VkWriteDescriptorSet descriptorWrite = {
+    VkDescriptorImageInfo imageInfo = {
+      .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+      .imageView = state->texImage.view,
+      .sampler = state->texImage.sampler,
+    };
+    u32 descCount = 2;
+    VkWriteDescriptorSet descriptorWrite[2];
+    
+    descriptorWrite[0] = (VkWriteDescriptorSet){
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .dstSet = state->descriptorSets[i],
       .dstBinding = 0,
@@ -1402,7 +1451,24 @@ b8 create_descriptor_sets(vulkan_state* state){
       .pImageInfo = VK_NULL_HANDLE,
       .pTexelBufferView = VK_NULL_HANDLE,
     };
-    vkUpdateDescriptorSets(state->logicalDevice, 1, &descriptorWrite, 0, VK_NULL_HANDLE);
+    descriptorWrite[1] = (VkWriteDescriptorSet){
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .dstSet = state->descriptorSets[i],
+      .dstBinding = 1,
+      .dstArrayElement = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      .descriptorCount = 1,
+      .pBufferInfo = VK_NULL_HANDLE,
+      .pImageInfo = &imageInfo,
+      .pTexelBufferView = VK_NULL_HANDLE,
+    };
+    vkUpdateDescriptorSets(
+      state->logicalDevice, 
+      descCount, 
+      descriptorWrite, 
+      0, 
+      VK_NULL_HANDLE
+    );
   }
   return TRUE;
 }
@@ -1587,6 +1653,37 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
   ));
 
   destroy_velora_buffer(state, &stagingBuffer);
+  
+  VEL_CHECK(create_image_view(state, image->image, VK_FORMAT_R8G8B8A8_SRGB,&image->view));
+
+  VkPhysicalDeviceProperties props = {0};
+  vkGetPhysicalDeviceProperties(state->physicalDevice, &props);
+
+  VkSamplerCreateInfo samplerInfo = {
+    .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+    .magFilter = VK_FILTER_LINEAR,
+    .minFilter = VK_FILTER_LINEAR,
+    .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    .anisotropyEnable = VK_TRUE,
+    .maxAnisotropy = props.limits.maxSamplerAnisotropy,
+    .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+    .unnormalizedCoordinates = VK_FALSE,
+    .compareEnable = VK_FALSE,
+    .compareOp = VK_COMPARE_OP_ALWAYS,
+    .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+    .mipLodBias = 0.0f,
+    .minLod = 0.0f,
+    .maxLod = 0.0f,
+  };
+  VK_CHECK(vkCreateSampler(
+    state->logicalDevice, 
+    &samplerInfo, 
+    VK_NULL_HANDLE,
+    &image->sampler
+  ), "Unable to create image sampler");
+
   return TRUE;
 }
 
@@ -1610,10 +1707,10 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   vk_state->currentFrame = 0;
   //TODO: This is horrendous, delete it entirely when we load objects from HDD
   vertex vertices[] = {
-    { {{-0.5f, -0.5f}}, {{1.0f, 0.0f, 0.0f}} },
-    { {{0.5f, -0.5f}},  {{0.0f, 1.0f, 0.0f}} },
-    { {{0.5f, 0.5f}},   {{0.0f, 0.0f, 1.0f}} },
-    { {{-0.5f, 0.5f}},  {{1.0f, 1.0f, 1.0f}} },
+    { {{-0.5f, -0.5f}}, {{1.0f, 0.0f, 0.0f}}, {{1.0f, 0.0f}} },
+    { {{0.5f, -0.5f}},  {{0.0f, 1.0f, 0.0f}}, {{0.0f, 0.0f}} },
+    { {{0.5f, 0.5f}},   {{0.0f, 0.0f, 1.0f}}, {{0.0f, 1.0f}} },
+    { {{-0.5f, 0.5f}},  {{1.0f, 1.0f, 1.0f}}, {{1.0f, 1.0f}} },
   };
   u16 indices[] = {2,1,0,0,3,2};
   vk_state->vertexCount = 4;
@@ -1641,12 +1738,10 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_command_buffer(vk_state));
   VEL_CHECK(create_sync_objects(vk_state));
   VEL_CHECK(create_vertex_index_buffer(vk_state, vertices, indices));
+  VEL_CHECK(create_texture(vk_state, "texture.jpg", &vk_state->texImage));
   VEL_CHECK(create_uniform_buffers(vk_state));
   VEL_CHECK(create_descriptor_pool(vk_state));
   VEL_CHECK(create_descriptor_sets(vk_state));
-  velora_image image = {0};
-  VEL_CHECK(create_texture(vk_state, "texture.jpg", &image));
-  destroy_velora_image(vk_state, &image);
   return TRUE;
 }
 #elif VPLATFORM_LINUX
@@ -1695,6 +1790,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, str
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vkDeviceWaitIdle(vk_state->logicalDevice);
+  destroy_velora_image(vk_state, &vk_state->texImage);
   vfree(vk_state->descriptorSets, sizeof(VkDescriptorSet)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vkDestroyDescriptorPool(vk_state->logicalDevice, vk_state->descriptorPool, NULL);
   vkDestroyDescriptorSetLayout(vk_state->logicalDevice, vk_state->descriptorSetLayout, NULL);
@@ -1737,9 +1833,8 @@ void shutdown_render_system(render_state* state){
   vfree(state, sizeof(render_state), MEMORY_TAG_RENDERER);
 }
 
-#include <math.h>
 void update_uniform_buffer(vulkan_state* state){
-  vec3 position = {{0,0,-20}};
+  vec3 position = {{0,0,-5}};
   vec3 rotation = {{0,0,0}};
   vec3 scale = {{1,1,1}};
   mat4x4 modelMatrix = model_matrix(position, euler_to_quat(rotation), scale);
