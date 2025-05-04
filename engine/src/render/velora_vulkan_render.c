@@ -11,7 +11,7 @@
 #include "utils/vfile.h"
 #include <vulkan/vk_enum_string_helper.h>
 #include "core/event.h"
-#include "core/stb_image.h"
+#include "utils/vimport.h"
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -1725,43 +1725,31 @@ b8 create_sampler(vulkan_state* state, velora_image* image){
 }
 
 b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image){
-  int texWidth, texHeight, texChannels;
-  stbi_uc *pixels = stbi_load(
-    filePath,
-    &texWidth,
-    &texHeight,
-    &texChannels,
-    STBI_rgb_alpha
-  );
-  VkDeviceSize imageSize = texWidth * texHeight * 4;
-  if(!pixels){
-    VERROR("Unable to create texture");
-    return FALSE;
-  }
+  velora_pixels imageData = {0};
+  import_pixels(filePath, &imageData);
   velora_buffer stagingBuffer;
   create_exclusive_buffer(
     state,
     &stagingBuffer,
     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    imageSize,
+    imageData.size,
     0,
     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
   );
   vmaCopyMemoryToAllocation(
     state->allocator,
-    pixels,
+    imageData.pixels,
     stagingBuffer.memory,
     0,
-    imageSize
+    imageData.size
   );
-  stbi_image_free(pixels);
 
   if(state->graphicsQueueIndex == state->transferQueueIndex){
     VEL_CHECK(create_exclusive_image(
       state,
       image,
-      texWidth,
-      texHeight,
+      imageData.width,
+      imageData.height,
       VK_FORMAT_R8G8B8A8_SRGB,
       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
       VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
@@ -1774,8 +1762,8 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
     VEL_CHECK(create_shared_image(
       state,
       image,
-      texWidth,
-      texHeight,
+      imageData.width,
+      imageData.height,
       VK_FORMAT_R8G8B8A8_SRGB,
       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
       VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
@@ -1794,8 +1782,8 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
     state,
     &stagingBuffer,
     image,
-    texWidth,
-    texHeight
+    imageData.width,
+    imageData.height
   ));
   VEL_CHECK(transition_image_layout(
     state, 
@@ -1806,6 +1794,7 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
   ));
 
   destroy_velora_buffer(state, &stagingBuffer);
+  free_pixels(&imageData);
   
   VEL_CHECK(create_image_view(state, image->image, VK_FORMAT_R8G8B8A8_SRGB, &image->view, VK_IMAGE_ASPECT_COLOR_BIT));
 
