@@ -112,6 +112,7 @@ typedef struct _vulkan_state{
   u64 vertexCount;
   u64 indexCount;
   velora_image texImage;
+  velora_image depthImage;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -166,7 +167,7 @@ void populate_debug_create_info(VkDebugUtilsMessengerCreateInfoEXT* createInfo){
   createInfo->pNext = NULL;
 }
 
-u8 initiate_validation_callback(vulkan_state* state){
+b8 initiate_validation_callback(vulkan_state* state){
   VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
   populate_debug_create_info(&createInfo);
   VK_CHECK(
@@ -177,7 +178,7 @@ u8 initiate_validation_callback(vulkan_state* state){
 }
 #endif
 
-u8 check_layer_support(const char** validation_layers, u32 num_of_layers){
+b8 check_layer_support(const char** validation_layers, u32 num_of_layers){
   u32 layerCount;
   VK_CHECK(vkEnumerateInstanceLayerProperties(&layerCount, NULL), "Unable to enumerate validation layers");
 
@@ -203,7 +204,7 @@ void enable_optional_feature(const char** enabled_layers, u32* current_count, co
   (*current_count)++;
 }
 
-u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
+b8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   const char* enabled_layers[10]; //10 should be enough for now
   u32 num_of_layers = 0;
   const char* extensions[10]; //10 should be enough here too
@@ -258,7 +259,7 @@ u8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   return TRUE;
 }
 
-u8 obtain_swapchain_info(vulkan_state* state, VkPhysicalDevice device){
+b8 obtain_swapchain_info(vulkan_state* state, VkPhysicalDevice device){
   VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
     device, 
     state->surface, 
@@ -307,7 +308,7 @@ u8 obtain_swapchain_info(vulkan_state* state, VkPhysicalDevice device){
   return TRUE;
 }
 
-u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, const char** extensions, u32 extensionCount){
+b8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, const char** extensions, u32 extensionCount){
   u32 queueFamilyCount = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
   if(queueFamilyCount == 0){
@@ -370,7 +371,7 @@ u8 is_physical_device_suitable(vulkan_state* state, VkPhysicalDevice device, con
   return (swapchainSuitable && graphicsQueueObtained && transferQueueObtained && presentQueueObtained && (foundExtensions == extensionCount) && supportedFeatures.samplerAnisotropy);
 }
 
-u8 obtain_physical_device(vulkan_state* state, const char** extensions, u32 extensionCount){
+b8 obtain_physical_device(vulkan_state* state, const char** extensions, u32 extensionCount){
   u32 deviceCount = 0;
   VK_CHECK(vkEnumeratePhysicalDevices(state->instance, &deviceCount, NULL), "Unable to enumerate physical devices");
   if(deviceCount == 0){
@@ -398,7 +399,7 @@ void activate_queue(VkDeviceQueueCreateInfo* queueArray, u32* current_count, u32
   (*current_count)++;
 }
 
-u8 create_logical_device(vulkan_state* state, const char** extensions, u32 extensionCount){
+b8 create_logical_device(vulkan_state* state, const char** extensions, u32 extensionCount){
   float queuePri = 1.0f;
   VkDeviceQueueCreateInfo queueCreateInfos[10];
   u32 queueCount = 0;
@@ -435,7 +436,7 @@ u8 create_logical_device(vulkan_state* state, const char** extensions, u32 exten
   return TRUE;
 }
 
-u8 create_vma_allocator(vulkan_state* state){
+b8 create_vma_allocator(vulkan_state* state){
   VmaAllocatorCreateInfo createInfo = {
     .device = state->logicalDevice,
     .physicalDevice = state->physicalDevice,
@@ -446,7 +447,7 @@ u8 create_vma_allocator(vulkan_state* state){
   return TRUE;
 }
 
-u8 choose_surface_format(vulkan_state* state, VkSurfaceFormatKHR *out_format){
+b8 choose_surface_format(vulkan_state* state, VkSurfaceFormatKHR *out_format){
   for(int i = 0; i < state->swapchainSupportDetails.surfaceFormatCount; i++){
     if(state->swapchainSupportDetails.surfaceFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
       && state->swapchainSupportDetails.surfaceFormats[i].format == VK_FORMAT_B8G8R8A8_SRGB){
@@ -458,7 +459,7 @@ u8 choose_surface_format(vulkan_state* state, VkSurfaceFormatKHR *out_format){
   return FALSE;
 }
 
-u8 choose_present_mode(vulkan_state* state, VkPresentModeKHR* out_mode){
+b8 choose_present_mode(vulkan_state* state, VkPresentModeKHR* out_mode){
   for(int i = 0; i < state->swapchainSupportDetails.presentModeCount; i++){
     if(state->swapchainSupportDetails.presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR){
       (*out_mode) = VK_PRESENT_MODE_MAILBOX_KHR;
@@ -481,7 +482,7 @@ VkExtent2D choose_swapchain_extent(const VkSurfaceCapabilitiesKHR caps, u32 widt
   return extent;
 }
 
-u8 create_swapchain(vulkan_state* state, u32 width, u32 height){
+b8 create_swapchain(vulkan_state* state, u32 width, u32 height){
   VkSurfaceFormatKHR surfaceFormat;
   VEL_CHECK(choose_surface_format(state, &surfaceFormat));
   state->swapchainFormat = surfaceFormat.format;
@@ -563,7 +564,7 @@ b8 create_image_view(vulkan_state* state, VkImage image, VkFormat format, VkImag
   return TRUE;
 }
 
-u8 create_swapchain_image_views(vulkan_state* state){
+b8 create_swapchain_image_views(vulkan_state* state){
   state->swapchainImageViews = vallocate(sizeof(VkImageView)*state->swapchainImageCount, MEMORY_TAG_RENDERER);
   for(int i = 0; i < state->swapchainImageCount; i++){
     VEL_CHECK(
@@ -606,7 +607,7 @@ VkShaderModule get_shader_module(vulkan_state* state, const char* shaderFileName
   return ret_mod;
 }
 
-u8 create_render_pass(vulkan_state* state){
+b8 create_render_pass(vulkan_state* state){
   VkAttachmentDescription colorAttachment = {
     .format = state->swapchainFormat,
     .samples = VK_SAMPLE_COUNT_1_BIT, // This will change if multi sampling is enabled
@@ -647,7 +648,7 @@ u8 create_render_pass(vulkan_state* state){
   return TRUE;
 }
 
-u8 create_graphics_pipeline(vulkan_state* state){
+b8 create_graphics_pipeline(vulkan_state* state){
   VkShaderModule vertMod = get_shader_module(state, "vert.spv");
   VkShaderModule fragMod = get_shader_module(state, "frag.spv");
   VkPipelineShaderStageCreateInfo vertexCreateInfo = {
@@ -828,7 +829,7 @@ u8 create_graphics_pipeline(vulkan_state* state){
   return TRUE;
 }
 
-u8 create_frame_buffers(vulkan_state* state){
+b8 create_frame_buffers(vulkan_state* state){
   state->frameBuffers = vallocate(
     sizeof(VkFramebuffer)*state->swapchainImageCount, 
     MEMORY_TAG_RENDERER
@@ -859,7 +860,7 @@ u8 create_frame_buffers(vulkan_state* state){
   return TRUE;
 }
 
-u8 create_command_pool(vulkan_state* state){
+b8 create_command_pool(vulkan_state* state){
   VkCommandPoolCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
     .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
@@ -891,7 +892,7 @@ u8 create_command_pool(vulkan_state* state){
   return TRUE;
 }
 
-u8 create_command_buffer(vulkan_state* state){
+b8 create_command_buffer(vulkan_state* state){
   state->commandBuffer = vallocate(sizeof(VkCommandBuffer)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   VkCommandBufferAllocateInfo allocInfo = {
     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -910,7 +911,7 @@ u8 create_command_buffer(vulkan_state* state){
   return TRUE;
 }
 
-u8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
+b8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
   if(swapchainImageIndex >= state->swapchainImageCount){
     VFATAL("Attempted to record command buffer for swapchain image that doesn't exist");
     return FALSE;
@@ -968,7 +969,7 @@ u8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
   return TRUE;
 }
 
-u8 create_sync_objects(vulkan_state* state){
+b8 create_sync_objects(vulkan_state* state){
   state->imageAvailable = vallocate(sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   state->renderFinished = vallocate(sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   state->inFlight = vallocate(sizeof(VkFence)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
@@ -1573,6 +1574,37 @@ b8 copy_buffer_to_image(vulkan_state* state, velora_buffer* buffer, velora_image
   return TRUE;
 }
 
+b8 create_sampler(vulkan_state* state, velora_image* image){
+  VkPhysicalDeviceProperties props = {0};
+  vkGetPhysicalDeviceProperties(state->physicalDevice, &props);
+
+  VkSamplerCreateInfo samplerInfo = {
+    .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+    .magFilter = VK_FILTER_LINEAR,
+    .minFilter = VK_FILTER_LINEAR,
+    .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    .anisotropyEnable = VK_TRUE,
+    .maxAnisotropy = props.limits.maxSamplerAnisotropy,
+    .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+    .unnormalizedCoordinates = VK_FALSE,
+    .compareEnable = VK_FALSE,
+    .compareOp = VK_COMPARE_OP_ALWAYS,
+    .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+    .mipLodBias = 0.0f,
+    .minLod = 0.0f,
+    .maxLod = 0.0f,
+  };
+  VK_CHECK(vkCreateSampler(
+    state->logicalDevice, 
+    &samplerInfo, 
+    VK_NULL_HANDLE,
+    &image->sampler
+  ), "Unable to create image sampler");
+  return TRUE;
+}
+
 b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image){
   int texWidth, texHeight, texChannels;
   stbi_uc *pixels = stbi_load(
@@ -1654,41 +1686,17 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
 
   destroy_velora_buffer(state, &stagingBuffer);
   
-  VEL_CHECK(create_image_view(state, image->image, VK_FORMAT_R8G8B8A8_SRGB,&image->view));
+  VEL_CHECK(create_image_view(state, image->image, VK_FORMAT_R8G8B8A8_SRGB, &image->view));
 
-  VkPhysicalDeviceProperties props = {0};
-  vkGetPhysicalDeviceProperties(state->physicalDevice, &props);
-
-  VkSamplerCreateInfo samplerInfo = {
-    .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-    .magFilter = VK_FILTER_LINEAR,
-    .minFilter = VK_FILTER_LINEAR,
-    .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-    .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-    .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-    .anisotropyEnable = VK_TRUE,
-    .maxAnisotropy = props.limits.maxSamplerAnisotropy,
-    .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-    .unnormalizedCoordinates = VK_FALSE,
-    .compareEnable = VK_FALSE,
-    .compareOp = VK_COMPARE_OP_ALWAYS,
-    .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-    .mipLodBias = 0.0f,
-    .minLod = 0.0f,
-    .maxLod = 0.0f,
-  };
-  VK_CHECK(vkCreateSampler(
-    state->logicalDevice, 
-    &samplerInfo, 
-    VK_NULL_HANDLE,
-    &image->sampler
-  ), "Unable to create image sampler");
+  VEL_CHECK(create_sampler(state, image));
 
   return TRUE;
 }
 
+
+
 #ifdef VPLATFORM_WINDOWS
-u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
+b8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   VkWin32SurfaceCreateInfoKHR createInfo = {
     .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
     .hwnd = window,
@@ -1701,7 +1709,7 @@ u8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
   return TRUE;
 }
 
-u8 initiate_render_system(render_state* state, const char* application_name, HWND window, HINSTANCE handle){
+b8 initiate_render_system(render_state* state, const char* application_name, HWND window, HINSTANCE handle){
   state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vk_state->currentFrame = 0;
@@ -1753,7 +1761,7 @@ u8 initiate_render_system(render_state* state, const char* application_name, HWN
   return TRUE;
 }
 #elif VPLATFORM_LINUX
-u8 create_window_surface(vulkan_state* state, struct wl_display* display, struct wl_surface* surface){
+b8 create_window_surface(vulkan_state* state, struct wl_display* display, struct wl_surface* surface){
   VkWin32SurfaceCreateInfoKHR createInfo = {
     .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
     .hwnd = window,
@@ -1766,7 +1774,7 @@ u8 create_window_surface(vulkan_state* state, struct wl_display* display, struct
   return TRUE;
 }
 
-u8 initiate_render_system(render_state* state, const char* application_name, struct wl_display* display, struct wl_surface* surface){
+b8 initiate_render_system(render_state* state, const char* application_name, struct wl_display* display, struct wl_surface* surface){
   state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
 
@@ -1861,7 +1869,7 @@ void update_uniform_buffer(vulkan_state* state){
   uniformBufferMemory[state->currentFrame].proj = projMatrix;
 }
 
-u8 render_preframe(render_state* state){
+b8 render_preframe(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   if(vk_state->windowResized){
     if(vk_state->newHeight == 0 && vk_state->newWidth == 0){
@@ -1878,7 +1886,7 @@ u8 render_preframe(render_state* state){
   return TRUE;
 }
 
-u8 render_frame(render_state* state){
+b8 render_frame(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   if(vk_state->windowMinimized){
     return TRUE;
@@ -1937,7 +1945,7 @@ u8 render_frame(render_state* state){
   return TRUE;
 }
 
-u8 render_postframe(render_state* state){
+b8 render_postframe(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   if(vk_state->windowMinimized){
     return TRUE;
