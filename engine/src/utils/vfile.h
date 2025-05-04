@@ -15,4 +15,4 @@ u64 get_file_size(FILE* file);
  * @param out_buffer A pointer to an allocated buffer to output into
  * @return FALSE if the file is NULL or if the amount of data read isn't the whole file, TRUE otherwise
  */
-u8 get_file_contents(FILE* file, u8* out_buffer);
+b8 get_file_contents(FILE* file, u8* out_buffer);

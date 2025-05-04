@@ -8,7 +8,7 @@ u64 get_file_size(FILE* file){
   return ret_pos;
 }
 
-u8 get_file_contents(FILE* file, u8* out_buffer){
+b8 get_file_contents(FILE* file, u8* out_buffer){
   if(file == NULL){
     return FALSE;
   }
