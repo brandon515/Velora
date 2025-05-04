@@ -8,6 +8,11 @@ typedef struct _velora_pixels{
   u64 size;
 }velora_pixels;
 
+typedef struct _gltf_buffer{
+  u64 size;
+  u8* buffer;
+}gltf_buffer;
+
 /**
  * @brief Imports an image with the provided URI
  * @param uri a string pointing to the filepath for the image to import
