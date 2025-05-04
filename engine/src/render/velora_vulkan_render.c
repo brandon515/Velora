@@ -259,6 +259,299 @@ b8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   return TRUE;
 }
 
+b8 has_stencil_comp(VkFormat format){
+  return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+VkCommandBuffer begin_single_command(vulkan_state* state, VkCommandPool commandPool){
+  VkCommandBufferAllocateInfo allocInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    .commandPool = commandPool,
+    .commandBufferCount = 1,
+  };
+
+  VkCommandBuffer commandBuffer;
+  vkAllocateCommandBuffers(state->logicalDevice, &allocInfo, &commandBuffer);
+
+  VkCommandBufferBeginInfo beginInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+  };
+
+  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+  return commandBuffer;
+}
+
+void end_single_command(vulkan_state* state, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer){
+  vkEndCommandBuffer(commandBuffer);
+
+  VkSubmitInfo submitInfo = {
+    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .commandBufferCount = 1,
+    .pCommandBuffers = &commandBuffer,
+  };
+  vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+  vkQueueWaitIdle(queue);
+
+  vkFreeCommandBuffers(state->logicalDevice, commandPool, 1, &commandBuffer);
+}
+
+b8 transition_image_layout(vulkan_state* state, velora_image* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout){
+  VkCommandBuffer commandBuffer = begin_single_command(
+    state,
+    state->graphicsCommandPool
+  );
+  VkAccessFlags srcAccessMask = 0;
+  VkAccessFlags dstAccessMask = 0;
+
+  VkPipelineStageFlags srcStage = 0;
+  VkPipelineStageFlags dstStage = 0;
+
+  VkImageAspectFlags aspectFlag = 0;
+
+  if(newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL){
+    aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT;
+    if(has_stencil_comp(format)){
+      aspectFlag |= VK_IMAGE_ASPECT_STENCIL_BIT;
+    }
+  }else{
+    aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
+  }
+
+  if(oldLayout == VK_IMAGE_LAYOUT_UNDEFINED){
+    if(newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL){
+      srcAccessMask = 0;
+      dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+      srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }else if(newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL){
+      srcAccessMask = 0;
+      dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+      srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    }
+  }else if(oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL){
+    srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+  }else{
+    VERROR("Unsupported layout transition");
+    return FALSE;
+  }
+
+  VkImageMemoryBarrier barrier = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+    .oldLayout = oldLayout,
+    .newLayout = newLayout,
+    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .image = image->image,
+    .subresourceRange.aspectMask = aspectFlag,
+    .subresourceRange.baseMipLevel = 0,
+    .subresourceRange.levelCount = 1,
+    .subresourceRange.baseArrayLayer = 0,
+    .subresourceRange.layerCount = 1,
+    .srcAccessMask = srcAccessMask,
+    .dstAccessMask = dstAccessMask,
+  };
+  vkCmdPipelineBarrier(
+    commandBuffer,
+    srcStage, dstStage,
+    0,
+    0, VK_NULL_HANDLE,
+    0, VK_NULL_HANDLE,
+    1, &barrier
+  );
+
+  end_single_command(
+    state,
+    state->graphicsCommandPool,
+    state->graphicsQueue,
+    commandBuffer
+  );
+  return TRUE;
+}
+
+b8 create_image_view(vulkan_state* state, VkImage image, VkFormat format, VkImageView* outView, VkImageAspectFlags aspectFlags){
+  VkComponentMapping compMapping = {
+    .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+    .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+    .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+    .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+  };
+  VkImageSubresourceRange subresRange = {
+    .aspectMask = aspectFlags,
+    .baseMipLevel = 0,
+    .levelCount = 1,
+    .baseArrayLayer = 0,
+    .layerCount = 1
+  };
+  VkImageViewCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+    .image = image,
+    .viewType = VK_IMAGE_VIEW_TYPE_2D,
+    .format = format,
+    .components = compMapping,
+    .subresourceRange = subresRange,
+  };
+  VK_CHECK(vkCreateImageView(
+    state->logicalDevice,
+    &createInfo,
+    NULL,
+    outView
+  ), "Unable to create image view");
+  return TRUE;
+}
+
+b8 create_exclusive_image(
+  vulkan_state *state, 
+  velora_image* image,
+  u32 width,
+  u32 height,
+  VkFormat format,
+  VkImageUsageFlags flags,
+  VmaAllocationCreateFlags vmaFlags
+){
+  VkImageCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+    .imageType = VK_IMAGE_TYPE_2D,
+    .extent.width = width,
+    .extent.height = height,
+    .extent.depth = 1,
+    .mipLevels = 1,
+    .arrayLayers = 1,
+    .format = format,
+    .tiling = VK_IMAGE_TILING_OPTIMAL,
+    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .usage = flags,//VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    .samples = VK_SAMPLE_COUNT_1_BIT,
+    .flags = 0,
+  };
+  VmaAllocationCreateInfo allocInfo = {
+    .usage = VMA_MEMORY_USAGE_AUTO,
+    .flags = vmaFlags,
+    .priority = 1.0f,
+  };
+  VK_CHECK(vmaCreateImage(
+    state->allocator,
+    &createInfo,
+    &allocInfo,
+    &image->image,
+    &image->memory,
+    &image->memory_info
+  ), "Unable to create image");
+  return TRUE;
+}
+
+b8 create_shared_image(
+  vulkan_state* state,
+  velora_image* image,
+  u32 width,
+  u32 height,
+  VkFormat format,
+  VkImageUsageFlags flags,
+  VmaAllocationCreateFlags vmaFlags,
+  u32* queueFamilyIndices,
+  u32 queueFamilyIndiciesCount
+){
+  VkImageCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+    .imageType = VK_IMAGE_TYPE_2D,
+    .extent.width = width,
+    .extent.height = height,
+    .extent.depth = 1,
+    .mipLevels = 1,
+    .arrayLayers = 1,
+    .format = format,
+    .tiling = VK_IMAGE_TILING_OPTIMAL,
+    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .usage = flags,//VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    .sharingMode = VK_SHARING_MODE_CONCURRENT,
+    .pQueueFamilyIndices = queueFamilyIndices,
+    .queueFamilyIndexCount = queueFamilyIndiciesCount,
+    .samples = VK_SAMPLE_COUNT_1_BIT,
+    .flags = 0,
+  };
+  VmaAllocationCreateInfo allocInfo = {
+    .usage = VMA_MEMORY_USAGE_AUTO,
+    .flags = vmaFlags,
+    .priority = 1.0f,
+  };
+  VK_CHECK(vmaCreateImage(
+    state->allocator,
+    &createInfo,
+    &allocInfo,
+    &image->image,
+    &image->memory,
+    &image->memory_info
+  ), "Unable to create image");
+  return TRUE;
+}
+
+b8 find_supported_format(vulkan_state* state, const VkFormat* candidates, u32 candidateCount, VkImageTiling tiling, VkFormatFeatureFlags features, VkFormat* outFormat){
+  for(int i = 0; i < candidateCount; i++){
+    VkFormatProperties props;
+    vkGetPhysicalDeviceFormatProperties(state->physicalDevice, candidates[i], &props);
+    if(tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features){
+      (*outFormat) = candidates[i];
+      return TRUE;
+    }else if(tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features){
+      (*outFormat) = candidates[i];
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+b8 find_depth_format(vulkan_state* state, VkFormat* outFormat){
+  const u32 formatCount = 3;
+  const VkFormat formats[] = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
+  return find_supported_format(
+    state,
+    formats,
+    formatCount,
+    VK_IMAGE_TILING_OPTIMAL,
+    VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    outFormat
+  );
+}
+
+b8 create_depth_resources(vulkan_state* state){
+  VkFormat depthFormat = {0};
+  VEL_CHECK(find_depth_format(state, &depthFormat));
+  VEL_CHECK(create_exclusive_image(
+    state,
+    &state->depthImage,
+    state->swapchainExtent.width,
+    state->swapchainExtent.height,
+    depthFormat,
+    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+  ));
+  VEL_CHECK(create_image_view(
+    state,
+    state->depthImage.image,
+    depthFormat,
+    &state->depthImage.view,
+    VK_IMAGE_ASPECT_DEPTH_BIT
+  ));
+  VEL_CHECK(transition_image_layout(
+    state,
+    &state->depthImage,
+    depthFormat,
+    VK_IMAGE_LAYOUT_UNDEFINED,
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+  ));
+  return TRUE;
+}
+
 b8 obtain_swapchain_info(vulkan_state* state, VkPhysicalDevice device){
   VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
     device, 
@@ -533,37 +826,6 @@ b8 create_swapchain(vulkan_state* state, u32 width, u32 height){
   return TRUE;
 }
 
-b8 create_image_view(vulkan_state* state, VkImage image, VkFormat format, VkImageView* outView){
-  VkComponentMapping compMapping = {
-    .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-    .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-    .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-    .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-  };
-  VkImageSubresourceRange subresRange = {
-    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-    .baseMipLevel = 0,
-    .levelCount = 1,
-    .baseArrayLayer = 0,
-    .layerCount = 1
-  };
-  VkImageViewCreateInfo createInfo = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-    .image = image,
-    .viewType = VK_IMAGE_VIEW_TYPE_2D,
-    .format = format,
-    .components = compMapping,
-    .subresourceRange = subresRange,
-  };
-  VK_CHECK(vkCreateImageView(
-    state->logicalDevice,
-    &createInfo,
-    NULL,
-    outView
-  ), "Unable to create image view");
-  return TRUE;
-}
-
 b8 create_swapchain_image_views(vulkan_state* state){
   state->swapchainImageViews = vallocate(sizeof(VkImageView)*state->swapchainImageCount, MEMORY_TAG_RENDERER);
   for(int i = 0; i < state->swapchainImageCount; i++){
@@ -572,7 +834,8 @@ b8 create_swapchain_image_views(vulkan_state* state){
         state, 
         state->swapchainImages[i],
         state->swapchainFormat, 
-        &state->swapchainImageViews[i]
+        &state->swapchainImageViews[i],
+        VK_IMAGE_ASPECT_COLOR_BIT
       )
     );
   }
@@ -618,27 +881,45 @@ b8 create_render_pass(vulkan_state* state){
     .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // We don't care about maintainining the image incoming, we're going to clear it anyway
     .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, // We're going to render it into the window so it needs to be ready
   };
+  VkFormat depthFormat;
+  VEL_CHECK(find_depth_format(state, &depthFormat));
+  VkAttachmentDescription depthAttachment = {
+    .format = depthFormat,
+    .samples = VK_SAMPLE_COUNT_1_BIT,
+    .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+    .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+    .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+    .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+  };
   VkAttachmentReference colorAttachmentRef = { // This is the layout(location = 0) out vec4 outColor in the fragment shader
     .attachment = 0,
     .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+  };
+  VkAttachmentReference depthAttachmentRef = { // This is the layout(location = 0) out vec4 outColor in the fragment shader
+    .attachment = 1,
+    .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
   };
   VkSubpassDescription subpass = {
     .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
     .colorAttachmentCount = 1,
     .pColorAttachments = &colorAttachmentRef,
+    .pDepthStencilAttachment = &depthAttachmentRef,
   };
   VkSubpassDependency dependency = {
     .srcSubpass = VK_SUBPASS_EXTERNAL, // This refers to the implicit subpass at the beginning of the pipeline
     .dstSubpass = 0,
-    .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
     .srcAccessMask = 0,
-    .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
   };
+  VkAttachmentDescription attachments[] = {colorAttachment, depthAttachment};
   VkRenderPassCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-    .attachmentCount = 1,
-    .pAttachments = &colorAttachment,
+    .attachmentCount = 2,
+    .pAttachments = attachments,
     .subpassCount = 1,
     .pSubpasses = &subpass,
     .dependencyCount = 1,
@@ -779,6 +1060,18 @@ b8 create_graphics_pipeline(vulkan_state* state){
     .blendConstants[2] = 0.0f,
     .blendConstants[3] = 0.0f,
   };
+  VkPipelineDepthStencilStateCreateInfo depthStencil = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+    .depthTestEnable = VK_TRUE,
+    .depthWriteEnable = VK_TRUE,
+    .depthCompareOp = VK_COMPARE_OP_LESS,
+    .depthBoundsTestEnable = VK_FALSE,
+    .minDepthBounds = 0.0f,
+    .maxDepthBounds = 1.0f,
+    .stencilTestEnable = VK_FALSE,
+    .front = {0},
+    .back = {0},
+  };
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .setLayoutCount = 1,
@@ -804,7 +1097,7 @@ b8 create_graphics_pipeline(vulkan_state* state){
     .pViewportState = &viewportStateCreateInfo,
     .pRasterizationState = &rasterizer,
     .pMultisampleState = &multiSampling,
-    .pDepthStencilState = NULL, // We disabled stencil buffers
+    .pDepthStencilState = &depthStencil,
     .pColorBlendState = &colorBlending,
     .pDynamicState = &dynamicStateCreateInfo,
     .layout = state->pipelineLayout,
@@ -837,11 +1130,12 @@ b8 create_frame_buffers(vulkan_state* state){
   for(int i = 0; i < state->swapchainImageCount; i++){
     VkImageView attachments[] = {
       state->swapchainImageViews[i],
+      state->depthImage.view
     };
     VkFramebufferCreateInfo createInfo = {
       .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
       .renderPass = state->renderPass,
-      .attachmentCount = 1,
+      .attachmentCount = 2,
       .pAttachments = attachments,
       .width = state->swapchainExtent.width,
       .height = state->swapchainExtent.height,
@@ -923,15 +1217,17 @@ b8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
   };
   VK_CHECK(vkBeginCommandBuffer(state->commandBuffer[state->currentFrame], &beginInfo), "Unable to start recording commander buffer");
 
-  VkClearValue clearColor = {{{0.0f,0.0f,0.0f,1.0f}}};
+  VkClearValue clearColor[2];
+  clearColor[0].color =  (VkClearColorValue){{0.0f,0.0f,0.0f,1.0f}};
+  clearColor[1].depthStencil = (VkClearDepthStencilValue){1.0f, 0};
   VkRenderPassBeginInfo renderPassInfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
     .renderPass = state->renderPass,
     .framebuffer = state->frameBuffers[swapchainImageIndex],
     .renderArea.offset = {0,0},
     .renderArea.extent = state->swapchainExtent,
-    .clearValueCount = 1,
-    .pClearValues = &clearColor,
+    .clearValueCount = 2,
+    .pClearValues = clearColor,
   };
   vkCmdBeginRenderPass(state->commandBuffer[state->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
   vkCmdBindPipeline(state->commandBuffer[state->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, state->graphicsPipeline);
@@ -997,29 +1293,6 @@ b8 create_sync_objects(vulkan_state* state){
   return TRUE;
 }
 
-b8 recreate_swapchain(vulkan_state* state, u32 width, u32 height){
-  vkDeviceWaitIdle(state->logicalDevice);
-
-  destroy_swapchain(state);
-  VEL_CHECK(obtain_swapchain_info(state, state->physicalDevice));
-  VEL_CHECK(create_swapchain(state, width, height));
-  VEL_CHECK(create_swapchain_image_views(state));
-  VEL_CHECK(create_frame_buffers(state));
-  return TRUE;
-}
-
-b8 resize_handler(event* newEvent, void* state){
-  if(newEvent->event_type == ENGINE_WINDOW_RESIZE){
-    resize_data* eventData = (resize_data*)newEvent->event_data;
-    render_state* ren_state = (render_state*)state;
-    vulkan_state* state = (vulkan_state*)ren_state->internal_render_state;
-    state->newHeight = eventData->height;
-    state->newWidth = eventData->width;
-    state->windowResized = TRUE;
-  }
-  return TRUE;
-}
-
 void destroy_velora_buffer(vulkan_state* state, velora_buffer* buffer){
   vmaDestroyBuffer(
     state->allocator, 
@@ -1045,6 +1318,32 @@ void destroy_velora_image(vulkan_state* state, velora_image* image){
     image->memory
   );
 }
+
+b8 recreate_swapchain(vulkan_state* state, u32 width, u32 height){
+  vkDeviceWaitIdle(state->logicalDevice);
+
+  destroy_velora_image(state, &state->depthImage);
+  destroy_swapchain(state);
+  VEL_CHECK(obtain_swapchain_info(state, state->physicalDevice));
+  VEL_CHECK(create_swapchain(state, width, height));
+  VEL_CHECK(create_swapchain_image_views(state));
+  VEL_CHECK(create_depth_resources(state));
+  VEL_CHECK(create_frame_buffers(state));
+  return TRUE;
+}
+
+b8 resize_handler(event* newEvent, void* state){
+  if(newEvent->event_type == ENGINE_WINDOW_RESIZE){
+    resize_data* eventData = (resize_data*)newEvent->event_data;
+    render_state* ren_state = (render_state*)state;
+    vulkan_state* state = (vulkan_state*)ren_state->internal_render_state;
+    state->newHeight = eventData->height;
+    state->newWidth = eventData->width;
+    state->windowResized = TRUE;
+  }
+  return TRUE;
+}
+
 
 b8 create_shared_buffer(
   vulkan_state *state, 
@@ -1112,41 +1411,6 @@ b8 create_exclusive_buffer(
   return TRUE;
 }
 
-VkCommandBuffer begin_single_command(vulkan_state* state, VkCommandPool commandPool){
-  VkCommandBufferAllocateInfo allocInfo = {
-    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-    .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-    .commandPool = commandPool,
-    .commandBufferCount = 1,
-  };
-
-  VkCommandBuffer commandBuffer;
-  vkAllocateCommandBuffers(state->logicalDevice, &allocInfo, &commandBuffer);
-
-  VkCommandBufferBeginInfo beginInfo = {
-    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-  };
-
-  vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-  return commandBuffer;
-}
-
-void end_single_command(vulkan_state* state, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer){
-  vkEndCommandBuffer(commandBuffer);
-
-  VkSubmitInfo submitInfo = {
-    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .commandBufferCount = 1,
-    .pCommandBuffers = &commandBuffer,
-  };
-  vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-  vkQueueWaitIdle(queue);
-
-  vkFreeCommandBuffers(state->logicalDevice, commandPool, 1, &commandBuffer);
-}
-
 b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* srcBuffer, VkDeviceSize dataSize, VkDeviceSize srcOffset, VkDeviceSize dstOffset){
   if(dataSize+dstOffset > dstBuffer->memory_info.size){
     VERROR("Attempted to copy data larger than the capacity of the destination buffer");
@@ -1163,90 +1427,6 @@ b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* src
   };
   vkCmdCopyBuffer(commandBuffer, srcBuffer->buffer, dstBuffer->buffer, 1, &copyRegion);
   end_single_command(state, state->transferCommandPool, state->transferQueue, commandBuffer);
-  return TRUE;
-}
-
-b8 create_exclusive_image(
-  vulkan_state *state, 
-  velora_image* image,
-  u32 width,
-  u32 height,
-  VkImageUsageFlags flags,
-  VmaAllocationCreateFlags vmaFlags
-){
-  VkImageCreateInfo createInfo = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-    .imageType = VK_IMAGE_TYPE_2D,
-    .extent.width = width,
-    .extent.height = height,
-    .extent.depth = 1,
-    .mipLevels = 1,
-    .arrayLayers = 1,
-    .format = VK_FORMAT_R8G8B8A8_SRGB,
-    .tiling = VK_IMAGE_TILING_OPTIMAL,
-    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    .usage = flags,//VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    .samples = VK_SAMPLE_COUNT_1_BIT,
-    .flags = 0,
-  };
-  VmaAllocationCreateInfo allocInfo = {
-    .usage = VMA_MEMORY_USAGE_AUTO,
-    .flags = vmaFlags,
-    .priority = 1.0f,
-  };
-  VK_CHECK(vmaCreateImage(
-    state->allocator,
-    &createInfo,
-    &allocInfo,
-    &image->image,
-    &image->memory,
-    &image->memory_info
-  ), "Unable to create image");
-  return TRUE;
-}
-
-b8 create_shared_image(
-  vulkan_state* state,
-  velora_image* image,
-  u32 width,
-  u32 height,
-  VkImageUsageFlags flags,
-  VmaAllocationCreateFlags vmaFlags,
-  u32* queueFamilyIndices,
-  u32 queueFamilyIndiciesCount
-){
-  VkImageCreateInfo createInfo = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-    .imageType = VK_IMAGE_TYPE_2D,
-    .extent.width = width,
-    .extent.height = height,
-    .extent.depth = 1,
-    .mipLevels = 1,
-    .arrayLayers = 1,
-    .format = VK_FORMAT_R8G8B8A8_SRGB,
-    .tiling = VK_IMAGE_TILING_OPTIMAL,
-    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    .usage = flags,//VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-    .sharingMode = VK_SHARING_MODE_CONCURRENT,
-    .pQueueFamilyIndices = queueFamilyIndices,
-    .queueFamilyIndexCount = queueFamilyIndiciesCount,
-    .samples = VK_SAMPLE_COUNT_1_BIT,
-    .flags = 0,
-  };
-  VmaAllocationCreateInfo allocInfo = {
-    .usage = VMA_MEMORY_USAGE_AUTO,
-    .flags = vmaFlags,
-    .priority = 1.0f,
-  };
-  VK_CHECK(vmaCreateImage(
-    state->allocator,
-    &createInfo,
-    &allocInfo,
-    &image->image,
-    &image->memory,
-    &image->memory_info
-  ), "Unable to create image");
   return TRUE;
 }
 
@@ -1474,67 +1654,6 @@ b8 create_descriptor_sets(vulkan_state* state){
   return TRUE;
 }
 
-b8 transition_image_layout(vulkan_state* state, velora_image* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout){
-  VkCommandBuffer commandBuffer = begin_single_command(
-    state,
-    state->graphicsCommandPool
-  );
-  VkAccessFlags srcAccessMask = 0;
-  VkAccessFlags dstAccessMask = 0;
-
-  VkPipelineStageFlags srcStage = 0;
-  VkPipelineStageFlags dstStage = 0;
-
-  if(oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL){
-    srcAccessMask = 0;
-    dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-    srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-  }else if(oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL){
-    srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-  }else{
-    VERROR("Unsupported layout transition");
-    return FALSE;
-  }
-
-  VkImageMemoryBarrier barrier = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-    .oldLayout = oldLayout,
-    .newLayout = newLayout,
-    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .image = image->image,
-    .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-    .subresourceRange.baseMipLevel = 0,
-    .subresourceRange.levelCount = 1,
-    .subresourceRange.baseArrayLayer = 0,
-    .subresourceRange.layerCount = 1,
-    .srcAccessMask = srcAccessMask,
-    .dstAccessMask = dstAccessMask,
-  };
-  vkCmdPipelineBarrier(
-    commandBuffer,
-    srcStage, dstStage,
-    0,
-    0, VK_NULL_HANDLE,
-    0, VK_NULL_HANDLE,
-    1, &barrier
-  );
-
-  end_single_command(
-    state,
-    state->graphicsCommandPool,
-    state->graphicsQueue,
-    commandBuffer
-  );
-  return TRUE;
-}
-
 b8 copy_buffer_to_image(vulkan_state* state, velora_buffer* buffer, velora_image* image, u32 width, u32 height){
   VkCommandBuffer commandBuffer = begin_single_command(state, state->transferCommandPool);
   
@@ -1638,29 +1757,31 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
   stbi_image_free(pixels);
 
   if(state->graphicsQueueIndex == state->transferQueueIndex){
-    create_exclusive_image(
+    VEL_CHECK(create_exclusive_image(
       state,
       image,
       texWidth,
       texHeight,
+      VK_FORMAT_R8G8B8A8_SRGB,
       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
       VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
-    );
+    ));
   }else{
     u32 queueFamilies[2] = {
       state->graphicsQueueIndex,
       state->transferQueueIndex
     };
-    create_shared_image(
+    VEL_CHECK(create_shared_image(
       state,
       image,
       texWidth,
       texHeight,
+      VK_FORMAT_R8G8B8A8_SRGB,
       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
       VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
       queueFamilies,
       2
-    );
+    ));
   }
   VEL_CHECK(transition_image_layout(
     state,
@@ -1686,7 +1807,7 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
 
   destroy_velora_buffer(state, &stagingBuffer);
   
-  VEL_CHECK(create_image_view(state, image->image, VK_FORMAT_R8G8B8A8_SRGB, &image->view));
+  VEL_CHECK(create_image_view(state, image->image, VK_FORMAT_R8G8B8A8_SRGB, &image->view, VK_IMAGE_ASPECT_COLOR_BIT));
 
   VEL_CHECK(create_sampler(state, image));
 
@@ -1749,9 +1870,10 @@ b8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_render_pass(vk_state));
   VEL_CHECK(create_descriptor_set_layout(vk_state));
   VEL_CHECK(create_graphics_pipeline(vk_state));
-  VEL_CHECK(create_frame_buffers(vk_state));
   VEL_CHECK(create_command_pool(vk_state));
   VEL_CHECK(create_command_buffer(vk_state));
+  VEL_CHECK(create_depth_resources(vk_state));
+  VEL_CHECK(create_frame_buffers(vk_state));
   VEL_CHECK(create_sync_objects(vk_state));
   VEL_CHECK(create_vertex_index_buffer(vk_state, vertices, indices));
   VEL_CHECK(create_texture(vk_state, "texture.jpg", &vk_state->texImage));
@@ -1806,6 +1928,7 @@ b8 initiate_render_system(render_state* state, const char* application_name, str
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vkDeviceWaitIdle(vk_state->logicalDevice);
+  destroy_velora_image(vk_state, &vk_state->depthImage);
   destroy_velora_image(vk_state, &vk_state->texImage);
   vfree(vk_state->descriptorSets, sizeof(VkDescriptorSet)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vkDestroyDescriptorPool(vk_state->logicalDevice, vk_state->descriptorPool, NULL);
