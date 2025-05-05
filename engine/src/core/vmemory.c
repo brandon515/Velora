@@ -63,7 +63,7 @@ char* get_memory_usage_str(){
   const u64 mib = kib * 1024;
   const u64 gib = mib * 1024;
 
-  char* buffer = platform_allocate(8192, FALSE);
+  char* buffer = platform_allocate(16384, FALSE);
   sprintf(buffer, "%s", "System memory use (tagged):\n");
   u64 offset = strlen(buffer);
   for(int i = 0; i < MEMORY_TAG_END_TAG; i++){
@@ -82,7 +82,7 @@ char* get_memory_usage_str(){
       size_desc[0] = 'b';
       size_desc[1] = 0;
     }
-    i32 length = snprintf(buffer+offset, 8192, "%s: %.2f %s\n", memory_tag_strings[i], amount, size_desc);
+    i32 length = snprintf(buffer+offset, 16384, "%s: %.2f %s\n", memory_tag_strings[i], amount, size_desc);
     offset += length;
   }
   return buffer;
