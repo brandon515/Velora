@@ -54,7 +54,8 @@ b8 extract_json_object(u8* data, json_value *out_object){
     }
     jsonDataSize++;
   }
-  out_object->data.object = vallocate(jsonDataSize+1, MEMORY_TAG_JSON);
+  out_object->dataSize = jsonDataSize+1;
+  out_object->data.object = vallocate(out_object->dataSize, MEMORY_TAG_JSON);
   vcopy_memory(out_object->data.object, data, jsonDataSize);
   out_object->data.object[jsonDataSize] = 0;
   out_object->type = VELORA_JSON_OBJECT;
@@ -101,8 +102,8 @@ b8 extract_json_string(u8 *data, json_value *out_object){
   while(data[valueSize] != '"'){
     valueSize++;
   }
-  out_object->data.string = vallocate(valueSize+1, MEMORY_TAG_JSON);
   out_object->dataSize = valueSize+1;
+  out_object->data.string = vallocate(out_object->dataSize, MEMORY_TAG_JSON);
   vcopy_memory(out_object->data.string, data, valueSize);
   out_object->data.string[valueSize] = 0;
   return TRUE;
@@ -224,6 +225,7 @@ void free_json_value(json_value *value){
     for(int i = 0; i < len; i++){
       free_json_value(&value->data.array[i]);
     }
+    vfree(value->data.object, value->dataSize, MEMORY_TAG_JSON);
   }
 }
 
