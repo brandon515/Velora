@@ -66,8 +66,23 @@ void free_pixels(velora_pixels *pixels);
 gltf_object* import_gltf(const char *uri);
 
 
+/**
+ * @brief Pulls a value out of the raw data from a JSON object
+ * @param data The data for a valid JSON object
+ * @param name The variable name that needs to be pulled
+ * @param out_object A pointer to a json_value that will be filled with the requested data
+ * @return FALSE if the variable doesn't exist or the data doesn't contain a JSON object, TRUE otherwise
+ */
 b8 get_json_value(u8* data, const char *name, json_value *out_object);
 
+/**
+ * @brief Frees the values inside the json_value struct if it needs to be freed
+ * @param value a json_value that was created with get_json_value
+ */
 void free_json_value(json_value *value);
 
+/**
+ * @brief Prints out the value using VINFO
+ * @param val The json_value to print out
+ */
 void print_json_value(json_value *val);
