@@ -336,3 +336,60 @@ u64 vclamp(u64 value, u64 minimum, u64 maximum){
     return value;
   }
 }
+
+quat rotation_to_quat(mat4 rotMat){
+  f32 trace = 1 + rotMat.mat[0] + rotMat.mat[5] + rotMat.mat[10];
+  quat retQuat;
+  if(trace > 0.00000001){
+    f32 S = sqrt(trace)*2;
+    retQuat.x = (rotMat.mat[9] - rotMat.mat[6]) / S;
+    retQuat.y = (rotMat.mat[2] - rotMat.mat[8]) / S;
+    retQuat.z = (rotMat.mat[4] - rotMat.mat[1]) / S;
+    retQuat.w = 0.25f * S;
+    return retQuat;
+  }
+
+  if(rotMat.mat[0] > rotMat.mat[5] && rotMat.mat[0] > rotMat.mat[10]){
+    f32 S = sqrt(1.0f + rotMat.mat[0] - rotMat.mat[5] - rotMat.mat[10]) * 2;
+    retQuat.x = 0.25f * S;
+    retQuat.y = (rotMat.mat[4] + rotMat.mat[1]) / S;
+    retQuat.z = (rotMat.mat[2] + rotMat.mat[8]) / S;
+    retQuat.w = (rotMat.mat[9] + rotMat.mat[6]) / S;
+  }else if(rotMat.mat[5] > rotMat.mat[10]){
+    f32 S = sqrt(1.0f + rotMat.mat[5] - rotMat.mat[0] - rotMat.mat[10]) * 2;
+    retQuat.x = (rotMat.mat[4] + rotMat.mat[1]) / S;
+    retQuat.y = 0.25f * S;
+    retQuat.z = (rotMat.mat[9] + rotMat.mat[6]) / S;
+    retQuat.w = (rotMat.mat[2] + rotMat.mat[8]) / S;
+  }else{
+    f32 S = sqrt(1.0f + rotMat.mat[10] - rotMat.mat[0] - rotMat.mat[5]) * 2;
+    retQuat.x = (rotMat.mat[2] + rotMat.mat[8]) / S;
+    retQuat.y = (rotMat.mat[9] + rotMat.mat[6]) / S;
+    retQuat.z = 0.25f * S;
+    retQuat.w = (rotMat.mat[4] + rotMat.mat[1]) / S;
+  }
+  return retQuat;
+}
+
+b8 decompose_model_matrix(mat4 matrix, vec3* out_translation, quat* out_quat, vec3* out_scale){
+  out_translation->x = matrix.a14;
+  out_translation->y = matrix.a24;
+  out_translation->z = matrix.a34;
+
+  matrix.a14 = 0;
+  matrix.a24 = 0;
+  matrix.a34 = 0;
+
+  out_scale->x = sqrt((matrix.a11*matrix.a11)+(matrix.a21*matrix.a21)+(matrix.a31*matrix.a31));
+  out_scale->y = sqrt((matrix.a12*matrix.a12)+(matrix.a22*matrix.a22)+(matrix.a32*matrix.a32));
+  out_scale->z = sqrt((matrix.a13*matrix.a13)+(matrix.a23*matrix.a23)+(matrix.a33*matrix.a33));
+
+  for(int i = 0; i < 3; i++){
+    matrix.mat[(0*4)+i] /= out_scale->x;
+    matrix.mat[(1*4)+i] /= out_scale->y;
+    matrix.mat[(2*4)+i] /= out_scale->z;
+  }
+
+  (*out_quat) = rotation_to_quat(matrix);
+  return TRUE;
+}

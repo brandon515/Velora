@@ -257,6 +257,8 @@ mat4 perspective_projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f3
  */
 mat4 orthographic_projection_matrix(f32 nearClip, f32 farClip, f32 topDistance, f32 aspectRatio);
 
+b8 decompose_model_matrix(mat4 matrix, vec3* out_translation, quat* out_quat, vec3* out_scale);
+
 /**
  * @brief Turns the rotation in degrees around each access into a quaternion for the rotation matrix
  * @param eulerDegreeAngles The angle around the 3 axies in degrees
