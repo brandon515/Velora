@@ -50,20 +50,20 @@ typedef struct _json_value{
  * @param out_pixels a pointer to a velora_pixels struct
  * @return returns FALSE if image doesn't exist, TRUE otherwise
  */
-b8 import_pixels(const char *uri, velora_pixels *out_pixels);
+VAPI b8 import_pixels(const char *uri, velora_pixels *out_pixels);
 
 /**
  * @brief frees the memory allocated in import_pixels
  * @param out_pixels a pointer to the velora_pixels that was previously allocated by import_pixels
  */
-void free_pixels(velora_pixels *pixels);
+VAPI void free_pixels(velora_pixels *pixels);
 
 /**
  * @brief imports the gltf file into a usable file
  * @param uri The filename of the gltf file
  * @return A pointer to the usable gltf_object
  */
-gltf_object* import_gltf(const char *uri);
+VAPI gltf_object* import_gltf(const char *uri);
 
 
 /**
@@ -73,16 +73,16 @@ gltf_object* import_gltf(const char *uri);
  * @param out_object A pointer to a json_value that will be filled with the requested data
  * @return FALSE if the variable doesn't exist or the data doesn't contain a JSON object, TRUE otherwise
  */
-b8 get_json_value(u8* data, const char *name, json_value *out_object);
+VAPI b8 get_json_value(u8* data, const char *name, json_value *out_object);
 
 /**
  * @brief Frees the values inside the json_value struct if it needs to be freed
  * @param value a json_value that was created with get_json_value
  */
-void free_json_value(json_value *value);
+VAPI void free_json_value(json_value *value);
 
 /**
  * @brief Prints out the value using VINFO
  * @param val The json_value to print out
  */
-void print_json_value(json_value *val);
+VAPI void print_json_value(json_value *val);
