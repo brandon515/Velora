@@ -1963,9 +1963,10 @@ void shutdown_render_system(render_state* state){
 
 void update_uniform_buffer(vulkan_state* state){
   vec3 position = {{0,0,-5}};
-  vec3 rotation = {{0,0,0}};
+  vec3 rotation = {{0,30,0}};
+  quat rotationQuat = euler_to_quat(rotation);
   vec3 scale = {{1,1,1}};
-  mat4x4 modelMatrix = model_matrix(position, euler_to_quat(rotation), scale);
+  mat4x4 modelMatrix = model_matrix(position, rotationQuat, scale);
   vec3 cameraPosition = {{0,0,0}};
   vec3 cameraRotation = {{0,0,0}};
   vec3 cameraScale = {{1,1,1}};
