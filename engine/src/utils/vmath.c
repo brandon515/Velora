@@ -256,7 +256,7 @@ b8 matrix4_invert(mat4x4 mat, mat4x4* outMatrix)
 
   float det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
 
-  if (det == 0){
+  if (det <= 0.00000001f && det >= -0.00000001f){
     return FALSE;
   }
 
@@ -340,7 +340,7 @@ u64 vclamp(u64 value, u64 minimum, u64 maximum){
 quat rotation_to_quat(mat4 rotMat){
   f32 trace = 1 + rotMat.mat[0] + rotMat.mat[5] + rotMat.mat[10];
   quat retQuat;
-  if(trace > 0.00000001){
+  if(trace > 0.00000001f){
     f32 S = sqrt(trace)*2;
     retQuat.x = (rotMat.mat[9] - rotMat.mat[6]) / S;
     retQuat.y = (rotMat.mat[2] - rotMat.mat[8]) / S;
