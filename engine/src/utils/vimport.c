@@ -2,7 +2,9 @@
 #include "core/vmemory.h"
 #include "core/logger.h"
 #include "utils/vstring.h"
+#include "utils/vfile.h"
 #include <stdlib.h>
+#include "core/stb_image.h"
 
 b8 import_pixels(const char *uri, velora_pixels *out_pixels){
   int height, width, chans;
@@ -213,6 +215,46 @@ b8 get_json_value(u8* data, const char *name, json_value *out_object){  // chang
     local_array++;
   }
   return FALSE;
+}
+
+b8 extract_gltf_buffer(json_value* buffer, gltf_object* out_gltf){
+  return TRUE;
+}
+
+b8 import_gltf(const char *uri, gltf_object *out_gltf){
+  FILE* gltfFile = fopen(uri, "rb");
+  if(gltfFile == NULL){
+    VERROR("GLTF file at %s doesn't exist", uri);
+    return FALSE;
+  }
+  u64 fileSize = get_file_size(gltfFile);
+  if(fileSize == 0){
+    VERROR("GLTF file %s is empty", uri);
+    return FALSE;
+  }
+  u8* gltfContents = vallocate(fileSize, MEMORY_TAG_JSON);
+  if(get_file_contents(gltfFile, gltfContents) == FALSE){
+    VERROR("Unable to read entire GLTF file %s", uri);
+    return FALSE;
+  }
+  fclose(gltfFile);
+  json_value buffers = {0};
+  if(get_json_value(gltfContents, "buffers", &buffers) == FALSE){
+    VERROR("GLTF File %s doesn't have a buffers variable", uri);
+    return FALSE;
+  }
+  if(buffers.type != VELORA_JSON_ARRAY){
+    VERROR("GLTF File %s has the buffers variable as something other than an array", uri);
+    return FALSE;
+  }
+  u64 buffersLength = buffers.dataSize/sizeof(json_value);
+  for(int i = 0; i < buffersLength; i++){
+    if(extract_gltf_buffer(&buffers.data.array[i], out_gltf) == FALSE){
+      VERROR("GLTF File %s has a malformed buffer object in buffers array");
+      return FALSE;
+    }
+  }
+  return TRUE;
 }
 
 void free_json_value(json_value *value){

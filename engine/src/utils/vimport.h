@@ -1,5 +1,4 @@
 #include "defines.h"
-#include "core/stb_image.h"
 #include "container/darray.h"
 
 typedef struct _velora_pixels{
