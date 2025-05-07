@@ -61,9 +61,10 @@ VAPI void free_pixels(velora_pixels *pixels);
 /**
  * @brief imports the gltf file into a usable file
  * @param uri The filename of the gltf file
- * @return A pointer to the usable gltf_object
+ * @param out_gltf A gltf_object variable to be filled with the data pointed at by the URI
+ * @return FALSE if the file doesn't exist or the file isn't valid JSON, TRUE otherwise
  */
-VAPI gltf_object* import_gltf(const char *uri);
+VAPI b8 import_gltf(const char *uri, gltf_object *out_gltf);
 
 
 /**
