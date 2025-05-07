@@ -48,7 +48,7 @@ void* vzero_memory(void* block, u64 size){
   return block;
 }
 
-void* vcopy_memory(void* dest, void* src, u64 size){
+void* vcopy_memory(void* dest, const void* src, u64 size){
   platform_copy_memory(dest, src, size);
   return dest;
 }

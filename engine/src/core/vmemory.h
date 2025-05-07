@@ -44,7 +44,7 @@ VAPI void shutdown_memory();
 VAPI void* vallocate(u64 size, memory_tag tag);
 VAPI void vfree(void* block, u64 size, memory_tag tag);
 VAPI void* vzero_memory(void* block, u64 size);
-VAPI void* vcopy_memory(void* dest, void* src, u64 size);
+VAPI void* vcopy_memory(void* dest, const void* src, u64 size);
 VAPI void* vset_memory(void* block, i32 value, u64 size);
 
 VAPI char* get_memory_usage_str();
