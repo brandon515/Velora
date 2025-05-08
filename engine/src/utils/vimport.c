@@ -217,29 +217,45 @@ b8 get_json_value(u8* data, const char *name, json_value *out_object){  // chang
   return FALSE;
 }
 
-b8 extract_gltf_buffer(json_value* buffer, gltf_object* out_gltf){
+b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* UriPath){
+  if(buffer->type != VELORA_JSON_OBJECT){
+    VERROR("Buffer in GLTF File isn't an object");
+    return FALSE;
+  }
+  json_value bufferSize = {0};
+  json_value bufferUri = {0};
+  if(get_json_value(buffer->data.object, "byteLength", &bufferSize) == FALSE){
+    VERROR("Unable to get buffer size, no such variable exists in the buffer object");
+    return FALSE;
+  }
+  if(bufferSize.type != VELORA_JSON_INTEGER){
+    VERROR("Buffer size isn't an integer");
+    free_json_value(&bufferSize);
+    return FALSE;
+  }
+  if(get_json_value(buffer->data.object, "uri", &bufferUri)){
+    VERROR("Unable to get buffer URI, no such variable exists in the buffer object");
+    return FALSE;
+  }
+  if(bufferUri.type != VELORA_JSON_STRING){
+    VERROR("Buffer URI isn't a string");
+    free_json_value(&bufferUri);
+    return FALSE;
+  }
+  out_buffer->size = bufferSize.data.integer;
+  out_buffer->buffer = vallocate(bufferSize.data.integer, MEMORY_TAG_RENDERER);
+  //Concat the pathUri with the uri
   return TRUE;
 }
 
 b8 import_gltf(const char *uri, gltf_object *out_gltf){
-  FILE* gltfFile = fopen(uri, "rb");
-  if(gltfFile == NULL){
-    VERROR("GLTF file at %s doesn't exist", uri);
+  velora_file gltfFile = {0};
+  if(get_file_contents(uri, &gltfFile) == FALSE){
+    VERROR("Unable to read GLTF file %s", uri);
     return FALSE;
   }
-  u64 fileSize = get_file_size(gltfFile);
-  if(fileSize == 0){
-    VERROR("GLTF file %s is empty", uri);
-    return FALSE;
-  }
-  u8* gltfContents = vallocate(fileSize, MEMORY_TAG_JSON);
-  if(get_file_contents(gltfFile, gltfContents) == FALSE){
-    VERROR("Unable to read entire GLTF file %s", uri);
-    return FALSE;
-  }
-  fclose(gltfFile);
   json_value buffers = {0};
-  if(get_json_value(gltfContents, "buffers", &buffers) == FALSE){
+  if(get_json_value(gltfFile.contents, "buffers", &buffers) == FALSE){
     VERROR("GLTF File %s doesn't have a buffers variable", uri);
     return FALSE;
   }
@@ -247,12 +263,25 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     VERROR("GLTF File %s has the buffers variable as something other than an array", uri);
     return FALSE;
   }
+  char* uriPath = get_file_path(uri);
   u64 buffersLength = buffers.dataSize/sizeof(json_value);
+  out_gltf->bufferCount = buffersLength;
+  out_gltf->buffers = vallocate(sizeof(gltf_buffer)*out_gltf->bufferCount, MEMORY_TAG_RENDERER);
   for(int i = 0; i < buffersLength; i++){
-    if(extract_gltf_buffer(&buffers.data.array[i], out_gltf) == FALSE){
-      VERROR("GLTF File %s has a malformed buffer object in buffers array");
-      return FALSE;
+    if(uriPath == NULL){
+      if(extract_gltf_buffer(&buffers.data.array[i], &out_gltf->buffers[i], "") == FALSE){
+        VERROR("GLTF File %s has a malformed buffer object in buffers array");
+        return FALSE;
+      }
+    }else{
+      if(extract_gltf_buffer(&buffers.data.array[i], &out_gltf->buffers[i], uriPath) == FALSE){
+        VERROR("GLTF File %s has a malformed buffer object in buffers array");
+        return FALSE;
+      }
     }
+  }
+  if(uriPath != NULL){
+    vfree(uriPath, vstrlen(uriPath)+1, MEMORY_TAG_STRING);
   }
   return TRUE;
 }
