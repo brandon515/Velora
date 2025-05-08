@@ -1,13 +1,10 @@
 #pragma once
 #include "defines.h"
-#include <stdio.h>
 
-/*!
- * @brief Gets the size of the file in bytes
- * @param file The handle to the file
- * @return The size of the file in bytes
- */
-u64 get_file_size(FILE* file);
+typedef struct _velora_file{
+  u64 size;
+  u8* contents;
+} velora_file;
 
 /*!
  * @brief Outputs the full file contents into out_buffer
@@ -15,7 +12,7 @@ u64 get_file_size(FILE* file);
  * @param out_buffer A pointer to an allocated buffer to output into
  * @return FALSE if the file is NULL or if the amount of data read isn't the whole file, TRUE otherwise
  */
-b8 get_file_contents(FILE* file, u8* out_buffer);
+b8 get_file_contents(const char* uri, velora_file* out_buffer);
 
 /**
  * @brief Get the path of the URI and excludes the final file name

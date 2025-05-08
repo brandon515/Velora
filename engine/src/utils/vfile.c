@@ -1,5 +1,7 @@
 #include "vfile.h"
 #include "vstring.h"
+#include <stdio.h>
+#include "core/vmemory.h"
 
 u64 get_file_size(FILE* file){
   u64 cur_pos = ftell(file);
@@ -9,17 +11,26 @@ u64 get_file_size(FILE* file){
   return ret_pos;
 }
 
-b8 get_file_contents(FILE* file, u8* out_buffer){
+b8 get_file_contents(const char* uri, velora_file* out_buffer){
+  FILE* file = fopen(uri, "rb");
   if(file == NULL){
     return FALSE;
   }
-  u64 fileSize = get_file_size(file);
+  out_buffer->size = get_file_size(file);
 
-  u64 bytesRead = fread(out_buffer, sizeof(u8), fileSize, file);
-  if(bytesRead != fileSize){
+  out_buffer->contents = vallocate(out_buffer->size, MEMORY_TAG_FILE);
+
+  u64 bytesRead = fread(out_buffer->contents, sizeof(u8), out_buffer->size, file);
+  fclose(file);
+  if(bytesRead != out_buffer->size){
     return FALSE;
   }
   return TRUE;
+}
+
+void free_velora_file(velora_file *file){
+  vfree(file->contents, file->size, MEMORY_TAG_FILE);
+  file->size = 0;
 }
 
 char* get_file_path(const char* uri){
