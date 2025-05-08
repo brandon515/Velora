@@ -8,9 +8,9 @@ typedef struct _velora_file{
 
 /*!
  * @brief Outputs the full file contents into out_buffer
- * @param file The handle to the file
- * @param out_buffer A pointer to an allocated buffer to output into
- * @return FALSE if the file is NULL or if the amount of data read isn't the whole file, TRUE otherwise
+ * @param uri A pointer to a const char array containing the file path to the file
+ * @param out_buffer A pointer to a velora_file object to be filled
+ * @return FALSE if the file doesn't exist or if the amount of data read isn't the whole file, TRUE otherwise
  */
 b8 get_file_contents(const char* uri, velora_file* out_buffer);
 
