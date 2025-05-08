@@ -854,19 +854,16 @@ void destroy_swapchain(vulkan_state* vk_state){
 }
 
 VkShaderModule get_shader_module(vulkan_state* state, const char* shaderFileName){
-  FILE* shaderFile = fopen(shaderFileName, "rb");
-  u64 shaderFileSize = get_file_size(shaderFile);
-  u8* shaderFileContents = vallocate(shaderFileSize, MEMORY_TAG_RENDERER);
-  VEL_CHECK(get_file_contents(shaderFile, shaderFileContents));
-  fclose(shaderFile);
+  velora_file shaderFile = {0};
+  VEL_CHECK(get_file_contents(shaderFileName, &shaderFile));
   VkShaderModuleCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-    .codeSize = shaderFileSize,
-    .pCode = (u32*)shaderFileContents
+    .codeSize = shaderFile.size,
+    .pCode = (u32*)shaderFile.contents
   };
   VkShaderModule ret_mod;
   VK_CHECK(vkCreateShaderModule(state->logicalDevice, &createInfo, NULL, &ret_mod), "Failed to create shader module");
-  vfree(shaderFileContents, shaderFileSize, MEMORY_TAG_RENDERER);
+  free_velora_file(&shaderFile);
   return ret_mod;
 }
 
