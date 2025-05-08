@@ -71,7 +71,7 @@ b8 extract_json_number(u8 *data, json_value *out_object){
     data++;
   }
   u64 numberLength = 0;
-  while(data[numberLength] != ',' && data[numberLength] != '}'){
+  while(data[numberLength] != ',' && data[numberLength] >= ' '){
     numberLength++;
   }
   out_object->type = VELORA_JSON_INTEGER;
@@ -224,19 +224,13 @@ b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* 
   }
   json_value bufferSize = {0};
   json_value bufferUri = {0};
-  if(get_json_value(buffer->data.object, "byteLength", &bufferSize) == FALSE){
-    VERROR("Unable to get buffer size, no such variable exists in the buffer object");
-    return FALSE;
-  }
+  VEL_CHECK_MSG(get_json_value(buffer->data.object, "byteLength", &bufferSize), "Unable to get buffer size, no such variable exists in the buffer object");
   if(bufferSize.type != VELORA_JSON_INTEGER){
     VERROR("Buffer size isn't an integer");
     free_json_value(&bufferSize);
     return FALSE;
   }
-  if(get_json_value(buffer->data.object, "uri", &bufferUri) == FALSE){
-    VERROR("Unable to get buffer URI, no such variable exists in the buffer object");
-    return FALSE;
-  }
+  VEL_CHECK_MSG(get_json_value(buffer->data.object, "uri", &bufferUri), "Unable to get buffer URI, no such variable exists in the buffer object");
   if(bufferUri.type != VELORA_JSON_STRING){
     VERROR("Buffer URI isn't a string");
     free_json_value(&bufferUri);
@@ -246,13 +240,60 @@ b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* 
   out_buffer->buffer = vallocate(bufferSize.data.integer, MEMORY_TAG_RENDERER);
   char * fullUri = vconcat(uriPath, bufferUri.data.string);
   velora_file bufferContents = {0};
-  if(get_file_contents(fullUri, &bufferContents) == FALSE){
-    VERROR("Unable to get contents of buffer file with URI %s", fullUri);
-    return FALSE;
-  }
+  VEL_CHECK_MSG(get_file_contents(fullUri, &bufferContents), "Unable to get contents of buffer file with URI %s", fullUri);
   vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
   vcopy_memory(out_buffer->buffer, bufferContents.contents, out_buffer->size);
   free_velora_file(&bufferContents);
+  return TRUE;
+}
+
+b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view, gltf_object* obj){
+  json_value bufferIndex = {0};
+  json_value offset = {0};
+  json_value length = {0};
+  json_value type = {0};
+  VEL_CHECK_MSG(get_json_value(buffer_view->data.object, "buffer", &bufferIndex), "No buffer variable in buffer view");
+  if(bufferIndex.type != VELORA_JSON_INTEGER){
+    free_json_value(&bufferIndex);
+    VERROR("buffer variable in buffer view was not an integer");
+    return FALSE;
+  }
+  VEL_CHECK_MSG(get_json_value(buffer_view->data.object, "byteOffset", &offset), "No byteOffset variable in buffer view");
+  if(offset.type != VELORA_JSON_INTEGER){
+    free_json_value(&offset);
+    VERROR("byteOffset variable in buffer view was not an integer");
+    return FALSE;   
+  }
+  VEL_CHECK_MSG(get_json_value(buffer_view->data.object, "byteLength", &length), "No byteLength variable in buffer view");
+  if(length.type != VELORA_JSON_INTEGER){
+    free_json_value(&length);
+    VERROR("byteLength variable in buffer view was not an integer");
+    return FALSE;   
+  }
+  VEL_CHECK_MSG(get_json_value(buffer_view->data.object, "target", &type), "No target variable in buffer view");
+  if(type.type != VELORA_JSON_INTEGER){
+    free_json_value(&type);
+    VERROR("target variable in buffer view was not an integer");
+    return FALSE;   
+  }
+  if(bufferIndex.data.integer >= obj->bufferCount){
+    VERROR("Buffer view references a buffer that doesn't exist");
+    VERROR("Buffer count: %s", obj->bufferCount);
+    VERROR("Buffer index: %d", bufferIndex.data.integer);
+    return FALSE;
+  }
+  if(offset.data.integer > obj->buffers[bufferIndex.data.integer].size || offset.data.integer+length.data.integer > obj->buffers[bufferIndex.data.integer].size){
+    VERROR("Buffer view goes beyond the size of the buffer that is referenced");
+    VERROR("Reference buffer size: %d", obj->buffers[bufferIndex.data.integer].size);
+    VERROR("Buffer view offset: %d", offset.data.integer);
+    VERROR("Buffer view size: %d", length.data.integer);
+    VERROR("End of buffer view: %d", offset.data.integer+length.data.integer);
+    return FALSE;
+  }
+  out_view->size = length.data.integer;
+  out_view->buffer = obj->buffers[bufferIndex.data.integer].buffer+offset.data.integer;
+  out_view->type = type.data.integer;
+
   return TRUE;
 }
 
@@ -263,10 +304,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     return FALSE;
   }
   json_value buffers = {0};
-  if(get_json_value(gltfFile.contents, "buffers", &buffers) == FALSE){
-    VERROR("GLTF File %s doesn't have a buffers variable", uri);
-    return FALSE;
-  }
+  VEL_CHECK_MSG(get_json_value(gltfFile.contents, "buffers", &buffers), "GLTF File %s doesn't have a buffers variable", uri);
   if(buffers.type != VELORA_JSON_ARRAY){
     VERROR("GLTF File %s has the buffers variable as something other than an array", uri);
     return FALSE;
@@ -288,9 +326,22 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
       }
     }
   }
+  free_json_value(&buffers);
   if(uriPath != NULL){
     vfree(uriPath, vstrlen(uriPath)+1, MEMORY_TAG_STRING);
   }
+  json_value bufferViews = {0};
+  VEL_CHECK_MSG(get_json_value(gltfFile.contents, "bufferViews", &bufferViews), "No bufferViews variable in GLTF file %s", uri);
+  if(bufferViews.type != VELORA_JSON_ARRAY){
+    VERROR("bufferViews in GLTF file %s is not an array", uri);
+    return FALSE;
+  }
+  out_gltf->bufferViewCount = bufferViews.dataSize/sizeof(json_value);
+  out_gltf->bufferViews = vallocate(out_gltf->bufferViewCount*sizeof(gltf_buffer_view), MEMORY_TAG_RENDERER);
+  for(int i = 0; i < out_gltf->bufferViewCount; i++){
+    extract_gltf_buffer_view(&bufferViews.data.array[i], &out_gltf->bufferViews[i], out_gltf);
+  }
+  free_json_value(&bufferViews);
   return TRUE;
 }
 
@@ -302,6 +353,8 @@ void free_gltf(gltf_object* out_gltf){
   for(int i = 0; i < out_gltf->bufferCount; i++){
     free_gltf_buffer(&out_gltf->buffers[i]);
   }
+  vfree(out_gltf->buffers, out_gltf->bufferCount*sizeof(gltf_buffer), MEMORY_TAG_RENDERER);
+  vfree(out_gltf->bufferViews, out_gltf->bufferViewCount*sizeof(gltf_buffer_view), MEMORY_TAG_RENDERER);
 }
 
 

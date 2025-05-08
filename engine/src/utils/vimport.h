@@ -2,6 +2,9 @@
 #include "defines.h"
 #include "container/darray.h"
 
+#define GLTF_VERTEX_ARRAY 34962
+#define GLTF_INDEX_ARRAY 34963
+
 typedef struct _velora_pixels{
   u8* pixels;
   u64 width;
@@ -14,9 +17,17 @@ typedef struct _gltf_buffer{
   u8* buffer;
 }gltf_buffer;
 
+typedef struct _gltf_buffer_view{
+  u64 size;
+  u8* buffer;
+  u64 type;
+}gltf_buffer_view;
+
 typedef struct _gltf_object{
   gltf_buffer *buffers;
   u64 bufferCount;
+  gltf_buffer_view *bufferViews;
+  u64 bufferViewCount;
 }gltf_object;
 
 typedef enum _json_type{
