@@ -15,6 +15,12 @@ typedef struct _velora_file{
 b8 get_file_contents(const char* uri, velora_file* out_buffer);
 
 /**
+ * @brief Frees the content variable and sets the size to 0
+ * @param file A pointer to a velora_file object previously created through get_file_contents
+ */
+void free_velora_file(velora_file *file);
+
+/**
  * @brief Get the path of the URI and excludes the final file name
  * @param uri A zero terminated string with the full URI
  * @return A heap allocated zero-terminated string with the path or NULL if the uri is just a file name
