@@ -26,11 +26,6 @@
 #define VELORA_VULKAN_API_VERSION VK_API_VERSION_1_4
 #define MAX_FRAMES_IN_FLIGHT 2
 
-#define VEL_CHECK(expr) \
-  if(expr == FALSE){    \
-    return FALSE;       \
-  }                     
-
 #define VK_CHECK(expr, msg)                           \
   {VkResult err = expr;                               \
   if(err != VK_SUCCESS){                              \

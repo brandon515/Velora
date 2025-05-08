@@ -47,6 +47,17 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #define U32_MAX 0xFFFFFFFF
 #define U64_MAX 0xFFFFFFFFFFFFFFFF
 
+#define VEL_CHECK(expr) \
+  if(expr == FALSE){    \
+    return FALSE;       \
+  }  
+  
+#define VEL_CHECK_MSG(expr, msg, ...) \
+  if(expr == FALSE){                  \
+    VERROR(msg, ##__VA_ARGS__);       \
+    return FALSE;                     \
+  } 
+
 // Platform detection
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) 
 #define VPLATFORM_WINDOWS 1
