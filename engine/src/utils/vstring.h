@@ -41,3 +41,11 @@ VAPI u64 vrfind(const char* str, char character);
  * @return a u64 with the index of the character in the string or U64_MAX if none was found
  */
 VAPI u64 vfind(const char* str, char character);
+
+/**
+ * @brief Concatenate two strings into a third heap allocated string
+ * @param str1 A pointer to a const char array that will provide the first half of the string
+ * @param str2 A pointer to a const char array that will provide the second half of the string
+ * @return A pointer to a heap allocated string with data copied from str1 and str2
+ */
+VAPI char* vconcat(const char *str1, const char* str2);
