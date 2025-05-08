@@ -217,7 +217,7 @@ b8 get_json_value(u8* data, const char *name, json_value *out_object){  // chang
   return FALSE;
 }
 
-b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* UriPath){
+b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* uriPath){
   if(buffer->type != VELORA_JSON_OBJECT){
     VERROR("Buffer in GLTF File isn't an object");
     return FALSE;
@@ -233,7 +233,7 @@ b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* 
     free_json_value(&bufferSize);
     return FALSE;
   }
-  if(get_json_value(buffer->data.object, "uri", &bufferUri)){
+  if(get_json_value(buffer->data.object, "uri", &bufferUri) == FALSE){
     VERROR("Unable to get buffer URI, no such variable exists in the buffer object");
     return FALSE;
   }
@@ -244,7 +244,15 @@ b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* 
   }
   out_buffer->size = bufferSize.data.integer;
   out_buffer->buffer = vallocate(bufferSize.data.integer, MEMORY_TAG_RENDERER);
-  //Concat the pathUri with the uri
+  char * fullUri = vconcat(uriPath, bufferUri.data.string);
+  velora_file bufferContents = {0};
+  if(get_file_contents(fullUri, &bufferContents) == FALSE){
+    VERROR("Unable to get contents of buffer file with URI %s", fullUri);
+    return FALSE;
+  }
+  vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
+  vcopy_memory(out_buffer->buffer, bufferContents.contents, out_buffer->size);
+  free_velora_file(&bufferContents);
   return TRUE;
 }
 
@@ -285,6 +293,17 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   }
   return TRUE;
 }
+
+void free_gltf_buffer(gltf_buffer* buf){
+  vfree(buf->buffer, buf->size, MEMORY_TAG_RENDERER);
+}
+
+void free_gltf(gltf_object* out_gltf){
+  for(int i = 0; i < out_gltf->bufferCount; i++){
+    free_gltf_buffer(&out_gltf->buffers[i]);
+  }
+}
+
 
 void free_json_value(json_value *value){
   if(value->type == VELORA_JSON_STRING ||

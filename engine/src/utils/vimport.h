@@ -66,6 +66,11 @@ VAPI void free_pixels(velora_pixels *pixels);
  */
 VAPI b8 import_gltf(const char *uri, gltf_object *out_gltf);
 
+/**
+ * @brief Frees the memory that the gltf_object uses but not the pointer itself
+ * @param out_gltf The gltf_object that's been filled with import_gltf
+ */
+VAPI void free_gltf(gltf_object* out_gltf);
 
 /**
  * @brief Pulls a value out of the raw data from a JSON object
