@@ -20,6 +20,7 @@ typedef struct _gltf_buffer{
 typedef struct _gltf_buffer_view{
   u64 size;
   u8* buffer;
+  u64 stride;
   u64 type;
 }gltf_buffer_view;
 

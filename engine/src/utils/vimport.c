@@ -276,6 +276,14 @@ b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view,
     VERROR("target variable in buffer view was not an integer");
     return FALSE;   
   }
+  u64 stride = 0;
+  json_value byteStride = {0};
+  if(get_json_value(buffer_view->data.object, "byteStride", &byteStride) == TRUE){
+    if(byteStride.type == VELORA_JSON_INTEGER){
+      stride = byteStride.data.integer;
+    }
+    free_json_value(&byteStride);
+  }
   if(bufferIndex.data.integer >= obj->bufferCount){
     VERROR("Buffer view references a buffer that doesn't exist");
     VERROR("Buffer count: %s", obj->bufferCount);
@@ -293,6 +301,7 @@ b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view,
   out_view->size = length.data.integer;
   out_view->buffer = obj->buffers[bufferIndex.data.integer].buffer+offset.data.integer;
   out_view->type = type.data.integer;
+  out_view->stride = stride;
 
   return TRUE;
 }
