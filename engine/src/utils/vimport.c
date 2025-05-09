@@ -306,12 +306,17 @@ b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view,
   return TRUE;
 }
 
+b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_object* obj){
+  return TRUE;
+}
+
 b8 import_gltf(const char *uri, gltf_object *out_gltf){
   velora_file gltfFile = {0};
   if(get_file_contents(uri, &gltfFile) == FALSE){
     VERROR("Unable to read GLTF file %s", uri);
     return FALSE;
   }
+  
   json_value buffers = {0};
   VEL_CHECK_MSG(get_json_value(gltfFile.contents, "buffers", &buffers), "GLTF File %s doesn't have a buffers variable", uri);
   if(buffers.type != VELORA_JSON_ARRAY){
@@ -324,21 +329,16 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   out_gltf->buffers = vallocate(sizeof(gltf_buffer)*out_gltf->bufferCount, MEMORY_TAG_RENDERER);
   for(int i = 0; i < buffersLength; i++){
     if(uriPath == NULL){
-      if(extract_gltf_buffer(&buffers.data.array[i], &out_gltf->buffers[i], "") == FALSE){
-        VERROR("GLTF File %s has a malformed buffer object in buffers array");
-        return FALSE;
-      }
+      VEL_CHECK_MSG(extract_gltf_buffer(&buffers.data.array[i], &out_gltf->buffers[i], "") == FALSE, "GLTF File %s has a malformed buffer object at index %d", uri, i);
     }else{
-      if(extract_gltf_buffer(&buffers.data.array[i], &out_gltf->buffers[i], uriPath) == FALSE){
-        VERROR("GLTF File %s has a malformed buffer object in buffers array");
-        return FALSE;
-      }
+      VEL_CHECK_MSG(extract_gltf_buffer(&buffers.data.array[i], &out_gltf->buffers[i], uriPath), "GLTF File %s has a malformed buffer object at index %d", uri, i);
     }
   }
   free_json_value(&buffers);
   if(uriPath != NULL){
     vfree(uriPath, vstrlen(uriPath)+1, MEMORY_TAG_STRING);
   }
+
   json_value bufferViews = {0};
   VEL_CHECK_MSG(get_json_value(gltfFile.contents, "bufferViews", &bufferViews), "No bufferViews variable in GLTF file %s", uri);
   if(bufferViews.type != VELORA_JSON_ARRAY){
@@ -348,9 +348,23 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   out_gltf->bufferViewCount = bufferViews.dataSize/sizeof(json_value);
   out_gltf->bufferViews = vallocate(out_gltf->bufferViewCount*sizeof(gltf_buffer_view), MEMORY_TAG_RENDERER);
   for(int i = 0; i < out_gltf->bufferViewCount; i++){
-    extract_gltf_buffer_view(&bufferViews.data.array[i], &out_gltf->bufferViews[i], out_gltf);
+    VEL_CHECK_MSG(extract_gltf_buffer_view(&bufferViews.data.array[i], &out_gltf->bufferViews[i], out_gltf), "GLTF File %s has malformed buffer view object at index %d", uri, i);
   }
   free_json_value(&bufferViews);
+  
+  json_value accessors = {0};
+  VEL_CHECK_MSG(get_json_value(gltfFile.contents, "accessors", &accessors), "No accessors variable in GLTF file %s", uri);
+  if(accessors.type != VELORA_JSON_ARRAY){
+    VERROR("accessors in GLTF file %s is not an array", uri);
+    return FALSE;
+  }
+  out_gltf->accessorCount = accessors.dataSize/sizeof(json_value);
+  out_gltf->accessors = vallocate(out_gltf->accessorCount*sizeof(gltf_accessor), MEMORY_TAG_RENDERER);
+  for(int i = 0; i < out_gltf->accessorCount; i++){
+    VEL_CHECK_MSG(extract_gltf_accessor(&accessors.data.array[i], &out_gltf->accessors[i], out_gltf), "GLTF File %s has malformed accessor object at index %d", uri, i);
+  }
+  free_json_value(&accessors);
+  
   return TRUE;
 }
 
@@ -364,6 +378,12 @@ void free_gltf(gltf_object* out_gltf){
   }
   vfree(out_gltf->buffers, out_gltf->bufferCount*sizeof(gltf_buffer), MEMORY_TAG_RENDERER);
   vfree(out_gltf->bufferViews, out_gltf->bufferViewCount*sizeof(gltf_buffer_view), MEMORY_TAG_RENDERER);
+  for(int i = 0; i < out_gltf->accessorCount; i++){
+    vfree(out_gltf->accessors[i].max, out_gltf->accessors->max_count*sizeof(gltf_value), MEMORY_TAG_RENDERER);
+    vfree(out_gltf->accessors[i].min, out_gltf->accessors->min_count*sizeof(gltf_value), MEMORY_TAG_RENDERER);
+    vfree(out_gltf->accessors[i].type, vstrlen(out_gltf->accessors[i].type)+1, MEMORY_TAG_RENDERER);
+  }
+  vfree(out_gltf->accessors, out_gltf->accessorCount*sizeof(gltf_accessor), MEMORY_TAG_RENDERER);
 }
 
 

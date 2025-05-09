@@ -4,6 +4,8 @@
 
 #define GLTF_VERTEX_ARRAY 34962
 #define GLTF_INDEX_ARRAY 34963
+#define GLTF_FLOAT 5126
+#define GLTF_U16 5123
 
 typedef struct _velora_pixels{
   u8* pixels;
@@ -24,11 +26,30 @@ typedef struct _gltf_buffer_view{
   u64 type;
 }gltf_buffer_view;
 
+typedef union _gltf_value{
+  u64 integer;
+  f64 dFloat;
+}gltf_value;
+
+typedef struct _gltf_accessor{
+  gltf_buffer_view *bufferView;
+  u64 offset;
+  u64 componentType;
+  u64 count;
+  char *type;
+  gltf_value *max;
+  u64 max_count;
+  gltf_value *min;
+  u64 min_count;
+}gltf_accessor;
+
 typedef struct _gltf_object{
   gltf_buffer *buffers;
   u64 bufferCount;
   gltf_buffer_view *bufferViews;
   u64 bufferViewCount;
+  gltf_accessor *accessors;
+  u64 accessorCount;
 }gltf_object;
 
 typedef enum _json_type{
