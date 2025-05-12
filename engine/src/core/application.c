@@ -1,5 +1,5 @@
 #include "application.h"
-
+#include "utils/vimport.h"
 
 b8 close_event_handler(event* event, void* state){
   application_state* app_state = (application_state*)state;
@@ -42,6 +42,10 @@ b8 application_start(application_state *app_state){
 }
 
 b8 application_run(application_state* app_state){
+  gltf_object obj = {0};
+  if(import_gltf("Models/Box/Box.gltf", &obj) == TRUE){
+    free_gltf(&obj);
+  }
   while(app_state->is_running){
     platform_pump_messages(&app_state->platform);
     render_preframe(app_state->platform.render_state);
