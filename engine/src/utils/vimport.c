@@ -6,6 +6,15 @@
 #include <stdlib.h>
 #include "core/stb_image.h"
 
+#define VEL_LOAD_JSON_VALUE(json_object, name, value, expectedValue)                               \
+  VEL_CHECK_MSG(get_json_value(json_object, name, &value), "No %s variable in buffer view", name); \
+  if(value.type != expectedValue){                                                                 \
+    free_json_value(&value);                                                                       \
+    VERROR("variable %s was not an %s", name, #expectedValue);                                     \
+    return FALSE;                                                                                  \
+  }                                 
+
+
 b8 import_pixels(const char *uri, velora_pixels *out_pixels){
   int height, width, chans;
   stbi_uc* pixels = stbi_load(uri, &width, &height, &chans, STBI_rgb_alpha);
@@ -24,21 +33,6 @@ b8 import_pixels(const char *uri, velora_pixels *out_pixels){
 
 void free_pixels(velora_pixels *pixels){
   vfree(pixels->pixels, pixels->size, MEMORY_TAG_IMAGE);
-}
-
-b8 does_json_name_match(u8* data, const char* name){
-  if(data[0] != '"'){
-    VERROR("Did not start at a quotation mark");
-  }
-  data++; //increment the data past the quotation mark
-  u64 stringSize = 0;
-  while(data[stringSize] != '"'){
-    stringSize++;
-  }
-  char string[stringSize+1];
-  vcopy_memory(string, data+1, stringSize);
-  string[stringSize] = 0;
-  return vstrcmp(name, string);
 }
 
 b8 is_number(char character){
@@ -71,7 +65,7 @@ b8 extract_json_number(u8 *data, json_value *out_object){
     data++;
   }
   u64 numberLength = 0;
-  while(data[numberLength] != ',' && data[numberLength] >= ' '){
+  while(data[numberLength] != ',' && data[numberLength] >= ' ' && data[numberLength] != '}' && data[numberLength] != ']'){
     numberLength++;
   }
   out_object->type = VELORA_JSON_INTEGER;
@@ -148,7 +142,7 @@ b8 extract_json_array(u8* data, json_value *out_object){
   while((*data) <= ' '){ //clearing out whitespace
     data++;
   }
-  extract_json_value(data, &out_object->data.array[arrayIt]);
+  VEL_CHECK(extract_json_value(data, &out_object->data.array[arrayIt]));
   arrayIt++;
   while(workingLevel >= 1){
     if((*data) == '}' || (*data) == ']'){
@@ -163,7 +157,7 @@ b8 extract_json_array(u8* data, json_value *out_object){
       if((*data) == '{'){
         workingLevel++;
       }
-      extract_json_value(data, &out_object->data.array[arrayIt]);
+      VEL_CHECK(extract_json_value(data, &out_object->data.array[arrayIt]));
       arrayIt++;
     }
     data++;
@@ -224,18 +218,8 @@ b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* 
   }
   json_value bufferSize = {0};
   json_value bufferUri = {0};
-  VEL_CHECK_MSG(get_json_value(buffer->data.object, "byteLength", &bufferSize), "Unable to get buffer size, no such variable exists in the buffer object");
-  if(bufferSize.type != VELORA_JSON_INTEGER){
-    VERROR("Buffer size isn't an integer");
-    free_json_value(&bufferSize);
-    return FALSE;
-  }
-  VEL_CHECK_MSG(get_json_value(buffer->data.object, "uri", &bufferUri), "Unable to get buffer URI, no such variable exists in the buffer object");
-  if(bufferUri.type != VELORA_JSON_STRING){
-    VERROR("Buffer URI isn't a string");
-    free_json_value(&bufferUri);
-    return FALSE;
-  }
+  VEL_LOAD_JSON_VALUE(buffer->data.object, "byteLength", bufferSize, VELORA_JSON_INTEGER);
+  VEL_LOAD_JSON_VALUE(buffer->data.object, "uri", bufferUri, VELORA_JSON_STRING);
   out_buffer->size = bufferSize.data.integer;
   out_buffer->buffer = vallocate(bufferSize.data.integer, MEMORY_TAG_RENDERER);
   char * fullUri = vconcat(uriPath, bufferUri.data.string);
@@ -252,32 +236,12 @@ b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view,
   json_value offset = {0};
   json_value length = {0};
   json_value type = {0};
-  VEL_CHECK_MSG(get_json_value(buffer_view->data.object, "buffer", &bufferIndex), "No buffer variable in buffer view");
-  if(bufferIndex.type != VELORA_JSON_INTEGER){
-    free_json_value(&bufferIndex);
-    VERROR("buffer variable in buffer view was not an integer");
-    return FALSE;
-  }
-  VEL_CHECK_MSG(get_json_value(buffer_view->data.object, "byteOffset", &offset), "No byteOffset variable in buffer view");
-  if(offset.type != VELORA_JSON_INTEGER){
-    free_json_value(&offset);
-    VERROR("byteOffset variable in buffer view was not an integer");
-    return FALSE;   
-  }
-  VEL_CHECK_MSG(get_json_value(buffer_view->data.object, "byteLength", &length), "No byteLength variable in buffer view");
-  if(length.type != VELORA_JSON_INTEGER){
-    free_json_value(&length);
-    VERROR("byteLength variable in buffer view was not an integer");
-    return FALSE;   
-  }
-  VEL_CHECK_MSG(get_json_value(buffer_view->data.object, "target", &type), "No target variable in buffer view");
-  if(type.type != VELORA_JSON_INTEGER){
-    free_json_value(&type);
-    VERROR("target variable in buffer view was not an integer");
-    return FALSE;   
-  }
-  u64 stride = 0;
   json_value byteStride = {0};
+  VEL_LOAD_JSON_VALUE(buffer_view->data.object, "buffer", bufferIndex, VELORA_JSON_INTEGER);
+  VEL_LOAD_JSON_VALUE(buffer_view->data.object, "byteOffset", offset, VELORA_JSON_INTEGER);
+  VEL_LOAD_JSON_VALUE(buffer_view->data.object, "byteLength", length, VELORA_JSON_INTEGER);
+  VEL_LOAD_JSON_VALUE(buffer_view->data.object, "target", type, VELORA_JSON_INTEGER);
+  u64 stride = 0;
   if(get_json_value(buffer_view->data.object, "byteStride", &byteStride) == TRUE){
     if(byteStride.type == VELORA_JSON_INTEGER){
       stride = byteStride.data.integer;
@@ -307,6 +271,53 @@ b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view,
 }
 
 b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_object* obj){
+  json_value bViewIndex = {0};
+  json_value bOffset = {0};
+  json_value cType = {0};
+  json_value count = {0};
+  json_value vMax = {0};
+  json_value vMin = {0};
+  json_value type = {0};
+  VEL_LOAD_JSON_VALUE(accessor->data.object, "bufferView", bViewIndex, VELORA_JSON_INTEGER);
+  VEL_LOAD_JSON_VALUE(accessor->data.object, "byteOffset", bOffset, VELORA_JSON_INTEGER);
+  VEL_LOAD_JSON_VALUE(accessor->data.object, "componentType", cType, VELORA_JSON_INTEGER);
+  VEL_LOAD_JSON_VALUE(accessor->data.object, "count", count, VELORA_JSON_INTEGER);
+  VEL_LOAD_JSON_VALUE(accessor->data.object, "max", vMax, VELORA_JSON_ARRAY);
+  VEL_LOAD_JSON_VALUE(accessor->data.object, "min", vMin, VELORA_JSON_ARRAY);
+  VEL_LOAD_JSON_VALUE(accessor->data.object, "type", type, VELORA_JSON_STRING);
+  if(bViewIndex.data.integer >= obj->bufferViewCount){
+    VERROR("Accessor has buffer view index that doesn't exist");
+    VERROR("Requested buffer view index: %d", bViewIndex.data.integer);
+    VERROR("Number of buffer views: %d", obj->bufferViewCount);
+    return FALSE;
+  }
+  out_acc->bufferView = &obj->bufferViews[bViewIndex.data.integer];
+  out_acc->offset = bOffset.data.integer;
+  out_acc->componentType = cType.data.integer;
+  out_acc->count = count.data.integer;
+  out_acc->type = vallocate(type.dataSize, MEMORY_TAG_RENDERER);
+  vcopy_memory(out_acc->type, type.data.string, type.dataSize);
+  free_json_value(&type);
+  u64 maxCount = vMax.dataSize/sizeof(json_value);
+  out_acc->max_count = maxCount;
+  out_acc->max = vallocate(sizeof(gltf_value)*maxCount, MEMORY_TAG_RENDERER);
+  for(int i = 0; i < maxCount; i++){
+    if(out_acc->componentType == GLTF_FLOAT){
+      out_acc->max[i].dFloat = vMax.data.array[i].data.dFloat; 
+    }else if(out_acc->componentType == GLTF_U16){
+      out_acc->max[i].integer = vMax.data.array[i].data.integer;
+    }
+  }
+  u64 minCount = vMin.dataSize/sizeof(json_value);
+  out_acc->min_count = minCount;
+  out_acc->min = vallocate(sizeof(gltf_value)*minCount, MEMORY_TAG_RENDERER);
+  for(int i = 0; i < minCount; i++){
+    if(out_acc->componentType == GLTF_FLOAT){
+      out_acc->min[i].dFloat = vMin.data.array[i].data.dFloat; 
+    }else if(out_acc->componentType == GLTF_U16){
+      out_acc->min[i].integer = vMin.data.array[i].data.integer;
+    }
+  }
   return TRUE;
 }
 
