@@ -15,15 +15,15 @@ typedef struct _velora_pixels{
 }velora_pixels;
 
 typedef struct _gltf_buffer{
-  u64 size;
-  u8* buffer;
+  u64 size; // The size of the buffer in bytes
+  u8* buffer; // The stream of bytes, the gltf_buffer serves as the owner of the data stream
 }gltf_buffer;
 
 typedef struct _gltf_buffer_view{
-  u64 size;
-  u8* buffer;
-  u64 stride;
-  u64 type;
+  u64 size; // Complete size of this part of the buffer
+  u8* buffer; // The buffer being referenced
+  u64 stride; // The stride by which the data should be traversed
+  u64 type; // Either a GLTF_VERTEX_ARRAY or GLTF_INDEX_ARRAY
 }gltf_buffer_view;
 
 typedef union _gltf_value{
@@ -32,15 +32,15 @@ typedef union _gltf_value{
 }gltf_value;
 
 typedef struct _gltf_accessor{
-  gltf_buffer_view *bufferView;
-  u64 offset;
-  u64 componentType;
-  u64 count;
-  char *type;
-  gltf_value *max;
-  u64 max_count;
-  gltf_value *min;
-  u64 min_count;
+  gltf_buffer_view *bufferView; // The attached data
+  u64 offset; // The offset in the buffer view itself
+  u64 componentType; // Whether the SCALAR or VEC3 is made up of floats or integers
+  u64 count; // How many of the variable there is, data can be interlaced to be sure to increment by stride in the bufferview
+  char *type; // Type of accessor, usually VEC2, VEC3, VEC4, or SCALAR
+  gltf_value *max; // Optional value, NULL if it doesn't exist. Maximum value for each section
+  u64 max_count; // This is 0 if there are no max values
+  gltf_value *min; // Optional value, NULL if it doesn't exist. Minimum value for each section
+  u64 min_count;// This is 0 if there are no min values
 }gltf_accessor;
 
 typedef struct _gltf_object{
@@ -50,6 +50,8 @@ typedef struct _gltf_object{
   u64 bufferViewCount;
   gltf_accessor *accessors;
   u64 accessorCount;
+  velora_pixels *images;
+  u64 imageCount;
 }gltf_object;
 
 typedef enum _json_type{

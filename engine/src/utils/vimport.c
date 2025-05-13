@@ -7,32 +7,36 @@
 #include "core/stb_image.h"
 
 #define VEL_LOAD_JSON_VALUE(json_object, name, value, expectedValue)                               \
-  VEL_CHECK_MSG(get_json_value(json_object, name, &value), "No %s variable in buffer view", name); \
+  VEL_CHECK_MSG(get_json_value(json_object, name, &value), "No %s variable", name); \
   if(value.type != expectedValue){                                                                 \
     free_json_value(&value);                                                                       \
     VERROR("variable %s was not an %s", name, #expectedValue);                                     \
     return FALSE;                                                                                  \
-  }                                 
+  }    
 
+#define VEL_LOAD_OPTIONAL_JSON_INTEGER(json_object, name, value, variable) \
+  if(get_json_value(json_object, name, &value) == TRUE){                \
+    if(value.type == VELORA_JSON_INTEGER){                              \
+      variable = value.data.integer;                                    \
+    }                                                                   \
+    free_json_value(&value);                                            \
+  }
 
 b8 import_pixels(const char *uri, velora_pixels *out_pixels){
   int height, width, chans;
-  stbi_uc* pixels = stbi_load(uri, &width, &height, &chans, STBI_rgb_alpha);
-  if(!pixels){
+  out_pixels->pixels = stbi_load(uri, &width, &height, &chans, STBI_rgb_alpha);
+  if(!out_pixels->pixels){
     return FALSE;
   }
   out_pixels->width = width;
   out_pixels->height = height;
   // the reason we include 4 here is becuase STBI_rgb_alpha forces the pixels to be 32 bit
   out_pixels->size = out_pixels->width*out_pixels->height*4;
-  out_pixels->pixels = vallocate(out_pixels->size, MEMORY_TAG_IMAGE);
-  vcopy_memory(out_pixels->pixels, pixels, out_pixels->size);
-  stbi_image_free(pixels);
   return TRUE;
 }
 
 void free_pixels(velora_pixels *pixels){
-  vfree(pixels->pixels, pixels->size, MEMORY_TAG_IMAGE);
+  stbi_image_free(pixels->pixels);
 }
 
 b8 is_number(char character){
@@ -233,37 +237,33 @@ b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* 
 
 b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view, gltf_object* obj){
   json_value bufferIndex = {0};
-  json_value offset = {0};
+  json_value bOffset = {0};
   json_value length = {0};
   json_value type = {0};
   json_value byteStride = {0};
   VEL_LOAD_JSON_VALUE(buffer_view->data.object, "buffer", bufferIndex, VELORA_JSON_INTEGER);
-  VEL_LOAD_JSON_VALUE(buffer_view->data.object, "byteOffset", offset, VELORA_JSON_INTEGER);
   VEL_LOAD_JSON_VALUE(buffer_view->data.object, "byteLength", length, VELORA_JSON_INTEGER);
   VEL_LOAD_JSON_VALUE(buffer_view->data.object, "target", type, VELORA_JSON_INTEGER);
   u64 stride = 0;
-  if(get_json_value(buffer_view->data.object, "byteStride", &byteStride) == TRUE){
-    if(byteStride.type == VELORA_JSON_INTEGER){
-      stride = byteStride.data.integer;
-    }
-    free_json_value(&byteStride);
-  }
+  VEL_LOAD_OPTIONAL_JSON_INTEGER(buffer_view->data.object, "byteStride", byteStride, stride);
+  u64 offset = 0;
+  VEL_LOAD_OPTIONAL_JSON_INTEGER(buffer_view->data.object, "byteOffset", bOffset, offset);
   if(bufferIndex.data.integer >= obj->bufferCount){
     VERROR("Buffer view references a buffer that doesn't exist");
     VERROR("Buffer count: %s", obj->bufferCount);
     VERROR("Buffer index: %d", bufferIndex.data.integer);
     return FALSE;
   }
-  if(offset.data.integer > obj->buffers[bufferIndex.data.integer].size || offset.data.integer+length.data.integer > obj->buffers[bufferIndex.data.integer].size){
+  if(offset > obj->buffers[bufferIndex.data.integer].size || offset+length.data.integer > obj->buffers[bufferIndex.data.integer].size){
     VERROR("Buffer view goes beyond the size of the buffer that is referenced");
     VERROR("Reference buffer size: %d", obj->buffers[bufferIndex.data.integer].size);
-    VERROR("Buffer view offset: %d", offset.data.integer);
+    VERROR("Buffer view offset: %d", offset);
     VERROR("Buffer view size: %d", length.data.integer);
-    VERROR("End of buffer view: %d", offset.data.integer+length.data.integer);
+    VERROR("End of buffer view: %d", offset+length.data.integer);
     return FALSE;
   }
   out_view->size = length.data.integer;
-  out_view->buffer = obj->buffers[bufferIndex.data.integer].buffer+offset.data.integer;
+  out_view->buffer = obj->buffers[bufferIndex.data.integer].buffer+offset;
   out_view->type = type.data.integer;
   out_view->stride = stride;
 
@@ -272,18 +272,17 @@ b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view,
 
 b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_object* obj){
   json_value bViewIndex = {0};
-  json_value bOffset = {0};
+  json_value bufOffset = {0};
   json_value cType = {0};
   json_value count = {0};
   json_value vMax = {0};
   json_value vMin = {0};
   json_value type = {0};
   VEL_LOAD_JSON_VALUE(accessor->data.object, "bufferView", bViewIndex, VELORA_JSON_INTEGER);
-  VEL_LOAD_JSON_VALUE(accessor->data.object, "byteOffset", bOffset, VELORA_JSON_INTEGER);
+  u64 offset = 0;
+  VEL_LOAD_OPTIONAL_JSON_INTEGER(accessor->data.object, "byteOffset", bufOffset, offset);
   VEL_LOAD_JSON_VALUE(accessor->data.object, "componentType", cType, VELORA_JSON_INTEGER);
   VEL_LOAD_JSON_VALUE(accessor->data.object, "count", count, VELORA_JSON_INTEGER);
-  VEL_LOAD_JSON_VALUE(accessor->data.object, "max", vMax, VELORA_JSON_ARRAY);
-  VEL_LOAD_JSON_VALUE(accessor->data.object, "min", vMin, VELORA_JSON_ARRAY);
   VEL_LOAD_JSON_VALUE(accessor->data.object, "type", type, VELORA_JSON_STRING);
   if(bViewIndex.data.integer >= obj->bufferViewCount){
     VERROR("Accessor has buffer view index that doesn't exist");
@@ -291,33 +290,43 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_obje
     VERROR("Number of buffer views: %d", obj->bufferViewCount);
     return FALSE;
   }
+  out_acc->max_count = 0;
+  out_acc->max = NULL;
+  if(get_json_value(accessor->data.object, "max", &vMax) == TRUE){
+    u64 maxCount = vMax.dataSize/sizeof(json_value);
+    out_acc->max_count = maxCount;
+    out_acc->max = vallocate(sizeof(gltf_value)*maxCount, MEMORY_TAG_RENDERER);
+    for(int i = 0; i < maxCount; i++){
+      if(out_acc->componentType == GLTF_FLOAT){
+        out_acc->max[i].dFloat = vMax.data.array[i].data.dFloat; 
+      }else if(out_acc->componentType == GLTF_U16){
+        out_acc->max[i].integer = vMax.data.array[i].data.integer;
+      }
+    }
+    free_json_value(&vMax);
+  }
+  out_acc->min_count = 0;
+  out_acc->min = NULL;
+  if(get_json_value(accessor->data.object, "min", &vMin) == TRUE){
+    u64 minCount = vMin.dataSize/sizeof(json_value);
+    out_acc->min_count = minCount;
+    out_acc->min = vallocate(sizeof(gltf_value)*minCount, MEMORY_TAG_RENDERER);
+    for(int i = 0; i < minCount; i++){
+      if(out_acc->componentType == GLTF_FLOAT){
+        out_acc->min[i].dFloat = vMin.data.array[i].data.dFloat; 
+      }else if(out_acc->componentType == GLTF_U16){
+        out_acc->min[i].integer = vMin.data.array[i].data.integer;
+      }
+    }
+    free_json_value(&vMin);
+  }
   out_acc->bufferView = &obj->bufferViews[bViewIndex.data.integer];
-  out_acc->offset = bOffset.data.integer;
+  out_acc->offset = offset;
   out_acc->componentType = cType.data.integer;
   out_acc->count = count.data.integer;
   out_acc->type = vallocate(type.dataSize, MEMORY_TAG_RENDERER);
   vcopy_memory(out_acc->type, type.data.string, type.dataSize);
   free_json_value(&type);
-  u64 maxCount = vMax.dataSize/sizeof(json_value);
-  out_acc->max_count = maxCount;
-  out_acc->max = vallocate(sizeof(gltf_value)*maxCount, MEMORY_TAG_RENDERER);
-  for(int i = 0; i < maxCount; i++){
-    if(out_acc->componentType == GLTF_FLOAT){
-      out_acc->max[i].dFloat = vMax.data.array[i].data.dFloat; 
-    }else if(out_acc->componentType == GLTF_U16){
-      out_acc->max[i].integer = vMax.data.array[i].data.integer;
-    }
-  }
-  u64 minCount = vMin.dataSize/sizeof(json_value);
-  out_acc->min_count = minCount;
-  out_acc->min = vallocate(sizeof(gltf_value)*minCount, MEMORY_TAG_RENDERER);
-  for(int i = 0; i < minCount; i++){
-    if(out_acc->componentType == GLTF_FLOAT){
-      out_acc->min[i].dFloat = vMin.data.array[i].data.dFloat; 
-    }else if(out_acc->componentType == GLTF_U16){
-      out_acc->min[i].integer = vMin.data.array[i].data.integer;
-    }
-  }
   return TRUE;
 }
 
@@ -327,6 +336,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     VERROR("Unable to read GLTF file %s", uri);
     return FALSE;
   }
+  char* uriPath = get_file_path(uri);
   
   json_value buffers = {0};
   VEL_CHECK_MSG(get_json_value(gltfFile.contents, "buffers", &buffers), "GLTF File %s doesn't have a buffers variable", uri);
@@ -334,7 +344,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     VERROR("GLTF File %s has the buffers variable as something other than an array", uri);
     return FALSE;
   }
-  char* uriPath = get_file_path(uri);
+
   u64 buffersLength = buffers.dataSize/sizeof(json_value);
   out_gltf->bufferCount = buffersLength;
   out_gltf->buffers = vallocate(sizeof(gltf_buffer)*out_gltf->bufferCount, MEMORY_TAG_RENDERER);
@@ -346,6 +356,30 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     }
   }
   free_json_value(&buffers);
+
+  json_value images = {0};
+  out_gltf->imageCount = 0;
+  out_gltf->images = NULL;
+  if(get_json_value(gltfFile.contents, "images", &images) == TRUE){
+    if(images.type == VELORA_JSON_ARRAY){
+      out_gltf->imageCount = images.dataSize/sizeof(json_value);
+      out_gltf->images = vallocate(sizeof(velora_pixels)*out_gltf->imageCount, MEMORY_TAG_RENDERER);
+      for(int i = 0; i < out_gltf->imageCount; i++){
+        json_value posImage = images.data.array[i];
+        if(posImage.type == VELORA_JSON_OBJECT){
+          json_value imageUriJson = {0};
+          if(get_json_value(posImage.data.object, "uri", &imageUriJson) == TRUE && imageUriJson.type == VELORA_JSON_STRING){
+            char* fullUri = vconcat(uriPath, imageUriJson.data.string);
+            VEL_CHECK_MSG(import_pixels(fullUri, &out_gltf->images[i]), "Unable to import image %s", fullUri);
+            free_json_value(&imageUriJson);
+            vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
+          }
+        }
+      }
+    }
+    free_json_value(&images);
+  }
+
   if(uriPath != NULL){
     vfree(uriPath, vstrlen(uriPath)+1, MEMORY_TAG_STRING);
   }
@@ -375,7 +409,6 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     VEL_CHECK_MSG(extract_gltf_accessor(&accessors.data.array[i], &out_gltf->accessors[i], out_gltf), "GLTF File %s has malformed accessor object at index %d", uri, i);
   }
   free_json_value(&accessors);
-  
   return TRUE;
 }
 
@@ -395,6 +428,7 @@ void free_gltf(gltf_object* out_gltf){
     vfree(out_gltf->accessors[i].type, vstrlen(out_gltf->accessors[i].type)+1, MEMORY_TAG_RENDERER);
   }
   vfree(out_gltf->accessors, out_gltf->accessorCount*sizeof(gltf_accessor), MEMORY_TAG_RENDERER);
+  vfree(out_gltf->images, out_gltf->imageCount*sizeof(velora_pixels), MEMORY_TAG_RENDERER);
 }
 
 
