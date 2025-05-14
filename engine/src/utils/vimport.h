@@ -17,6 +17,7 @@ typedef struct _velora_pixels{
 typedef struct _gltf_buffer{
   u64 size; // The size of the buffer in bytes
   u8* buffer; // The stream of bytes, the gltf_buffer serves as the owner of the data stream
+  const char *name;
 }gltf_buffer;
 
 typedef struct _gltf_buffer_view{
@@ -41,6 +42,7 @@ typedef struct _gltf_accessor{
   u64 max_count; // This is 0 if there are no max values
   gltf_value *min; // Optional value, NULL if it doesn't exist. Minimum value for each section
   u64 min_count;// This is 0 if there are no min values
+  b8 normalized;
 }gltf_accessor;
 
 typedef struct _gltf_object{

@@ -14,13 +14,14 @@
     return FALSE;                                                                                  \
   }    
 
-#define VEL_LOAD_OPTIONAL_JSON_INTEGER(json_object, name, value, variable) \
-  if(get_json_value(json_object, name, &value) == TRUE){                \
-    if(value.type == VELORA_JSON_INTEGER){                              \
-      variable = value.data.integer;                                    \
-    }                                                                   \
-    free_json_value(&value);                                            \
-  }
+#define VEL_LOAD_OPTIONAL_JSON_INTEGER(json_object, name, variable) \
+  {json_value dummy = {0};                                          \
+  if(get_json_value(json_object, name, &dummy) == TRUE){            \
+    if(dummy.type == VELORA_JSON_INTEGER){                          \
+      variable = dummy.data.integer;                                \
+    }                                                               \
+    free_json_value(&dummy);                                        \
+  }}
 
 b8 import_pixels(const char *uri, velora_pixels *out_pixels){
   int height, width, chans;
@@ -117,6 +118,12 @@ b8 extract_json_value(u8* data, json_value *out_object){
     return extract_json_number(data, out_object);
   }else if(idenChar == '"'){
     return extract_json_string(data, out_object);
+  }else if(idenChar == 't'){
+    out_object->type = VELORA_JSON_INTEGER;
+    out_object->data.integer = TRUE;
+  }else if(idenChar == 'f'){
+    out_object->type = VELORA_JSON_INTEGER;
+    out_object->data.integer = FALSE;
   }else{
     return FALSE;
   }
@@ -237,17 +244,15 @@ b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* 
 
 b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view, gltf_object* obj){
   json_value bufferIndex = {0};
-  json_value bOffset = {0};
   json_value length = {0};
-  json_value type = {0};
-  json_value byteStride = {0};
   VEL_LOAD_JSON_VALUE(buffer_view->data.object, "buffer", bufferIndex, VELORA_JSON_INTEGER);
   VEL_LOAD_JSON_VALUE(buffer_view->data.object, "byteLength", length, VELORA_JSON_INTEGER);
-  VEL_LOAD_JSON_VALUE(buffer_view->data.object, "target", type, VELORA_JSON_INTEGER);
+  u64 type = 0;
+  VEL_LOAD_OPTIONAL_JSON_INTEGER(buffer_view->data.object, "target", type);
   u64 stride = 0;
-  VEL_LOAD_OPTIONAL_JSON_INTEGER(buffer_view->data.object, "byteStride", byteStride, stride);
+  VEL_LOAD_OPTIONAL_JSON_INTEGER(buffer_view->data.object, "byteStride", stride);
   u64 offset = 0;
-  VEL_LOAD_OPTIONAL_JSON_INTEGER(buffer_view->data.object, "byteOffset", bOffset, offset);
+  VEL_LOAD_OPTIONAL_JSON_INTEGER(buffer_view->data.object, "byteOffset", offset);
   if(bufferIndex.data.integer >= obj->bufferCount){
     VERROR("Buffer view references a buffer that doesn't exist");
     VERROR("Buffer count: %s", obj->bufferCount);
@@ -264,7 +269,7 @@ b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view,
   }
   out_view->size = length.data.integer;
   out_view->buffer = obj->buffers[bufferIndex.data.integer].buffer+offset;
-  out_view->type = type.data.integer;
+  out_view->type = type;
   out_view->stride = stride;
 
   return TRUE;
@@ -279,8 +284,10 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_obje
   json_value vMin = {0};
   json_value type = {0};
   VEL_LOAD_JSON_VALUE(accessor->data.object, "bufferView", bViewIndex, VELORA_JSON_INTEGER);
-  u64 offset = 0;
-  VEL_LOAD_OPTIONAL_JSON_INTEGER(accessor->data.object, "byteOffset", bufOffset, offset);
+  out_acc->offset = 0;
+  VEL_LOAD_OPTIONAL_JSON_INTEGER(accessor->data.object, "byteOffset", out_acc->offset);
+  out_acc->normalized = FALSE;
+  VEL_LOAD_OPTIONAL_JSON_INTEGER(accessor->data.object, "normalized", out_acc->normalized);
   VEL_LOAD_JSON_VALUE(accessor->data.object, "componentType", cType, VELORA_JSON_INTEGER);
   VEL_LOAD_JSON_VALUE(accessor->data.object, "count", count, VELORA_JSON_INTEGER);
   VEL_LOAD_JSON_VALUE(accessor->data.object, "type", type, VELORA_JSON_STRING);
@@ -321,7 +328,6 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_obje
     free_json_value(&vMin);
   }
   out_acc->bufferView = &obj->bufferViews[bViewIndex.data.integer];
-  out_acc->offset = offset;
   out_acc->componentType = cType.data.integer;
   out_acc->count = count.data.integer;
   out_acc->type = vallocate(type.dataSize, MEMORY_TAG_RENDERER);
