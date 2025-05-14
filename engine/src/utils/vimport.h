@@ -1,6 +1,7 @@
 #pragma once
 #include "defines.h"
 #include "container/darray.h"
+#include "utils/vmath.h"
 
 #define GLTF_VERTEX_ARRAY 34962
 #define GLTF_INDEX_ARRAY 34963
@@ -44,6 +45,20 @@ typedef struct _gltf_accessor{
   u64 min_count;// This is 0 if there are no min values
   b8 normalized;
 }gltf_accessor;
+
+typedef struct _gltf_metal_roughness{
+  vec4 baseColor;
+  f32 metallicFactor;
+  f32 roughnessFactor;
+}gltf_metal_roughness;
+
+typedef struct _gltf_material{
+  const char *name;
+  vec3 emissiveFactor;
+  const char *alphaMode;
+  f32 alphaCutoff;
+  b8 doubleSided;
+}gltf_material;
 
 typedef struct _gltf_object{
   gltf_buffer *buffers;

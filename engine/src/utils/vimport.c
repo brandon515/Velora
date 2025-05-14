@@ -121,9 +121,11 @@ b8 extract_json_value(u8* data, json_value *out_object){
   }else if(idenChar == 't'){
     out_object->type = VELORA_JSON_INTEGER;
     out_object->data.integer = TRUE;
+    return TRUE;
   }else if(idenChar == 'f'){
     out_object->type = VELORA_JSON_INTEGER;
     out_object->data.integer = FALSE;
+    return TRUE;
   }else{
     return FALSE;
   }
@@ -277,7 +279,6 @@ b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view,
 
 b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_object* obj){
   json_value bViewIndex = {0};
-  json_value bufOffset = {0};
   json_value cType = {0};
   json_value count = {0};
   json_value vMax = {0};
