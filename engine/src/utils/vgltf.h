@@ -8,8 +8,8 @@
 
 #define GLTF_I8 5120
 #define GLTF_U8 5121
-#define GLTF_I16 5123
-#define GLTF_U16 5124
+#define GLTF_I16 5122
+#define GLTF_U16 5123
 #define GLTF_U32 5125
 #define GLTF_FLOAT 5126
 
@@ -27,7 +27,8 @@ typedef struct _gltf_buffer_view{
 }gltf_buffer_view;
 
 typedef union _gltf_value{
-  u64 integer;
+  u64 unsignedInteger;
+  i64 signedInteger;
   f64 dFloat;
 }gltf_value;
 

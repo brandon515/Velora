@@ -88,8 +88,10 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_obje
     for(int i = 0; i < maxCount; i++){
       if(out_acc->componentType == GLTF_FLOAT){
         out_acc->max[i].dFloat = vMax.data.array[i].data.dFloat; 
-      }else if(out_acc->componentType == GLTF_U16){
-        out_acc->max[i].integer = vMax.data.array[i].data.integer;
+      }else if(out_acc->componentType % 2 == 0){
+        out_acc->max[i].signedInteger = vMax.data.array[i].data.integer;
+      }else if(out_acc->componentType % 2 == 1){
+        out_acc->max[i].unsignedInteger = vMax.data.array[i].data.integer;
       }
     }
     free_json_value(&vMax);
@@ -103,8 +105,10 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_obje
     for(int i = 0; i < minCount; i++){
       if(out_acc->componentType == GLTF_FLOAT){
         out_acc->min[i].dFloat = vMin.data.array[i].data.dFloat; 
-      }else if(out_acc->componentType == GLTF_U16){
-        out_acc->min[i].integer = vMin.data.array[i].data.integer;
+      }else if(out_acc->componentType % 2 == 0){
+        out_acc->min[i].signedInteger = vMin.data.array[i].data.integer;
+      }else if(out_acc->componentType % 2 == 1){
+        out_acc->min[i].unsignedInteger = vMin.data.array[i].data.integer;
       }
     }
     free_json_value(&vMin);
@@ -211,9 +215,10 @@ void free_gltf(gltf_object* out_gltf){
   vfree(out_gltf->buffers, out_gltf->bufferCount*sizeof(gltf_buffer), MEMORY_TAG_RENDERER);
   vfree(out_gltf->bufferViews, out_gltf->bufferViewCount*sizeof(gltf_buffer_view), MEMORY_TAG_RENDERER);
   for(int i = 0; i < out_gltf->accessorCount; i++){
-    vfree(out_gltf->accessors[i].max, out_gltf->accessors->max_count*sizeof(gltf_value), MEMORY_TAG_RENDERER);
-    vfree(out_gltf->accessors[i].min, out_gltf->accessors->min_count*sizeof(gltf_value), MEMORY_TAG_RENDERER);
-    vfree(out_gltf->accessors[i].type, vstrlen(out_gltf->accessors[i].type)+1, MEMORY_TAG_RENDERER);
+    gltf_accessor *curAccessor = &out_gltf->accessors[i];
+    vfree(curAccessor->max, curAccessor->max_count*sizeof(gltf_value), MEMORY_TAG_RENDERER);
+    vfree(curAccessor->min, curAccessor->min_count*sizeof(gltf_value), MEMORY_TAG_RENDERER);
+    vfree(curAccessor->type, vstrlen(curAccessor->type)+1, MEMORY_TAG_RENDERER);
   }
   vfree(out_gltf->accessors, out_gltf->accessorCount*sizeof(gltf_accessor), MEMORY_TAG_RENDERER);
   vfree(out_gltf->images, out_gltf->imageCount*sizeof(velora_pixels), MEMORY_TAG_RENDERER);
