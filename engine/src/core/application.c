@@ -1,5 +1,5 @@
 #include "application.h"
-#include "utils/vimport.h"
+#include "utils/vgltf.h"
 
 b8 close_event_handler(event* event, void* state){
   application_state* app_state = (application_state*)state;
