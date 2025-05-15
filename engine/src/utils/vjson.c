@@ -10,8 +10,8 @@ b8 is_number(char character){
 
 b8 extract_json_object(u8* data, json_value *out_object){
   u64 jsonDataSize = 1;
-  u64 curLevel = 1, workingLevel = 1;
-  while(workingLevel >= curLevel){
+  u64 workingLevel = 1;
+  while(workingLevel >= 1){
     if(data[jsonDataSize] == '}' || data[jsonDataSize] == ']'){
       workingLevel--;
     }else if(data[jsonDataSize] == '{' || data[jsonDataSize] == '['){
