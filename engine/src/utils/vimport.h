@@ -3,10 +3,6 @@
 #include "container/darray.h"
 #include "utils/vmath.h"
 
-#define GLTF_VERTEX_ARRAY 34962
-#define GLTF_INDEX_ARRAY 34963
-#define GLTF_FLOAT 5126
-#define GLTF_U16 5123
 
 typedef struct _velora_pixels{
   u8* pixels;
@@ -14,87 +10,6 @@ typedef struct _velora_pixels{
   u64 height;
   u64 size;
 }velora_pixels;
-
-typedef struct _gltf_buffer{
-  u64 size; // The size of the buffer in bytes
-  u8* buffer; // The stream of bytes, the gltf_buffer serves as the owner of the data stream
-  const char *name;
-}gltf_buffer;
-
-typedef struct _gltf_buffer_view{
-  u64 size; // Complete size of this part of the buffer
-  u8* buffer; // The buffer being referenced
-  u64 stride; // The stride by which the data should be traversed
-  u64 type; // Either a GLTF_VERTEX_ARRAY or GLTF_INDEX_ARRAY
-}gltf_buffer_view;
-
-typedef union _gltf_value{
-  u64 integer;
-  f64 dFloat;
-}gltf_value;
-
-typedef struct _gltf_accessor{
-  gltf_buffer_view *bufferView; // The attached data
-  u64 offset; // The offset in the buffer view itself
-  u64 componentType; // Whether the SCALAR or VEC3 is made up of floats or integers
-  u64 count; // How many of the variable there is, data can be interlaced to be sure to increment by stride in the bufferview
-  char *type; // Type of accessor, usually VEC2, VEC3, VEC4, or SCALAR
-  gltf_value *max; // Optional value, NULL if it doesn't exist. Maximum value for each section
-  u64 max_count; // This is 0 if there are no max values
-  gltf_value *min; // Optional value, NULL if it doesn't exist. Minimum value for each section
-  u64 min_count;// This is 0 if there are no min values
-  b8 normalized;
-}gltf_accessor;
-
-typedef struct _gltf_metal_roughness{
-  vec4 baseColor;
-  f32 metallicFactor;
-  f32 roughnessFactor;
-}gltf_metal_roughness;
-
-typedef struct _gltf_material{
-  const char *name;
-  vec3 emissiveFactor;
-  const char *alphaMode;
-  f32 alphaCutoff;
-  b8 doubleSided;
-}gltf_material;
-
-typedef struct _gltf_object{
-  gltf_buffer *buffers;
-  u64 bufferCount;
-  gltf_buffer_view *bufferViews;
-  u64 bufferViewCount;
-  gltf_accessor *accessors;
-  u64 accessorCount;
-  velora_pixels *images;
-  u64 imageCount;
-}gltf_object;
-
-typedef enum _json_type{
-  VELORA_JSON_INTEGER,
-  VELORA_JSON_DOUBLE,
-  VELORA_JSON_STRING,
-  VELORA_JSON_OBJECT,
-  VELORA_JSON_ARRAY,
-}json_type;
-
-typedef struct _json_value json_value;
-
-typedef union _json_data{
-  i64 integer;
-  f64 dFloat;
-  char* string;
-  u8* object;
-  json_value* array;
-}json_data;
-
-typedef struct _json_value{
-  json_type type; // The type of value from the json file
-  json_data data; // a union of all the data types a json variable could possibly be
-  u64 dataSize; // datasize for the pointer data types, this is unused for integer and doubles
-}json_value;
-
 
 /**
  * @brief Imports an image with the provided URI
@@ -110,37 +25,5 @@ VAPI b8 import_pixels(const char *uri, velora_pixels *out_pixels);
  */
 VAPI void free_pixels(velora_pixels *pixels);
 
-/**
- * @brief imports the gltf file into a usable file
- * @param uri The filename of the gltf file
- * @param out_gltf A gltf_object variable to be filled with the data pointed at by the URI
- * @return FALSE if the file doesn't exist or the file isn't valid JSON, TRUE otherwise
- */
-VAPI b8 import_gltf(const char *uri, gltf_object *out_gltf);
 
-/**
- * @brief Frees the memory that the gltf_object uses but not the pointer itself
- * @param out_gltf The gltf_object that's been filled with import_gltf
- */
-VAPI void free_gltf(gltf_object* out_gltf);
 
-/**
- * @brief Pulls a value out of the raw data from a JSON object
- * @param data The data for a valid JSON object
- * @param name The variable name that needs to be pulled
- * @param out_object A pointer to a json_value that will be filled with the requested data
- * @return FALSE if the variable doesn't exist or the data doesn't contain a JSON object, TRUE otherwise
- */
-VAPI b8 get_json_value(u8* data, const char *name, json_value *out_object);
-
-/**
- * @brief Frees the values inside the json_value struct if it needs to be freed
- * @param value a json_value that was created with get_json_value
- */
-VAPI void free_json_value(json_value *value);
-
-/**
- * @brief Prints out the value using VINFO
- * @param val The json_value to print out
- */
-VAPI void print_json_value(json_value *val);
