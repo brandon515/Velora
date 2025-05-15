@@ -79,6 +79,12 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_obje
     VERROR("Number of buffer views: %d", obj->bufferViewCount);
     return FALSE;
   }
+  out_acc->bufferView = &obj->bufferViews[bViewIndex.data.integer];
+  out_acc->componentType = cType.data.integer;
+  out_acc->count = count.data.integer;
+  out_acc->type = vallocate(type.dataSize, MEMORY_TAG_RENDERER);
+  vcopy_memory(out_acc->type, type.data.string, type.dataSize);
+  free_json_value(&type);
   out_acc->max_count = 0;
   out_acc->max = NULL;
   if(get_json_value(accessor->data.object, "max", &vMax) == TRUE){
@@ -113,12 +119,6 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_obje
     }
     free_json_value(&vMin);
   }
-  out_acc->bufferView = &obj->bufferViews[bViewIndex.data.integer];
-  out_acc->componentType = cType.data.integer;
-  out_acc->count = count.data.integer;
-  out_acc->type = vallocate(type.dataSize, MEMORY_TAG_RENDERER);
-  vcopy_memory(out_acc->type, type.data.string, type.dataSize);
-  free_json_value(&type);
   return TRUE;
 }
 
@@ -216,9 +216,13 @@ void free_gltf(gltf_object* out_gltf){
   vfree(out_gltf->bufferViews, out_gltf->bufferViewCount*sizeof(gltf_buffer_view), MEMORY_TAG_RENDERER);
   for(int i = 0; i < out_gltf->accessorCount; i++){
     gltf_accessor *curAccessor = &out_gltf->accessors[i];
-    vfree(curAccessor->max, curAccessor->max_count*sizeof(gltf_value), MEMORY_TAG_RENDERER);
-    vfree(curAccessor->min, curAccessor->min_count*sizeof(gltf_value), MEMORY_TAG_RENDERER);
     vfree(curAccessor->type, vstrlen(curAccessor->type)+1, MEMORY_TAG_RENDERER);
+    if(curAccessor->max_count != 0){
+      vfree(curAccessor->max, curAccessor->max_count*sizeof(gltf_value), MEMORY_TAG_RENDERER);
+    }
+    if(curAccessor->min_count != 0){
+      vfree(curAccessor->min, curAccessor->min_count*sizeof(gltf_value), MEMORY_TAG_RENDERER);
+    }
   }
   vfree(out_gltf->accessors, out_gltf->accessorCount*sizeof(gltf_accessor), MEMORY_TAG_RENDERER);
   vfree(out_gltf->images, out_gltf->imageCount*sizeof(velora_pixels), MEMORY_TAG_RENDERER);
