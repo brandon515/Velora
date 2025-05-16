@@ -4,7 +4,7 @@
 #include "core/vmemory.h"
 #include "core/logger.h"
 #include "utils/vstring.h"
-
+//#define __STDC_NO_THREADS__
 #ifndef __STDC_NO_THREADS__
 #include <threads.h>
 typedef struct _image_thread_data{
@@ -233,6 +233,46 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     VEL_CHECK_MSG(extract_gltf_accessor(&accessors.data.array[i], &out_gltf->accessors[i], out_gltf), "GLTF File %s has malformed accessor object at index %d", uri, i);
   }
   free_json_value(&accessors);
+
+  json_value textures = {0};
+  if(get_json_value(gltfFile.contents, "textures", &textures) == TRUE){
+    if(textures.type != VELORA_JSON_ARRAY){
+      VERROR("textures in GLTF File %s is not an array", uri);
+      free_json_value(&textures);
+    }
+    out_gltf->textureCount = textures.dataSize/sizeof(json_value);
+    out_gltf->textures = vallocate(out_gltf->textureCount*sizeof(gltf_texture), MEMORY_TAG_GLTF);
+    for(int i = 0; i < out_gltf->textureCount; i++){
+      json_value *curTex = &textures.data.array[i];
+      if(curTex->type != VELORA_JSON_OBJECT){
+        VERROR("texture in GLTF File %s is not an array of objects", uri);
+        break;
+      }
+      gltf_texture *outTexture = &out_gltf->textures[i];
+      json_value sourceSampler = {0};
+      if(get_json_value(curTex->data.object, "source", &sourceSampler) == TRUE && sourceSampler.type == VELORA_JSON_INTEGER){
+        outTexture->source = sourceSampler.data.integer;
+        outTexture->sampler = -1;
+      }else if(get_json_value(curTex->data.object, "sampler", &sourceSampler) == TRUE && sourceSampler.type == VELORA_JSON_INTEGER){
+        outTexture->sampler = sourceSampler.data.integer;
+        outTexture->source = -1;
+      }
+      json_value name = {0};
+      if(get_json_value(curTex->data.object, "name", &name) == TRUE && name.type == VELORA_JSON_STRING){
+        outTexture->name = vallocate(name.dataSize, MEMORY_TAG_GLTF);
+        vcopy_memory(outTexture->name, name.data.string, name.dataSize);
+        free_json_value(&name);
+      }
+    }
+  }
+
+  json_value materials = {0};
+  if(get_json_value(gltfFile.contents, "materials", &materials) == TRUE){
+    if(materials.type != VELORA_JSON_ARRAY){
+      VERROR("materials in GLTF File %s is not an array", uri);
+      free_json_value(&materials);
+    }
+  }
 
   free_velora_file(&gltfFile);
   b8 retVal = TRUE;

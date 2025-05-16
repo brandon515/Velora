@@ -16,7 +16,7 @@
 typedef struct _gltf_buffer{
   u64 size; // The size of the buffer in bytes
   u8* buffer; // The stream of bytes, the gltf_buffer serves as the owner of the data stream
-  const char *name;
+  char *name;
 }gltf_buffer;
 
 typedef struct _gltf_buffer_view{
@@ -45,18 +45,36 @@ typedef struct _gltf_accessor{
   b8 normalized;
 }gltf_accessor;
 
+typedef struct _gltf_texture{
+  i64 sampler;
+  i64 source;
+  char *name;
+}gltf_texture;
+
+typedef struct _gltf_material_texture{
+  i64 textureIndex;
+  u64 texCoordIndex;
+  f64 scale;
+}gltf_material_texture;
+
 typedef struct _gltf_metal_roughness{
   vec4 baseColor;
   f32 metallicFactor;
   f32 roughnessFactor;
+  gltf_material_texture baseColorTexture;
+  gltf_material_texture metallicRoughnessTexture;
 }gltf_metal_roughness;
 
 typedef struct _gltf_material{
-  const char *name;
+  char *name;
   vec3 emissiveFactor;
-  const char *alphaMode;
+  char *alphaMode;
   f32 alphaCutoff;
   b8 doubleSided;
+  gltf_metal_roughness pbrMetallicRoughness;
+  gltf_material_texture normalTexture;
+  gltf_material_texture occlusionTexture;
+  gltf_material_texture emissiveTexture;
 }gltf_material;
 
 typedef struct _gltf_object{
@@ -68,6 +86,10 @@ typedef struct _gltf_object{
   u64 accessorCount;
   velora_pixels *images;
   u64 imageCount;
+  gltf_material *materials;
+  u64 materialCount;
+  gltf_texture *textures;
+  u64 textureCount;
 }gltf_object;
 
 /**
