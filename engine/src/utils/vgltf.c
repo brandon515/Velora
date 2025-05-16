@@ -5,6 +5,14 @@
 #include "core/logger.h"
 #include "utils/vstring.h"
 
+#ifndef __STDC_NO_THREADS__
+#include <threads.h>
+typedef struct _image_thread_data{
+  char* uri;
+  velora_pixels* out_image;
+}image_thread_data;
+#endif
+
 b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* uriPath){
   if(buffer->type != VELORA_JSON_OBJECT){
     VERROR("Buffer in GLTF File isn't an object");
@@ -126,6 +134,16 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc, gltf_obje
   return TRUE;
 }
 
+#ifndef __STDC_NO_THREADS__
+int import_image_thread(void* data){
+  image_thread_data *imageData = (image_thread_data*)data;
+  VEL_CHECK_MSG(import_pixels(imageData->uri, imageData->out_image), "Unable to import image %s", imageData->uri);
+  vfree(imageData->uri, vstrlen(imageData->uri)+1, MEMORY_TAG_STRING);
+  vfree(data, sizeof(image_thread_data), MEMORY_TAG_GLTF);
+  return TRUE;
+}
+#endif
+
 b8 import_gltf(const char *uri, gltf_object *out_gltf){
   velora_file gltfFile = {0};
   if(get_file_contents(uri, &gltfFile) == FALSE){
@@ -133,7 +151,40 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     return FALSE;
   }
   char* uriPath = get_file_path(uri);
-  
+
+  json_value images = {0};
+  out_gltf->imageCount = 0;
+  out_gltf->images = NULL;
+  #ifndef __STDC_NO_THREADS__
+  thrd_t *threadIds = NULL;
+  #endif
+  if(get_json_value(gltfFile.contents, "images", &images) == TRUE && images.type == VELORA_JSON_ARRAY){
+    out_gltf->imageCount = images.dataSize/sizeof(json_value);
+    #ifndef __STDC_NO_THREADS__
+    threadIds = vallocate(sizeof(thrd_t)*out_gltf->imageCount, MEMORY_TAG_GLTF);
+    #endif
+    out_gltf->images = vallocate(sizeof(velora_pixels)*out_gltf->imageCount, MEMORY_TAG_GLTF);
+    for(int i = 0; i < out_gltf->imageCount; i++){
+      json_value posImage = images.data.array[i];
+      if(posImage.type == VELORA_JSON_OBJECT){
+        json_value imageUriJson = {0};
+        if(get_json_value(posImage.data.object, "uri", &imageUriJson) == TRUE && imageUriJson.type == VELORA_JSON_STRING){   
+          char* fullUri = vconcat(uriPath, imageUriJson.data.string); 
+          #ifdef __STDC_NO_THREADS__
+          VEL_CHECK_MSG(import_pixels(fullUri, &out_gltf->images[i]), "Unable to import image %s", fullUri);
+          vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
+          #else
+          image_thread_data *dat = vallocate(sizeof(image_thread_data), MEMORY_TAG_GLTF);
+          dat->uri = fullUri;
+          dat->out_image = &out_gltf->images[i];
+          thrd_create(threadIds+i, import_image_thread, dat);
+          #endif
+          free_json_value(&imageUriJson);
+        }
+      }
+    }
+    free_json_value(&images);
+  }
   json_value buffers = {0};
   VEL_CHECK_MSG(get_json_value(gltfFile.contents, "buffers", &buffers), "GLTF File %s doesn't have a buffers variable", uri);
   if(buffers.type != VELORA_JSON_ARRAY){
@@ -152,30 +203,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     }
   }
   free_json_value(&buffers);
-
-  json_value images = {0};
-  out_gltf->imageCount = 0;
-  out_gltf->images = NULL;
-  if(get_json_value(gltfFile.contents, "images", &images) == TRUE){
-    if(images.type == VELORA_JSON_ARRAY){
-      out_gltf->imageCount = images.dataSize/sizeof(json_value);
-      out_gltf->images = vallocate(sizeof(velora_pixels)*out_gltf->imageCount, MEMORY_TAG_GLTF);
-      for(int i = 0; i < out_gltf->imageCount; i++){
-        json_value posImage = images.data.array[i];
-        if(posImage.type == VELORA_JSON_OBJECT){
-          json_value imageUriJson = {0};
-          if(get_json_value(posImage.data.object, "uri", &imageUriJson) == TRUE && imageUriJson.type == VELORA_JSON_STRING){
-            char* fullUri = vconcat(uriPath, imageUriJson.data.string);
-            VEL_CHECK_MSG(import_pixels(fullUri, &out_gltf->images[i]), "Unable to import image %s", fullUri);
-            free_json_value(&imageUriJson);
-            vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
-          }
-        }
-      }
-    }
-    free_json_value(&images);
-  }
-
+  
   if(uriPath != NULL){
     vfree(uriPath, vstrlen(uriPath)+1, MEMORY_TAG_STRING);
   }
@@ -207,6 +235,18 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   free_json_value(&accessors);
 
   free_velora_file(&gltfFile);
+  #ifndef __STDC_NO_THREADS__
+  if(threadIds == NULL){
+    return TRUE;
+  }
+  for(int i = 0; i < out_gltf->imageCount; i++){
+    int result;
+    thrd_join(threadIds[i], &result);
+    if(result == FALSE){
+      return FALSE;
+    }
+  }
+  #endif
   return TRUE;
 }
 
