@@ -235,6 +235,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   free_json_value(&accessors);
 
   free_velora_file(&gltfFile);
+  b8 retVal = TRUE;
   #ifndef __STDC_NO_THREADS__
   if(threadIds == NULL){
     return TRUE;
@@ -243,11 +244,12 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     int result;
     thrd_join(threadIds[i], &result);
     if(result == FALSE){
-      return FALSE;
+      VERROR("Unable to load image at index %d in gltf file %s", i, uri);
+      retVal = FALSE;
     }
   }
   #endif
-  return TRUE;
+  return retVal;
 }
 
 void free_gltf_buffer(gltf_buffer* buf){
