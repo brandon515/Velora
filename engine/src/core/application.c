@@ -43,7 +43,7 @@ b8 application_start(application_state *app_state){
 
 b8 application_run(application_state* app_state){
   gltf_object obj = {0};
-  if(import_gltf("Models/SoV/scene.gltf", &obj) == TRUE){
+  if(import_gltf("Models/Avocado/scene.gltf", &obj) == TRUE){
     free_gltf(&obj);
   }
   while(app_state->is_running){
