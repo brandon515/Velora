@@ -43,11 +43,12 @@ char* vsubstr(const char* str, u64 startIndex, u64 length){
 char* vconcat(const char *str1, const char* str2){
   u64 str1Len = vstrlen(str1);
   u64 str2Len = vstrlen(str2);
-  u64 memorySize = str1Len + str2Len + 1; //account for the 0 termination
+  u64 stringLength = str1Len+str2Len;
+  u64 memorySize = stringLength + 1; //account for the 0 termination
   char* buf = vallocate(memorySize, MEMORY_TAG_STRING);
   vcopy_memory(buf, str1, str1Len);
   vcopy_memory(buf+str1Len, str2, str2Len);
-  buf[memorySize] = 0;
+  buf[stringLength] = 0;
   return buf;
 }
 

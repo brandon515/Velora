@@ -163,7 +163,7 @@ b8 get_json_value(u8* data, const char *name, json_value *out_object){  // chang
       while(local_array[stringSize] != '"'){
         stringSize++;
       }
-      char jsonName[stringSize];
+      char jsonName[stringSize+1];
       vcopy_memory(jsonName, local_array, stringSize);
       local_array = local_array+stringSize+1;
       jsonName[stringSize] = 0; //Gotta be sure to zero terminate the string
