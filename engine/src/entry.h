@@ -39,7 +39,6 @@ int main(void){
   vfree(app_state->game_inst, sizeof(game), MEMORY_TAG_GAME);
   shutdown_event_system();
   vfree(app_state, sizeof(application_state), MEMORY_TAG_APPLICATION);
-  VINFO("%s", get_memory_usage_str());
   shutdown_logging();
   shutdown_memory();
   return 0;
