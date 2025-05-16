@@ -39,6 +39,9 @@ void* vallocate(u64 size, memory_tag tag){
 void vfree(void* block, u64 size, memory_tag tag){
   platform_free(block, FALSE);
 
+  if(mem_stats.tagged_allocations[tag] < size){
+    VINFO("HERE");
+  }
   mem_stats.total_allocated -= size;
   mem_stats.tagged_allocations[tag] -= size;
 }

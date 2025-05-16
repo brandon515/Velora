@@ -103,7 +103,7 @@ darray* darray_delete(darray* arr, u64 index){
 
 void darray_free(darray* arr){
   vfree(arr->data, arr->cap*arr->stride, MEMORY_TAG_DARRAY);
-  vfree(arr, sizeof(arr), MEMORY_TAG_DARRAY);
+  vfree(arr, sizeof(darray), MEMORY_TAG_DARRAY);
 }
 
 void darray_clear(darray* arr){

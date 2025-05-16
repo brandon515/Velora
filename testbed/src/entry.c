@@ -19,3 +19,7 @@ b8 create_game(game* out_game){
 
     return TRUE;
 }
+
+void shutdown_game(game* out_game){
+    vfree(out_game->state, sizeof(game_state), MEMORY_TAG_GAME);
+}

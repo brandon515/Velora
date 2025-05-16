@@ -14,6 +14,7 @@
   MEM_TAG(MEMORY_TAG_JOB)                 \
   MEM_TAG(MEMORY_TAG_TEXTURE)             \
   MEM_TAG(MEMORY_TAG_MATERIAL_INSTANCE)   \
+  MEM_TAG(MEMORY_TAG_GLTF)                \
   MEM_TAG(MEMORY_TAG_RENDERER)            \
   MEM_TAG(MEMORY_TAG_GAME)                \
   MEM_TAG(MEMORY_TAG_TRANSFORM)           \

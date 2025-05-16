@@ -44,6 +44,7 @@ b8 application_start(application_state *app_state){
 b8 application_run(application_state* app_state){
   gltf_object obj = {0};
   if(import_gltf("Models/SoV/scene.gltf", &obj) == TRUE){
+    VINFO("%s", get_memory_usage_str());
     free_gltf(&obj);
   }
   while(app_state->is_running){
@@ -66,6 +67,7 @@ b8 application_run(application_state* app_state){
     render_postframe(app_state->platform.render_state);
   }
   platform_shutdown(&app_state->platform);
+  shutdown_input_sytem(&app_state->game_inst->input);
 
   return TRUE;
 }

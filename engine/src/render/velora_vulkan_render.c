@@ -844,7 +844,9 @@ void destroy_swapchain(vulkan_state* vk_state){
   for(int i = 0; i < vk_state->swapchainImageCount; i++){
     vkDestroyImageView(vk_state->logicalDevice, vk_state->swapchainImageViews[i], NULL);
   }
-  vfree(vk_state->swapchainImages, sizeof(VkImageView)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
+  vfree(vk_state->frameBuffers, sizeof(VkFramebuffer)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
+  vfree(vk_state->swapchainImages, sizeof(VkImage)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
+  vfree(vk_state->swapchainImageViews, sizeof(VkImageView)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
   vkDestroySwapchainKHR(vk_state->logicalDevice, vk_state->swapchain, NULL);
 }
 
@@ -1316,7 +1318,11 @@ b8 recreate_swapchain(vulkan_state* state, u32 width, u32 height){
 
   destroy_velora_image(state, &state->depthImage);
   destroy_swapchain(state);
-  VEL_CHECK(obtain_swapchain_info(state, state->physicalDevice));
+  VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+    state->physicalDevice,
+    state->surface, 
+    &state->swapchainSupportDetails.surfaceCapabilities
+  ), "Unable to get surface capabilities of the chosen phsyical device");
   VEL_CHECK(create_swapchain(state, width, height));
   VEL_CHECK(create_swapchain_image_views(state));
   VEL_CHECK(create_depth_resources(state));
@@ -1927,7 +1933,6 @@ void shutdown_render_system(render_state* state){
   vkDestroyCommandPool(vk_state->logicalDevice, vk_state->graphicsCommandPool, NULL);
   vkDestroyCommandPool(vk_state->logicalDevice, vk_state->transferCommandPool, NULL);
   vfree(vk_state->commandBuffer, sizeof(VkCommandBuffer)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
-  vfree(vk_state->frameBuffers, sizeof(VkFramebuffer)*vk_state->swapchainImageCount, MEMORY_TAG_RENDERER);
   vkDestroyPipeline(vk_state->logicalDevice, vk_state->graphicsPipeline, NULL);
   vkDestroyPipelineLayout(vk_state->logicalDevice, vk_state->pipelineLayout, NULL);
   vkDestroyRenderPass(vk_state->logicalDevice, vk_state->renderPass, NULL);
@@ -1950,7 +1955,6 @@ void shutdown_render_system(render_state* state){
   #endif
   vkDestroyInstance(vk_state->instance, NULL);
   vfree(state->internal_render_state, sizeof(vulkan_state), MEMORY_TAG_RENDERER);
-  vfree(state, sizeof(render_state), MEMORY_TAG_RENDERER);
 }
 
 void update_uniform_buffer(vulkan_state* state){

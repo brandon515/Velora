@@ -8,6 +8,7 @@
 #include "game_types.h"
 
 extern b8 create_game(game* out_game);
+extern void shutdown_game(game* out_game);
 
 int main(void){
   initialize_memory();
@@ -34,7 +35,11 @@ int main(void){
     VFATAL("Application could not run main loop");
     return -4;
   }
+  shutdown_game(app_state->game_inst);
+  vfree(app_state->game_inst, sizeof(game), MEMORY_TAG_GAME);
   shutdown_event_system();
+  vfree(app_state, sizeof(application_state), MEMORY_TAG_APPLICATION);
+  VINFO("%s", get_memory_usage_str());
   shutdown_logging();
   shutdown_memory();
   return 0;

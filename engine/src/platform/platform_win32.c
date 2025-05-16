@@ -113,6 +113,7 @@ void platform_shutdown(platform_state* plat_state){
   internal_state* state = (internal_state*)plat_state->internal_state;
   
   shutdown_render_system(plat_state->render_state);
+  platform_free(plat_state->render_state, FALSE);
   if(state->window){
     DestroyWindow(state->window);
     state->window = 0;
