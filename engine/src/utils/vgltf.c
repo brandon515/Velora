@@ -249,13 +249,14 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
         break;
       }
       gltf_texture *outTexture = &out_gltf->textures[i];
+      outTexture->sampler = -1;
+      outTexture->source = -1;
       json_value sourceSampler = {0};
       if(get_json_value(curTex->data.object, "source", &sourceSampler) == TRUE && sourceSampler.type == VELORA_JSON_INTEGER){
         outTexture->source = sourceSampler.data.integer;
-        outTexture->sampler = -1;
-      }else if(get_json_value(curTex->data.object, "sampler", &sourceSampler) == TRUE && sourceSampler.type == VELORA_JSON_INTEGER){
+      }
+      if(get_json_value(curTex->data.object, "sampler", &sourceSampler) == TRUE && sourceSampler.type == VELORA_JSON_INTEGER){
         outTexture->sampler = sourceSampler.data.integer;
-        outTexture->source = -1;
       }
       json_value name = {0};
       if(get_json_value(curTex->data.object, "name", &name) == TRUE && name.type == VELORA_JSON_STRING){
