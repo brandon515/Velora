@@ -2,6 +2,7 @@
 #include "defines.h"
 #include "utils/vmath.h"
 #include "utils/vimport.h"
+#include <threads.h>
 
 #define GLTF_VERTEX_ARRAY 34962
 #define GLTF_INDEX_ARRAY 34963
@@ -114,6 +115,12 @@ typedef struct _gltf_object{
   gltf_texture *textures;
   u64 textureCount;
 }gltf_object;
+
+typedef struct _import_thread_tracking{
+  mtx_t *mutexes;
+  b8 *results;
+  u64 threadCount;
+}import_thread_tracking;
 
 /**
  * @brief imports the gltf file into a usable file
