@@ -179,6 +179,7 @@ typedef struct _buffer_thread_data{
 int import_buffer_thread(void* data){
   buffer_thread_data *bufData = (buffer_thread_data*)data;
   VEL_CHECK(extract_gltf_buffer(bufData->bufferObj, bufData->outBuffer, bufData->uriPath));
+  vfree(data, sizeof(buffer_thread_data), MEMORY_TAG_GLTF);
   return TRUE;
 }
 
@@ -190,6 +191,7 @@ typedef struct _buffer_view_thread_data{
 int import_buffer_view_thread(void* data){
   buffer_view_thread_data *bufData = (buffer_view_thread_data*)data;
   VEL_CHECK(extract_gltf_buffer_view(bufData->bufferViewObj, bufData->outView));
+  vfree(data, sizeof(buffer_view_thread_data), MEMORY_TAG_GLTF);
   return TRUE;
 }
 
@@ -201,6 +203,7 @@ typedef struct _accessor_thread_data{
 int import_accessor_thread(void* data){
   accessor_thread_data *accData = (accessor_thread_data*)data;
   VEL_CHECK(extract_gltf_accessor(accData->accessor, accData->outAcc));
+  vfree(data, sizeof(accessor_thread_data), MEMORY_TAG_GLTF);
   return TRUE;
 }
 
@@ -213,6 +216,7 @@ typedef struct _image_thread_data{
 int import_image_thread(void* data){
   image_thread_data* imageData = (image_thread_data*)data;
   VEL_CHECK(extract_gltf_image(imageData->image, imageData->outImage, imageData->uriPath));
+  vfree(data, sizeof(image_thread_data), MEMORY_TAG_GLTF);
   return TRUE;
 }
 #endif
@@ -281,55 +285,51 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   }
 
   json_value *buffers = NULL;
-  buffer_thread_data *bufferData = NULL;
   if(load_json_object_array(&gltfJson, "buffers", &buffers, &out_gltf->bufferCount) == TRUE){
     out_gltf->buffers = vallocate(sizeof(gltf_buffer)*out_gltf->bufferCount, MEMORY_TAG_GLTF);
-    bufferData = vallocate(sizeof(buffer_thread_data)*out_gltf->bufferCount, MEMORY_TAG_GLTF);
     for(int i = 0; i < out_gltf->bufferCount; i++){
-      bufferData[i].bufferObj = &buffers[i];
-      bufferData[i].outBuffer = &out_gltf->buffers[i];
-      bufferData[i].uriPath = uriPath;
-      thrd_create(threadIds+threadCount, import_buffer_thread, &bufferData[i]);
+      buffer_thread_data *bufferData = vallocate(sizeof(buffer_thread_data), MEMORY_TAG_GLTF);
+      bufferData->bufferObj = &buffers[i];
+      bufferData->outBuffer = &out_gltf->buffers[i];
+      bufferData->uriPath = uriPath;
+      thrd_create(threadIds+threadCount, import_buffer_thread, bufferData);
       threadCount++;
     }
   }
 
   json_value *bufferViews = NULL;
-  buffer_view_thread_data *bufferViewData = NULL;
   if(load_json_object_array(&gltfJson, "bufferViews", &bufferViews, &out_gltf->bufferViewCount) == TRUE){
     out_gltf->bufferViews = vallocate(sizeof(gltf_buffer_view)*out_gltf->bufferViewCount, MEMORY_TAG_GLTF);
-    bufferViewData = vallocate(sizeof(buffer_view_thread_data)*out_gltf->bufferViewCount, MEMORY_TAG_GLTF);
     for(int i = 0; i < out_gltf->bufferViewCount; i++){
-      bufferViewData[i].bufferViewObj = &bufferViews[i];
-      bufferViewData[i].outView = &out_gltf->bufferViews[i];
-      thrd_create(threadIds+threadCount, import_buffer_view_thread, &bufferViewData[i]);
+      buffer_view_thread_data *bufferViewData = vallocate(sizeof(buffer_view_thread_data), MEMORY_TAG_GLTF);
+      bufferViewData->bufferViewObj = &bufferViews[i];
+      bufferViewData->outView = &out_gltf->bufferViews[i];
+      thrd_create(threadIds+threadCount, import_buffer_view_thread, bufferViewData);
       threadCount++;
     }
   }
 
   json_value *accessors = NULL;
-  accessor_thread_data *accessorData = NULL;
   if(load_json_object_array(&gltfJson, "accessors", &accessors, &out_gltf->accessorCount) == TRUE){
     out_gltf->accessors = vallocate(sizeof(gltf_accessor)*out_gltf->accessorCount, MEMORY_TAG_GLTF);
-    accessorData = vallocate(sizeof(accessor_thread_data)*out_gltf->accessorCount, MEMORY_TAG_GLTF);
     for(int i = 0; i < out_gltf->accessorCount; i++){
-      accessorData[i].accessor = &accessors[i];
-      accessorData[i].outAcc = &out_gltf->accessors[i];
-      thrd_create(threadIds+threadCount, import_accessor_thread, &accessorData[i]);
+      accessor_thread_data *accessorData = vallocate(sizeof(accessor_thread_data), MEMORY_TAG_GLTF);
+      accessorData->accessor = &accessors[i];
+      accessorData->outAcc = &out_gltf->accessors[i];
+      thrd_create(threadIds+threadCount, import_accessor_thread, accessorData);
       threadCount++;
     }
   }
 
   json_value *images = NULL;
-  image_thread_data *imageData = NULL;
   if(load_json_object_array(&gltfJson, "images", &images, &out_gltf->imageCount) == TRUE){
     out_gltf->images = vallocate(sizeof(gltf_image)*out_gltf->imageCount, MEMORY_TAG_GLTF);
-    imageData = vallocate(sizeof(image_thread_data)*out_gltf->imageCount, MEMORY_TAG_GLTF);
     for(int i = 0; i < out_gltf->imageCount; i++){
-      imageData[i].image = &images[i];
-      imageData[i].outImage = &out_gltf->images[i];
-      imageData[i].uriPath = uriPath;
-      thrd_create(threadIds+threadCount, import_image_thread, &imageData[i]);
+      image_thread_data *imageData = vallocate(sizeof(image_thread_data), MEMORY_TAG_GLTF);
+      imageData->image = &images[i];
+      imageData->outImage = &out_gltf->images[i];
+      imageData->uriPath = uriPath;
+      thrd_create(threadIds+threadCount, import_image_thread, imageData);
       threadCount++;
     }
   }
@@ -342,18 +342,6 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
       VERROR("Unable to load gltf file %s", uri);
       retVal = FALSE;
     }
-  }
-  if(bufferData != NULL){
-    vfree(bufferData, sizeof(buffer_thread_data)*out_gltf->bufferCount, MEMORY_TAG_GLTF);
-  }
-  if(bufferViewData != NULL){
-    vfree(bufferViewData, sizeof(buffer_view_thread_data)*out_gltf->bufferViewCount, MEMORY_TAG_GLTF);
-  }
-  if(accessorData != NULL){
-    vfree(accessorData, sizeof(accessor_thread_data)*out_gltf->accessorCount, MEMORY_TAG_GLTF);
-  }
-  if(imageData != NULL){
-    vfree(imageData, sizeof(image_thread_data)*out_gltf->imageCount, MEMORY_TAG_GLTF);
   }
   return retVal;
 }
