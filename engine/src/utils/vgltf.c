@@ -292,10 +292,10 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     }
   }
   if(bufferData != NULL){
-    vfree(bufferData, sizeof(bufferData)*out_gltf->bufferCount, MEMORY_TAG_GLTF);
+    vfree(bufferData, sizeof(buffer_thread_data)*out_gltf->bufferCount, MEMORY_TAG_GLTF);
   }
   if(bufferViewData != NULL){
-    vfree(bufferViewData, sizeof(bufferViewData)*out_gltf->bufferViewCount, MEMORY_TAG_GLTF);
+    vfree(bufferViewData, sizeof(buffer_view_thread_data)*out_gltf->bufferViewCount, MEMORY_TAG_GLTF);
   }
   if(accessorData != NULL){
     vfree(accessorData, sizeof(accessor_thread_data)*out_gltf->accessorCount, MEMORY_TAG_GLTF);
