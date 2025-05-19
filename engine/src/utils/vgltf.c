@@ -9,6 +9,11 @@
 #include <threads.h>
 #endif
 
+static const char * EXTENSIONS_SUPPORTED[] = {
+  "None",
+};
+static const u64 EXTENSIONS_SUPPORTED_COUNT = 1;
+
 b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* uriPath){
   if(buffer->type != VELORA_JSON_OBJECT){
     VERROR("Buffer in GLTF File isn't an object");
@@ -212,7 +217,29 @@ int import_image_thread(void* data){
 }
 #endif
 
+b8 check_extension_validity(char **extensionList, u64 extensionCount){
+  b8 listValid = TRUE;
+  for(int i = 0; i < extensionCount; i++){
+    b8 extensionValid = FALSE;
+    for(int j = 0; j < EXTENSIONS_SUPPORTED_COUNT; j++){
+      if(vstrcmp(EXTENSIONS_SUPPORTED[j], extensionList[i]) == TRUE){
+        extensionValid = TRUE;
+        break;
+      }
+    }
+    if(extensionValid == FALSE){
+      VWARN("Unsupported extension: %s",extensionList[i]);
+      listValid = FALSE;
+    }
+  }
+  return listValid;
+}
+
 b8 import_gltf(const char *uri, gltf_object *out_gltf){
+  #ifdef __STDC_NO_THREADS__
+  VFATAL("Compiler doesn't support C11 threads, this is needed to import GLTF Files");
+  return FALSE;
+  #endif
   velora_file gltfFile = {0};
   if(get_file_contents(uri, &gltfFile) == FALSE){
     VERROR("Unable to read GLTF file %s", uri);
@@ -227,6 +254,31 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   gltfJson.data.object = gltfFile.contents;
   gltfJson.dataSize = gltfFile.size;
   gltfJson.type = VELORA_JSON_OBJECT;
+
+  char **extensionsRequired = NULL;
+  u64 extentionCount = 0;
+  if(load_json_string_array(&gltfJson, "extensionsRequired", &extensionsRequired, &extentionCount) == TRUE){
+    if(check_extension_validity(extensionsRequired, extentionCount) == FALSE){
+      VERROR("GLTF File %s uses unsupported extension(s), unable to be imported", uri);
+      return FALSE;
+    }
+    for(int i = 0; i < extentionCount; i++){
+      vfree(extensionsRequired[i], vstrlen(extensionsRequired[i])+1, MEMORY_TAG_STRING);
+    }
+    vfree(extensionsRequired, sizeof(char*)*extentionCount, MEMORY_TAG_JSON);
+  }
+
+  char **extensionsUsed = NULL;
+  extentionCount = 0;
+  if(load_json_string_array(&gltfJson, "extensionsUsed", &extensionsUsed, &extentionCount) == TRUE){
+    if(check_extension_validity(extensionsUsed, extentionCount) == FALSE){
+      VWARN("GLTF File %s uses unsupported extension(s), they are not required so import will continue", uri);
+    }
+    for(int i = 0; i < extentionCount; i++){
+      vfree(extensionsUsed[i], vstrlen(extensionsUsed[i])+1, MEMORY_TAG_STRING);
+    }
+    vfree(extensionsUsed, sizeof(char*)*extentionCount, MEMORY_TAG_JSON);
+  }
 
   json_value *buffers = NULL;
   buffer_thread_data *bufferData = NULL;
