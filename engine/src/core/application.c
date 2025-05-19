@@ -38,6 +38,7 @@ b8 application_start(application_state *app_state){
 
   register_listener(ENGINE_CLOSE_GAME, close_event_handler, app_state);
   register_listener(ENGINE_WINDOW_RESIZE, resize_handler, app_state->platform.render_state);// defined in the renderer code
+  
   return TRUE;
 }
 
@@ -48,22 +49,12 @@ b8 application_run(application_state* app_state){
   }
   while(app_state->is_running){
     platform_pump_messages(&app_state->platform);
-    render_preframe(app_state->platform.render_state);
     pump_events(99.9f);
-    render_frame(app_state->platform.render_state);
     if(app_state->is_suspended == FALSE){
-      if(!app_state->game_inst->update(app_state->game_inst, 0.0f)){
-        VFATAL("Game update function not able to run");
-        app_state->is_running = FALSE;
-        break;
-      }
-      if(!app_state->game_inst->render(app_state->game_inst, 0.0f)){
-        VFATAL("Game render function not able to run");
-        app_state->is_running = FALSE;
-        break;
-      }
+      render_preframe(app_state->platform.render_state);
+      render_frame(app_state->platform.render_state);
+      render_postframe(app_state->platform.render_state);
     }
-    render_postframe(app_state->platform.render_state);
   }
   platform_shutdown(&app_state->platform);
   shutdown_input_sytem(&app_state->game_inst->input);
