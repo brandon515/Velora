@@ -21,9 +21,11 @@ typedef struct _gltf_buffer{
 
 typedef struct _gltf_buffer_view{
   u64 size; // Complete size of this part of the buffer
-  u8* buffer; // The buffer being referenced
+  u64 bufferIndex; // The buffer being referenced
+  u64 offset; // The offset in bytes
   u64 stride; // The stride by which the data should be traversed, if this is 0 then use the size of the accessor type
   u64 type; // Either a GLTF_VERTEX_ARRAY or GLTF_INDEX_ARRAY
+  char *name;
 }gltf_buffer_view;
 
 typedef union _gltf_value{
@@ -32,17 +34,31 @@ typedef union _gltf_value{
   f64 dFloat;
 }gltf_value;
 
+typedef struct _gltf_sparse_accessor_details{
+  u64 bufferViewIndex;
+  u64 byteOffset;
+  u64 cType;
+}gltf_sparse_accessor_details;
+
+typedef struct _gltf_sparse_accessor{
+  u64 count;
+  gltf_sparse_accessor_details indices;
+  gltf_sparse_accessor_details values;
+}gltf_sparse_accessor;
+
 typedef struct _gltf_accessor{
-  gltf_buffer_view *bufferView; // The attached data
+  i64 bufferViewIndex; // The attached data, if this is -1 than sparse must exist
   u64 offset; // The offset in the buffer view itself
   u64 componentType; // Whether the SCALAR or VEC3 is made up of floats or integers
+  b8 normalized;// Whether the data is already normalized, (0,1) for unsigned and (-1,1) for signed
   u64 count; // How many of the variable there is, data can be interlaced to be sure to increment by stride in the bufferview
   char *type; // Type of accessor, possible types are MAT2, MAT3, MAT4, VEC2, VEC3, VEC4, or SCALAR
   gltf_value *max; // Optional value, NULL if it doesn't exist. Maximum value for each section
   u64 max_count; // This is 0 if there are no max values
   gltf_value *min; // Optional value, NULL if it doesn't exist. Minimum value for each section
   u64 min_count;// This is 0 if there are no min values
-  b8 normalized;
+  gltf_sparse_accessor sparse;// This is dumb and I hate it but it contains data to be over written if it exists
+  char *name;// The name of the accessor, not mandatory
 }gltf_accessor;
 
 typedef struct _gltf_texture{
@@ -77,6 +93,13 @@ typedef struct _gltf_material{
   gltf_material_texture emissiveTexture;
 }gltf_material;
 
+typedef struct _gltf_image{
+  velora_pixels uriData;
+  char *mimeType;
+  u64 bufferViewIndex;
+  char *name;
+}gltf_image;
+
 typedef struct _gltf_object{
   gltf_buffer *buffers;
   u64 bufferCount;
@@ -84,7 +107,7 @@ typedef struct _gltf_object{
   u64 bufferViewCount;
   gltf_accessor *accessors;
   u64 accessorCount;
-  velora_pixels *images;
+  gltf_image *images;
   u64 imageCount;
   gltf_material *materials;
   u64 materialCount;
