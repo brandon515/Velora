@@ -156,6 +156,14 @@ b8 extract_gltf_image(json_value* image, gltf_image *out_image, const char* uriP
   return TRUE;
 }
 
+b8 extract_gltf_texture(json_value* texture, gltf_texture *out_texture){
+  return TRUE;
+}
+
+b8 extract_gltf_material(json_value* material, gltf_material *out_material){
+  return TRUE;
+}
+
 #ifndef __STDC_NO_THREADS__
 //json_value* buffer, gltf_buffer* out_buffer, const char* uriPath
 typedef struct _buffer_thread_data{
