@@ -2,23 +2,6 @@
 #include "defines.h"
 #include "core/logger.h"
 
-#define VEL_LOAD_JSON_VALUE(json_object, name, value, expectedValue)                               \
-  VEL_CHECK_MSG(get_json_value(json_object, name, &value), "No %s variable", name); \
-  if(value.type != expectedValue){                                                                 \
-    free_json_value(&value);                                                                       \
-    VERROR("variable %s was not an %s", name, #expectedValue);                                     \
-    return FALSE;                                                                                  \
-  }    
-
-#define VEL_LOAD_OPTIONAL_JSON_INTEGER(json_object, name, variable) \
-  {json_value dummy = {0};                                          \
-  if(get_json_value(json_object, name, &dummy) == TRUE){            \
-    if(dummy.type == VELORA_JSON_INTEGER){                          \
-      variable = dummy.data.integer;                                \
-    }                                                               \
-    free_json_value(&dummy);                                        \
-  }}
-
 typedef enum _json_type{
   VELORA_JSON_INTEGER,
   VELORA_JSON_DOUBLE,
@@ -64,3 +47,98 @@ VAPI void free_json_value(json_value *value);
  * @param val The json_value to print out
  */
 VAPI void print_json_value(json_value *val);
+
+/**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value The pointer to where to store the integer value
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_INTEGER, or if any pointer is NULL. TRUE otherwise
+ */
+VAPI b8 load_json_unsigned_integer(json_value* obj, const char *name, u64 *value);
+
+/**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value The pointer to where to store the integer value
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_INTEGER, any pointer is NULL, or the value is less than 0. TRUE otherwise
+ */
+VAPI b8 load_json_signed_integer(json_value* obj, const char *name, i64 *value);
+
+/**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value A pointer to where the string lives in memory, the string will be allocated in this function
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_STRING, or if any pointer is NULL. TRUE otherwise
+ */
+VAPI b8 load_json_string(json_value* obj, const char *name, char **value);
+
+/**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value The pointer to where to store the float value
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_INTEGER, or if any pointer is NULL. TRUE otherwise
+ */
+VAPI b8 load_json_float(json_value* obj, const char *name, f64 *value);
+
+/**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value The pointer to where to store the json object value
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_INTEGER, or if any pointer is NULL. TRUE otherwise
+ */
+VAPI b8 load_json_object(json_value* obj, const char *name, json_value *value);
+
+/**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value The pointer to where to create the array, The variable will be allocated in this function
+ * @param count The number of u64 variables in value
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_INTEGER, or if any pointer is NULL. TRUE otherwise
+ */
+VAPI b8 load_json_unsigned_integer_array(json_value* obj, const char *name, u64 **value, u64 *count);
+
+/**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value The pointer to where to create the array, The variable will be allocated in this function
+ * @param count The number of u64 variables in value
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_INTEGER, any pointer is NULL, or the number is less than 0. TRUE otherwise
+ */
+VAPI b8 load_json_signed_integer_array(json_value* obj, const char *name, i64 **value, u64 *count);
+
+/**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value The pointer to where to create the array, The variable will be allocated in this function
+ * @param count The number of f64 variables in value
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_INTEGER, or if any pointer is NULL. TRUE otherwise
+ */
+VAPI b8 load_json_float_array(json_value* obj, const char *name, f64 **value, u64 *count);
+
+/**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value The pointer to where to create the array, The variable will be allocated in this function as will the strings
+ * @param count The number of zero-terminated strings in value
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_INTEGER, or if any pointer is NULL. TRUE otherwise
+ */
+VAPI b8 load_json_string_array(json_value* obj, const char *name, char ***value, u64 *count);
+
+/**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value The pointer to where to create the array, the variable will be allocated in this function
+ * @param count The number of json_values in value
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_INTEGER, or if any pointer is NULL. TRUE otherwise
+ */
+VAPI b8 load_json_object_array(json_value* obj, const char *name, json_value **value, u64 *count);
