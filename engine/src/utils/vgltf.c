@@ -263,7 +263,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   u64 extentionCount = 0;
   if(load_json_string_array(&gltfJson, "extensionsRequired", &extensionsRequired, &extentionCount) == TRUE){
     if(check_extension_validity(extensionsRequired, extentionCount) == FALSE){
-      VERROR("GLTF File %s uses unsupported extension(s), unable to be imported", uri);
+      VERROR("GLTF File %s requires unsupported extension(s), unable to be imported", uri);
       return FALSE;
     }
     for(int i = 0; i < extentionCount; i++){
