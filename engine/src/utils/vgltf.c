@@ -81,13 +81,13 @@ b8 extract_gltf_sparse_accessor(json_value* sparseAccessor, gltf_sparse_accessor
   VEL_CHECK_MSG(load_json_unsigned_integer(sparseAccessor, "count", &out_acc->count), "No count variable in sparse accessor");
   
   //Load the indicies
-  VEL_CHECK(load_json_unsigned_integer(&indices, "bufferView", &out_acc->indices.bufferViewIndex), "Indices object in sparse accessor doesn't have a buffer view reference");
-  VEL_CHECK(load_json_unsigned_integer(&indices, "componentType", &out_acc->indices.cType), "Indices object in sparse accessor doesn't have a component type");
+  VEL_CHECK_MSG(load_json_unsigned_integer(&indices, "bufferView", &out_acc->indices.bufferViewIndex), "Indices object in sparse accessor doesn't have a buffer view reference");
+  VEL_CHECK_MSG(load_json_unsigned_integer(&indices, "componentType", &out_acc->indices.cType), "Indices object in sparse accessor doesn't have a component type");
   out_acc->indices.byteOffset = 0;
   load_json_unsigned_integer(&indices, "byteOffset", &out_acc->indices.byteOffset);
 
   //Load the values
-  VEL_CHECK(load_json_unsigned_integer(&values, "bufferView", &out_acc->values.bufferViewIndex), "Values object in sparse accessor doesn't have a buffer view reference");
+  VEL_CHECK_MSG(load_json_unsigned_integer(&values, "bufferView", &out_acc->values.bufferViewIndex), "Values object in sparse accessor doesn't have a buffer view reference");
   out_acc->values.byteOffset = 0;
   load_json_unsigned_integer(&values, "byteOffset", &out_acc->values.byteOffset);
 
@@ -136,7 +136,7 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc){
   json_value sparseObj = {0};
   b8 sparseAccessorExists = load_json_object(accessor, "sparse", &sparseObj);
   out_acc->bufferViewIndex = U64_MAX;
-  load_json_signed_integer(accessor, "bufferView", &out_acc->bufferViewIndex);
+  load_json_unsigned_integer(accessor, "bufferView", &out_acc->bufferViewIndex);
   out_acc->offset = 0;
   load_json_unsigned_integer(accessor, "byteOffset", &out_acc->offset);
   VEL_CHECK_MSG(load_json_unsigned_integer(accessor, "componentType", &out_acc->componentType), "Accessor had malformed or non-existent componentType variable");
@@ -163,14 +163,17 @@ b8 extract_gltf_image(json_value* image, gltf_image *out_image, const char* uriP
   char *uri = NULL;
   if(load_json_string(image, "uri", &uri) == TRUE){
     char *fullUri = vconcat(uriPath, uri);
-    VEL_CHECK(import_pixels(fullUri, &out_image->uriData));
+    VEL_CHECK_MSG(import_pixels(fullUri, &out_image->uriData), "Unable to import pixel data from %s", fullUri);
     vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
     vfree(uri, vstrlen(uri)+1, MEMORY_TAG_STRING);
+    // This value is optionally definied when URI is defined
     out_image->mimeType = NULL;
+    load_json_string(image, "mimeType", &out_image->mimeType);
     out_image->bufferViewIndex = U64_MAX;
   }else{
-    VEL_CHECK(load_json_string(image, "mimeType", &out_image->mimeType));
-    VEL_CHECK(load_json_unsigned_integer(image, "bufferView", &out_image->bufferViewIndex));
+    // However, it has to be defined with buffer view
+    VEL_CHECK_MSG(load_json_string(image, "mimeType", &out_image->mimeType), "Unable to process mimeType in GLTF Image");
+    VEL_CHECK_MSG(load_json_unsigned_integer(image, "bufferView", &out_image->bufferViewIndex), "Unable to process bufferView in GLTF Image");
     out_image->uriData.size = 0;
   }
   out_image->name = NULL;
@@ -182,19 +185,109 @@ b8 extract_gltf_texture(json_value* texture, gltf_texture *out_texture){
   out_texture->sampler = U64_MAX;
   load_json_unsigned_integer(texture, "sampler", &out_texture->sampler);
   json_value extension = {0};
+  b8 extensionExists = load_json_object(texture, "extensions", &extension);
+  out_texture->source = U64_MAX;
   if(
     load_json_unsigned_integer(texture, "source", &out_texture->source) == FALSE &&
-    load_json_object(texture, "extensions", &extension) == FALSE
+    extensionExists == FALSE
   ){
     VWARN("Texture source is undefined and no extensions were found. GLTF is malformed");
     return FALSE;
+  }else if(extensionExists == TRUE){
+    VWARN("Texture is using extension, this is currently not supported by Velora");
   }
   out_texture->name = NULL;
   load_json_string(texture, "name", &out_texture->name);
   return TRUE;
 }
 
+b8 extract_texture_info(json_value* textureInfo, gltf_texture_info *out_texture_info){
+  // This is the only required value
+  VEL_CHECK(load_json_unsigned_integer(textureInfo, "index", &out_texture_info->textureIndex));
+  out_texture_info->texCoordIndex = 0;
+  load_json_unsigned_integer(textureInfo, "texCoord", &out_texture_info->texCoordIndex);
+  out_texture_info->scaleStrength = 1;
+  load_json_float(textureInfo, "scale", &out_texture_info->scaleStrength);
+  load_json_float(textureInfo, "strength", &out_texture_info->scaleStrength);
+  return TRUE;
+}
+
+// This is weird actually, this method can't fail which means theortically an empty material is valid
+b8 extract_metallic_roughness(json_value* roughness, gltf_metal_roughness *out_roughness){
+  out_roughness->baseColor = (vec4){{1,1,1,1}};
+  f64 *baseColorFactor = NULL;
+  u64 factorCount = 0;
+  if(load_json_float_array(roughness, "baseColorFactor", &baseColorFactor, &factorCount) == TRUE && factorCount <= 4){
+    for(int i = 0; i < factorCount; i++){
+      out_roughness->baseColor.xyzw[i] = baseColorFactor[i];
+    }
+  }
+  json_value baseColorTexture = {0};
+  if(load_json_object(roughness, "baseColorTexture", &baseColorTexture) == TRUE){
+    VEL_CHECK_MSG(extract_texture_info(&baseColorTexture, &out_roughness->baseColorTexture), "Malformed baseColorTexture in material");
+  }else{
+    out_roughness->baseColorTexture.textureIndex = U64_MAX;
+  }
+  out_roughness->metallicFactor = 1.0f;
+  load_json_float(roughness, "metallicFactor", &out_roughness->metallicFactor);
+  out_roughness->roughnessFactor = 1.0f;
+  load_json_float(roughness, "roughnessFactor", &out_roughness->roughnessFactor);
+  json_value metallicRoughnessTexture = {0};
+  if(load_json_object(roughness, "metallicRoughnessTexture", &metallicRoughnessTexture) == TRUE){
+    VEL_CHECK_MSG(extract_texture_info(&metallicRoughnessTexture, &out_roughness->metallicRoughnessTexture), "Malformed metallicRoughnessTexture in material");
+  }else{
+    out_roughness->metallicRoughnessTexture.textureIndex = U64_MAX;
+  }
+  return TRUE;
+}
+
 b8 extract_gltf_material(json_value* material, gltf_material *out_material){
+  out_material->name = NULL;
+  load_json_string(material, "name", &out_material->name);
+  json_value pbrMetalRoughness = {0};
+  if(load_json_object(material, "pbrMetallicRoughness", &pbrMetalRoughness) == TRUE){
+    VEL_CHECK_MSG(extract_metallic_roughness(&pbrMetalRoughness, &out_material->pbrMetallicRoughness), "Malformed pbrMetallicRoughness in Material");
+  }else{ // Load the default values as outlined in the spec
+    out_material->pbrMetallicRoughness.baseColor = (vec4){{1,1,1,1}};
+    out_material->pbrMetallicRoughness.metallicFactor = 1.0f;
+    out_material->pbrMetallicRoughness.roughnessFactor = 1.0f;
+    out_material->pbrMetallicRoughness.baseColorTexture.textureIndex = U64_MAX;
+    out_material->pbrMetallicRoughness.metallicRoughnessTexture.textureIndex = U64_MAX;
+  }
+  json_value normalTexture = {0};
+  if(load_json_object(material, "normalTexture", &normalTexture) == TRUE){
+    extract_texture_info(&normalTexture, &out_material->normalTexture);
+  }else{
+    out_material->normalTexture.textureIndex = U64_MAX;
+  }
+  json_value occlusionTexture = {0};
+  if(load_json_object(material, "occlusionTexture", &occlusionTexture) == TRUE){
+    extract_texture_info(&occlusionTexture, &out_material->occlusionTexture);
+  }else{
+    out_material->occlusionTexture.textureIndex = U64_MAX;
+  }
+  json_value emissiveTexture = {0};
+  if(load_json_object(material, "emissiveTexture", &emissiveTexture) == TRUE){
+    extract_texture_info(&emissiveTexture, &out_material->emissiveTexture);
+  }else{
+    out_material->emissiveTexture.textureIndex = U64_MAX;
+  }
+  out_material->emissiveFactor = (vec3){{0,0,0}};
+  f64 *emissiveArray = NULL;
+  u64 emissiveCount = 0;
+  if(load_json_float_array(material, "emissiveFactor", &emissiveArray, &emissiveCount) == TRUE && emissiveCount <= 3){
+    for(int i = 0; i < emissiveCount; i++){
+      out_material->emissiveFactor.xyz[i] = emissiveArray[i];
+    }
+  }
+  if(load_json_string(material, "alphaMode", &out_material->alphaMode) == FALSE){
+    out_material->alphaMode = "OPAQUE";
+  }
+  out_material->alphaCutoff = 0.5f;
+  load_json_float(material, "alphaCutoff", &out_material->alphaCutoff);
+  u64 doubleSidedTrueFalse = FALSE;
+  load_json_unsigned_integer(material, "doubleSided", &doubleSidedTrueFalse);
+  out_material->doubleSided = doubleSidedTrueFalse;
   return TRUE;
 }
 
@@ -246,6 +339,30 @@ int import_image_thread(void* data){
   image_thread_data* imageData = (image_thread_data*)data;
   VEL_CHECK_MSG(extract_gltf_image(imageData->image, imageData->outImage, imageData->uriPath), "Unable to process GLTF image");
   vfree(data, sizeof(image_thread_data), MEMORY_TAG_GLTF);
+  return TRUE;
+}
+
+//json_value* texture, gltf_texture *out_texture
+typedef struct _texture_thread_data{
+  json_value *texture;
+  gltf_texture *out_texture;
+}texture_thread_data;
+int import_texture_thread(void* data){
+  texture_thread_data* textureData = (texture_thread_data*)data;
+  VEL_CHECK_MSG(extract_gltf_texture(textureData->texture, textureData->out_texture), "Unable to process GLTF texture");
+  vfree(data, sizeof(texture_thread_data), MEMORY_TAG_GLTF);
+  return TRUE;
+}
+
+//json_value* material, gltf_material *out_material
+typedef struct _material_thread_data{
+  json_value* material;
+  gltf_material* out_material;
+}material_thread_data;
+int import_material_thread(void* data){
+  material_thread_data* materialData = (material_thread_data*)data;
+  VEL_CHECK_MSG(extract_gltf_material(materialData->material, materialData->out_material), "Unable to process GLTF Material");
+  vfree(data, sizeof(material_thread_data), MEMORY_TAG_GLTF);
   return TRUE;
 }
 #endif
@@ -367,7 +484,23 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   if(load_json_object_array(&gltfJson, "textures", &textures, &out_gltf->textureCount) == TRUE){
     out_gltf->textures = vallocate(sizeof(gltf_texture)*out_gltf->textureCount, MEMORY_TAG_GLTF);
     for(int i = 0; i< out_gltf->textureCount; i++){
-      //
+      texture_thread_data *textureData = vallocate(sizeof(texture_thread_data), MEMORY_TAG_GLTF);
+      textureData->texture = &textures[i];
+      textureData->out_texture = &out_gltf->textures[i];
+      thrd_create(threadIds+threadCount, import_texture_thread, textureData);
+      threadCount++;
+    }
+  }
+
+  json_value *materials = NULL;
+  if(load_json_object_array(&gltfJson, "materials", &materials, &out_gltf->materialCount) == TRUE){
+    out_gltf->materials = vallocate(sizeof(gltf_material)*out_gltf->materialCount, MEMORY_TAG_GLTF);
+    for(int i = 0; i < out_gltf->materialCount; i++){
+      material_thread_data *materialData = vallocate(sizeof(material_thread_data), MEMORY_TAG_GLTF);
+      materialData->material = &materials[i];
+      materialData->out_material = &out_gltf->materials[i];
+      thrd_create(threadIds+threadCount, import_material_thread, materialData);
+      threadCount++;
     }
   }
 
