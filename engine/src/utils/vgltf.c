@@ -281,13 +281,57 @@ b8 extract_gltf_material(json_value* material, gltf_material *out_material){
     }
   }
   if(load_json_string(material, "alphaMode", &out_material->alphaMode) == FALSE){
-    out_material->alphaMode = "OPAQUE";
+    const char *defaultAlphaMode = "OPAQUE";
+    out_material->alphaMode = vallocate(vstrlen(defaultAlphaMode)+1, MEMORY_TAG_STRING);
+    vcopy_memory(out_material->alphaMode, defaultAlphaMode, vstrlen(defaultAlphaMode)+1);
   }
   out_material->alphaCutoff = 0.5f;
   load_json_float(material, "alphaCutoff", &out_material->alphaCutoff);
   u64 doubleSidedTrueFalse = FALSE;
   load_json_unsigned_integer(material, "doubleSided", &doubleSidedTrueFalse);
   out_material->doubleSided = doubleSidedTrueFalse;
+  return TRUE;
+}
+
+b8 extract_gltf_mesh_primitive_attribute(json_value* attributes, gltf_mesh_primitive_attribute *out_attributes){
+  out_attributes->position = U64_MAX;
+  load_json_unsigned_integer(attributes, "POSITION", &out_attributes->position);
+  out_attributes->normal = U64_MAX;
+  load_json_unsigned_integer(attributes, "NORMAL", &out_attributes->normal);
+  out_attributes->tangent = U64_MAX;
+  load_json_unsigned_integer(attributes, "TANGENT", &out_attributes->tangent);
+  const u64 MAX_ATT_NUMBER = 10;
+  u64 texcoord[MAX_ATT_NUMBER];
+  u64 color[MAX_ATT_NUMBER];
+  u64 joints[MAX_ATT_NUMBER];
+  u64 weights[MAX_ATT_NUMBER];
+  out_attributes->texCount = 0;
+  out_attributes->colorCount = 0;
+  out_attributes->jointCount = 0;
+  out_attributes->weightCount = 0;
+  char *texName = "TEXCOORD_n";
+  char *colorName = "COLOR_n";
+  char *jointName = "JOINTS_n";
+  char *weightName = "WEIGHTS_n";
+  for(int i = 0; i < MAX_ATT_NUMBER; i++){
+    char textNumber = '0'+i;
+    texName[9] = textNumber;// position 9 is the n in the string
+    if(load_json_unsigned_integer(attributes, texName, &texcoord[i]) == TRUE){
+      out_attributes->texCount++;
+    }
+    colorName[6] = textNumber;
+    if(load_json_unsigned_integer(attributes, colorName, &color[i]) == TRUE){
+      out_attributes->colorCount++;
+    }
+  }
+  return TRUE;
+}
+
+b8 extract_gltf_mesh_primitive(json_value* primitive, gltf_mesh_primitive *out_primitive){
+  json_value attributes = {0};
+  VEL_CHECK_MSG(load_json_object(primitive, "attributes", &attributes), "No attributes variable in mesh primitive");
+  VEL_CHECK(extract_gltf_mesh_primitive_attribute(&attributes, &out_primitive->attributes));
+  //
   return TRUE;
 }
 
@@ -554,21 +598,61 @@ void free_gltf_image(gltf_image* image){
   }
 }
 
+void free_gltf_texture(gltf_texture* texture){
+  if(texture->name != NULL){
+    vfree(texture->name, vstrlen(texture->name)+1, MEMORY_TAG_STRING);
+  }
+}
+
+void free_gltf_material(gltf_material* material){
+  if(material->name != NULL){
+    vfree(material->name, vstrlen(material->name)+1, MEMORY_TAG_STRING);
+  }
+  if(material->alphaMode != NULL){
+    vfree(material->alphaMode, vstrlen(material->alphaMode)+1, MEMORY_TAG_STRING);
+  }
+}
+
 void free_gltf(gltf_object* out_gltf){
-  for(int i = 0; i < out_gltf->bufferCount; i++){
-    free_gltf_buffer(&out_gltf->buffers[i]);
+  if(out_gltf->buffers != NULL){
+    for(int i = 0; i < out_gltf->bufferCount; i++){
+      free_gltf_buffer(&out_gltf->buffers[i]);
+    }
+    vfree(out_gltf->buffers, out_gltf->bufferCount*sizeof(gltf_buffer), MEMORY_TAG_GLTF);
   }
-  vfree(out_gltf->buffers, out_gltf->bufferCount*sizeof(gltf_buffer), MEMORY_TAG_GLTF);
-  for(int i = 0; i < out_gltf->bufferViewCount; i++){
-    free_gltf_buffer_view(&out_gltf->bufferViews[i]);
+  
+  if(out_gltf->bufferViews != NULL){
+    for(int i = 0; i < out_gltf->bufferViewCount; i++){
+      free_gltf_buffer_view(&out_gltf->bufferViews[i]);
+    }
+    vfree(out_gltf->bufferViews, out_gltf->bufferViewCount*sizeof(gltf_buffer_view), MEMORY_TAG_GLTF);
   }
-  vfree(out_gltf->bufferViews, out_gltf->bufferViewCount*sizeof(gltf_buffer_view), MEMORY_TAG_GLTF);
-  for(int i = 0; i < out_gltf->accessorCount; i++){
-    free_gltf_accessor(&out_gltf->accessors[i]);
+
+  if(out_gltf->accessors != NULL){
+    for(int i = 0; i < out_gltf->accessorCount; i++){
+      free_gltf_accessor(&out_gltf->accessors[i]);
+    }
+    vfree(out_gltf->accessors, out_gltf->accessorCount*sizeof(gltf_accessor), MEMORY_TAG_GLTF);
   }
-  vfree(out_gltf->accessors, out_gltf->accessorCount*sizeof(gltf_accessor), MEMORY_TAG_GLTF);
-  for(int i = 0; i < out_gltf->imageCount; i++){
-    free_gltf_image(&out_gltf->images[i]);
+
+  if(out_gltf->images != NULL){
+    for(int i = 0; i < out_gltf->imageCount; i++){
+      free_gltf_image(&out_gltf->images[i]);
+    }
+    vfree(out_gltf->images, out_gltf->imageCount*sizeof(gltf_image), MEMORY_TAG_GLTF);
   }
-  vfree(out_gltf->images, out_gltf->imageCount*sizeof(velora_pixels), MEMORY_TAG_GLTF);
+
+  if(out_gltf->textures != NULL){
+    for(int i = 0; i < out_gltf->textureCount; i++){
+      free_gltf_texture(&out_gltf->textures[i]);
+    }
+    vfree(out_gltf->textures, out_gltf->textureCount*sizeof(gltf_texture), MEMORY_TAG_GLTF);
+  }
+
+  if(out_gltf->materials != NULL){
+    for(int i = 0; i < out_gltf->materialCount; i++){
+      free_gltf_material(&out_gltf->materials[i]);
+    }
+    vfree(out_gltf->materials, out_gltf->materialCount*sizeof(gltf_material), MEMORY_TAG_GLTF);
+  }
 }
