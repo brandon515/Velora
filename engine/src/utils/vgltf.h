@@ -48,7 +48,7 @@ typedef struct _gltf_sparse_accessor{
 }gltf_sparse_accessor;
 
 typedef struct _gltf_accessor{
-  i64 bufferViewIndex; // The attached data, if this is -1 than sparse must exist
+  u64 bufferViewIndex; // The attached data, if this is -1 than sparse must exist
   u64 offset; // The offset in the buffer view itself
   u64 componentType; // Whether the SCALAR or VEC3 is made up of floats or integers
   b8 normalized;// Whether the data is already normalized, (0,1) for unsigned and (-1,1) for signed
@@ -63,13 +63,13 @@ typedef struct _gltf_accessor{
 }gltf_accessor;
 
 typedef struct _gltf_texture{
-  i64 sampler;
-  i64 source;
+  u64 sampler;
+  u64 source;
   char *name;
 }gltf_texture;
 
 typedef struct _gltf_material_texture{
-  i64 textureIndex;
+  u64 textureIndex;
   u64 texCoordIndex;
   f64 scale;
 }gltf_material_texture;
