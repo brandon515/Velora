@@ -48,7 +48,7 @@ typedef struct _gltf_sparse_accessor{
 }gltf_sparse_accessor;
 
 typedef struct _gltf_accessor{
-  u64 bufferViewIndex; // The attached data, if this is -1 than sparse must exist
+  u64 bufferViewIndex; // The attached data, if this is U64_MAX than it's just a count full of zeros. Sparse may exist to override any values
   u64 offset; // The offset in the buffer view itself
   u64 componentType; // Whether the SCALAR or VEC3 is made up of floats or integers
   b8 normalized;// Whether the data is already normalized, (0,1) for unsigned and (-1,1) for signed
