@@ -53,8 +53,8 @@ b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* 
 
 b8 extract_gltf_buffer_view(json_value* buffer_view, gltf_buffer_view* out_view){
   // These two are required, return FALSE if they're not here
-  VEL_CHECK(load_json_unsigned_integer(buffer_view, "buffer", &out_view->bufferIndex));
-  VEL_CHECK(load_json_unsigned_integer(buffer_view, "byteLength", &out_view->size));
+  VEL_CHECK_MSG(load_json_unsigned_integer(buffer_view, "buffer", &out_view->bufferIndex), "No buffer referenced in buffer view");
+  VEL_CHECK_MSG(load_json_unsigned_integer(buffer_view, "byteLength", &out_view->size), "No byteLength in buffer view");
   // Offset isn't required but has a default value of 0
   out_view->offset = 0;
   load_json_unsigned_integer(buffer_view, "byteOffset", &out_view->offset);
@@ -76,18 +76,18 @@ b8 extract_gltf_sparse_accessor(json_value* sparseAccessor, gltf_sparse_accessor
   }
   json_value indices = {0};
   json_value values = {0};
-  VEL_CHECK(load_json_object(sparseAccessor, "indices", &indices));
-  VEL_CHECK(load_json_object(sparseAccessor, "values", &values));
-  VEL_CHECK(load_json_unsigned_integer(sparseAccessor, "count", &out_acc->count));
+  VEL_CHECK_MSG(load_json_object(sparseAccessor, "indices", &indices), "No indicies variable in sparse accessor");
+  VEL_CHECK_MSG(load_json_object(sparseAccessor, "values", &values), "No values variable in sparse accessor");
+  VEL_CHECK_MSG(load_json_unsigned_integer(sparseAccessor, "count", &out_acc->count), "No count variable in sparse accessor");
   
   //Load the indicies
-  VEL_CHECK(load_json_unsigned_integer(&indices, "bufferView", &out_acc->indices.bufferViewIndex));
-  VEL_CHECK(load_json_unsigned_integer(&indices, "componentType", &out_acc->indices.cType));
+  VEL_CHECK(load_json_unsigned_integer(&indices, "bufferView", &out_acc->indices.bufferViewIndex), "Indices object in sparse accessor doesn't have a buffer view reference");
+  VEL_CHECK(load_json_unsigned_integer(&indices, "componentType", &out_acc->indices.cType), "Indices object in sparse accessor doesn't have a component type");
   out_acc->indices.byteOffset = 0;
   load_json_unsigned_integer(&indices, "byteOffset", &out_acc->indices.byteOffset);
 
   //Load the values
-  VEL_CHECK(load_json_unsigned_integer(&values, "bufferView", &out_acc->values.bufferViewIndex));
+  VEL_CHECK(load_json_unsigned_integer(&values, "bufferView", &out_acc->values.bufferViewIndex), "Values object in sparse accessor doesn't have a buffer view reference");
   out_acc->values.byteOffset = 0;
   load_json_unsigned_integer(&values, "byteOffset", &out_acc->values.byteOffset);
 
@@ -136,13 +136,7 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc){
   json_value sparseObj = {0};
   b8 sparseAccessorExists = load_json_object(accessor, "sparse", &sparseObj);
   out_acc->bufferViewIndex = U64_MAX;
-  if(
-    load_json_signed_integer(accessor, "bufferView", &out_acc->bufferViewIndex) == FALSE && 
-    sparseAccessorExists == FALSE
-  ){
-    VERROR("No bufferView or sparse variable in accessor");
-    return FALSE;
-  }
+  load_json_signed_integer(accessor, "bufferView", &out_acc->bufferViewIndex);
   out_acc->offset = 0;
   load_json_unsigned_integer(accessor, "byteOffset", &out_acc->offset);
   VEL_CHECK_MSG(load_json_unsigned_integer(accessor, "componentType", &out_acc->componentType), "Accessor had malformed or non-existent componentType variable");
