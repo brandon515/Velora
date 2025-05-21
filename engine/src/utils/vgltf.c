@@ -21,6 +21,21 @@ b8 extract_gltf_buffer(json_value* buffer, gltf_buffer* out_buffer, const char* 
   }
   char *bufferUri = NULL;
   VEL_CHECK(load_json_string(buffer, "uri", &bufferUri));
+  if(bufferUri != NULL){
+    const char *dataStr = "data:";
+    b8 isDataUri = TRUE;
+    for(int i = 0; i < vstrlen(dataStr); i++){
+      if(bufferUri[i]!=dataStr[i]){
+        isDataUri = FALSE;
+        break;
+      }
+    }
+    if(isDataUri == TRUE){
+      //TODO: Support data URIs
+      VWARN("Unsupported data URI in buffer");
+      return FALSE;
+    }
+  }
   VEL_CHECK(load_json_unsigned_integer(buffer, "byteLength", &out_buffer->size));
   // Doesn't matter if this is false, the name is optional;
   out_buffer->name = NULL;
@@ -88,6 +103,8 @@ b8 extract_gltf_value_array(json_value* accessor, const char* variable, gltf_val
         (*outArr)[i].dFloat = valueArray[i];
       }
       vfree(valueArray, sizeof(f64)*(*count), MEMORY_TAG_JSON);
+    }else{
+      return FALSE;
     }
   }else if(cType%2 == 0){ // Signed
     i64 *valueArray = NULL;
@@ -97,6 +114,8 @@ b8 extract_gltf_value_array(json_value* accessor, const char* variable, gltf_val
         (*outArr)[i].signedInteger = valueArray[i];
       }
       vfree(valueArray, sizeof(i64)*(*count), MEMORY_TAG_JSON);
+    }else{
+      return FALSE;
     }
   }else if(cType%2 == 1){ // Unsigned
     u64 *valueArray = NULL;
@@ -106,6 +125,8 @@ b8 extract_gltf_value_array(json_value* accessor, const char* variable, gltf_val
         (*outArr)[i].unsignedInteger = valueArray[i];
       }
       vfree(valueArray, sizeof(u64)*(*count), MEMORY_TAG_JSON);
+    }else{
+      return FALSE;
     }
   }
   return TRUE;
@@ -114,7 +135,7 @@ b8 extract_gltf_value_array(json_value* accessor, const char* variable, gltf_val
 b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc){
   json_value sparseObj = {0};
   b8 sparseAccessorExists = load_json_object(accessor, "sparse", &sparseObj);
-  out_acc->bufferViewIndex = -1;
+  out_acc->bufferViewIndex = U64_MAX;
   if(
     load_json_signed_integer(accessor, "bufferView", &out_acc->bufferViewIndex) == FALSE && 
     sparseAccessorExists == FALSE
@@ -124,14 +145,16 @@ b8 extract_gltf_accessor(json_value* accessor, gltf_accessor *out_acc){
   }
   out_acc->offset = 0;
   load_json_unsigned_integer(accessor, "byteOffset", &out_acc->offset);
-  VEL_CHECK(load_json_unsigned_integer(accessor, "componentType", &out_acc->componentType));
+  VEL_CHECK_MSG(load_json_unsigned_integer(accessor, "componentType", &out_acc->componentType), "Accessor had malformed or non-existent componentType variable");
   u64 normalizedBool = FALSE;
   load_json_unsigned_integer(accessor, "normalized", &normalizedBool);
   out_acc->normalized = normalizedBool;
-  VEL_CHECK(load_json_unsigned_integer(accessor, "count", &out_acc->count));
-  VEL_CHECK(load_json_string(accessor, "type", &out_acc->type));
-  VEL_CHECK(extract_gltf_value_array(accessor, "max", &out_acc->max, &out_acc->max_count, out_acc->componentType));
-  VEL_CHECK(extract_gltf_value_array(accessor, "min", &out_acc->min, &out_acc->min_count, out_acc->componentType));
+  VEL_CHECK_MSG(load_json_unsigned_integer(accessor, "count", &out_acc->count), "Accessor had a malformed or non-existent variable");
+  VEL_CHECK_MSG(load_json_string(accessor, "type", &out_acc->type), "Accessor had a malformed or non-existent variable");
+  out_acc->max = NULL;
+  extract_gltf_value_array(accessor, "max", &out_acc->max, &out_acc->max_count, out_acc->componentType);
+  out_acc->min = NULL;
+  extract_gltf_value_array(accessor, "min", &out_acc->min, &out_acc->min_count, out_acc->componentType);
   out_acc->name = NULL;
   load_json_string(accessor, "name", &out_acc->name);
   if(sparseAccessorExists == TRUE){
@@ -162,6 +185,18 @@ b8 extract_gltf_image(json_value* image, gltf_image *out_image, const char* uriP
 }
 
 b8 extract_gltf_texture(json_value* texture, gltf_texture *out_texture){
+  out_texture->sampler = U64_MAX;
+  load_json_unsigned_integer(texture, "sampler", &out_texture->sampler);
+  json_value extension = {0};
+  if(
+    load_json_unsigned_integer(texture, "source", &out_texture->source) == FALSE &&
+    load_json_object(texture, "extensions", &extension) == FALSE
+  ){
+    VWARN("Texture source is undefined and no extensions were found. GLTF is malformed");
+    return FALSE;
+  }
+  out_texture->name = NULL;
+  load_json_string(texture, "name", &out_texture->name);
   return TRUE;
 }
 
@@ -178,7 +213,7 @@ typedef struct _buffer_thread_data{
 }buffer_thread_data;
 int import_buffer_thread(void* data){
   buffer_thread_data *bufData = (buffer_thread_data*)data;
-  VEL_CHECK(extract_gltf_buffer(bufData->bufferObj, bufData->outBuffer, bufData->uriPath));
+  VEL_CHECK_MSG(extract_gltf_buffer(bufData->bufferObj, bufData->outBuffer, bufData->uriPath), "Unable to process GLTF buffer");
   vfree(data, sizeof(buffer_thread_data), MEMORY_TAG_GLTF);
   return TRUE;
 }
@@ -190,7 +225,7 @@ typedef struct _buffer_view_thread_data{
 }buffer_view_thread_data;
 int import_buffer_view_thread(void* data){
   buffer_view_thread_data *bufData = (buffer_view_thread_data*)data;
-  VEL_CHECK(extract_gltf_buffer_view(bufData->bufferViewObj, bufData->outView));
+  VEL_CHECK_MSG(extract_gltf_buffer_view(bufData->bufferViewObj, bufData->outView), "Unable to process GLTF buffer view");
   vfree(data, sizeof(buffer_view_thread_data), MEMORY_TAG_GLTF);
   return TRUE;
 }
@@ -202,7 +237,7 @@ typedef struct _accessor_thread_data{
 }accessor_thread_data;
 int import_accessor_thread(void* data){
   accessor_thread_data *accData = (accessor_thread_data*)data;
-  VEL_CHECK(extract_gltf_accessor(accData->accessor, accData->outAcc));
+  VEL_CHECK_MSG(extract_gltf_accessor(accData->accessor, accData->outAcc), "Unable to proces GLTF accessor");
   vfree(data, sizeof(accessor_thread_data), MEMORY_TAG_GLTF);
   return TRUE;
 }
@@ -215,7 +250,7 @@ typedef struct _image_thread_data{
 }image_thread_data;
 int import_image_thread(void* data){
   image_thread_data* imageData = (image_thread_data*)data;
-  VEL_CHECK(extract_gltf_image(imageData->image, imageData->outImage, imageData->uriPath));
+  VEL_CHECK_MSG(extract_gltf_image(imageData->image, imageData->outImage, imageData->uriPath), "Unable to process GLTF image");
   vfree(data, sizeof(image_thread_data), MEMORY_TAG_GLTF);
   return TRUE;
 }
@@ -331,6 +366,14 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
       imageData->uriPath = uriPath;
       thrd_create(threadIds+threadCount, import_image_thread, imageData);
       threadCount++;
+    }
+  }
+
+  json_value *textures = NULL;
+  if(load_json_object_array(&gltfJson, "textures", &textures, &out_gltf->textureCount) == TRUE){
+    out_gltf->textures = vallocate(sizeof(gltf_texture)*out_gltf->textureCount, MEMORY_TAG_GLTF);
+    for(int i = 0; i< out_gltf->textureCount; i++){
+      //
     }
   }
 
