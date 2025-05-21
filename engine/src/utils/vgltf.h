@@ -68,30 +68,30 @@ typedef struct _gltf_texture{
   char *name;
 }gltf_texture;
 
-typedef struct _gltf_material_texture{
+typedef struct _gltf_texture_info{
   u64 textureIndex;
   u64 texCoordIndex;
-  f64 scale;
-}gltf_material_texture;
+  f64 scaleStrength;
+}gltf_texture_info;
 
 typedef struct _gltf_metal_roughness{
   vec4 baseColor;
-  f32 metallicFactor;
-  f32 roughnessFactor;
-  gltf_material_texture baseColorTexture;
-  gltf_material_texture metallicRoughnessTexture;
+  f64 metallicFactor;
+  f64 roughnessFactor;
+  gltf_texture_info baseColorTexture;
+  gltf_texture_info metallicRoughnessTexture;
 }gltf_metal_roughness;
 
 typedef struct _gltf_material{
   char *name;
   vec3 emissiveFactor;
   char *alphaMode;
-  f32 alphaCutoff;
+  f64 alphaCutoff;
   b8 doubleSided;
   gltf_metal_roughness pbrMetallicRoughness;
-  gltf_material_texture normalTexture;
-  gltf_material_texture occlusionTexture;
-  gltf_material_texture emissiveTexture;
+  gltf_texture_info normalTexture;
+  gltf_texture_info occlusionTexture;
+  gltf_texture_info emissiveTexture;
 }gltf_material;
 
 typedef struct _gltf_image{
