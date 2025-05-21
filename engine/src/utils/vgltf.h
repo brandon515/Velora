@@ -14,6 +14,14 @@
 #define GLTF_U32 5125
 #define GLTF_FLOAT 5126
 
+#define GLTF_MODE_POINTS 0
+#define GLTF_MODE_LINES 1
+#define GLTF_MODE_LINE_LOOP 2
+#define GLTF_MODE_LINE_STRIP 3
+#define GLTF_MODE_TRIANGLES 4
+#define GLTF_MODE_TRIANGLES_STRIP 5
+#define GLTF_MODE_TRIANGLES_FAN 6
+
 typedef struct _gltf_buffer{
   u64 size; // The size of the buffer in bytes
   u8* buffer; // The stream of bytes, the gltf_buffer serves as the owner of the data stream
@@ -101,6 +109,34 @@ typedef struct _gltf_image{
   char *name;
 }gltf_image;
 
+typedef struct _gltf_mesh_primitive_attribute{
+  u64 position;
+  u64 normal;
+  u64 tangent;
+  u64 *texCoords;
+  u64 texCount;
+  u64 *colors;
+  u64 colorCount;
+  u64 *joints;
+  u64 jointCount;
+  u64 *weights;
+  u64 weightCount;
+}gltf_mesh_primitive_attribute;
+
+typedef struct _gltf_mesh_primitive{
+  gltf_mesh_primitive_attribute attributes;
+  u64 indicies;
+  u64 material;
+  u64 mode;
+}gltf_mesh_primitive;
+
+typedef struct _gltf_mesh{
+  gltf_mesh_primitive *primitives;
+  u64 primitiveCount;
+  f64 *weights;
+  u64 weightCount;
+}gltf_mesh;
+
 typedef struct _gltf_object{
   gltf_buffer *buffers;
   u64 bufferCount;
@@ -114,6 +150,8 @@ typedef struct _gltf_object{
   u64 materialCount;
   gltf_texture *textures;
   u64 textureCount;
+  gltf_mesh *meshes;
+  u64 meshCount;
 }gltf_object;
 
 typedef struct _import_thread_tracking{
