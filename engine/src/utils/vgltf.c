@@ -323,6 +323,40 @@ b8 extract_gltf_mesh_primitive_attribute(json_value* attributes, gltf_mesh_primi
     if(load_json_unsigned_integer(attributes, colorName, &color[i]) == TRUE){
       out_attributes->colorCount++;
     }
+    jointName[7] = textNumber;
+    if(load_json_unsigned_integer(attributes, jointName, &joints[i]) == TRUE){
+      out_attributes->jointCount++;
+    }
+    weightName[8] = textNumber;
+    if(load_json_unsigned_integer(attributes, weightName, &weights[i]) == TRUE){
+      out_attributes->weightCount++;
+    }
+  }
+  if(out_attributes->texCount != 0){
+    out_attributes->texCoords = vallocate(out_attributes->texCount*sizeof(u64), MEMORY_TAG_GLTF);
+  }
+  if(out_attributes->colorCount != 0){
+    out_attributes->colors = vallocate(out_attributes->colorCount*sizeof(u64), MEMORY_TAG_GLTF);
+  }
+  if(out_attributes->jointCount != 0){
+    out_attributes->joints = vallocate(out_attributes->jointCount*sizeof(u64), MEMORY_TAG_GLTF);
+  }
+  if(out_attributes->weightCount != 0){
+    out_attributes->weights = vallocate(out_attributes->weightCount*sizeof(u64), MEMORY_TAG_GLTF);
+  }
+  for(int i = 0; i < MAX_ATT_NUMBER; i++){
+    if(i < out_attributes->texCount){
+      out_attributes->texCoords[i] = texcoord[i];
+    }
+    if(i < out_attributes->colorCount){
+      out_attributes->colors[i] = color[i];
+    }
+    if(i < out_attributes->jointCount){
+      out_attributes->joints[i] = joints[i];
+    }
+    if(i < out_attributes->weightCount){
+      out_attributes->weights[i] = weights[i];
+    }
   }
   return TRUE;
 }
