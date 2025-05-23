@@ -150,11 +150,18 @@ b8 get_json_value(u8* data, const char *name, json_value *out_object){  // chang
   }
   local_array++;
   u64 level = 1;
+  b8 inArray = FALSE;
   while(level > 0){
     u8 character = (*local_array);
-    if(character == '{' || character == '['){
+    if(character == '{' || character == ':'){
       level++; 
-    }else if(character == '}' || character == ']'){
+    }else if(character == '['){
+      inArray = TRUE;
+      level++;
+    }else if(character == ']'){
+      inArray = FALSE;
+      level--;
+    }else if(character == '}' || (character == ',' && inArray == FALSE)){
       level--;
     }else if(character == '"' && level == 1){
       // See if this is the value we're trying to pull
