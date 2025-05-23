@@ -85,11 +85,13 @@ b8 extract_gltf_sparse_accessor(json_value* sparseAccessor, gltf_sparse_accessor
   VEL_CHECK_MSG(load_json_unsigned_integer(&indices, "componentType", &out_acc->indices.cType), "Indices object in sparse accessor doesn't have a component type");
   out_acc->indices.byteOffset = 0;
   load_json_unsigned_integer(&indices, "byteOffset", &out_acc->indices.byteOffset);
+  free_json_value(&indices);
 
   //Load the values
   VEL_CHECK_MSG(load_json_unsigned_integer(&values, "bufferView", &out_acc->values.bufferViewIndex), "Values object in sparse accessor doesn't have a buffer view reference");
   out_acc->values.byteOffset = 0;
   load_json_unsigned_integer(&values, "byteOffset", &out_acc->values.byteOffset);
+  free_json_value(&values);
 
   return TRUE;
 }
@@ -221,10 +223,12 @@ b8 extract_metallic_roughness(json_value* roughness, gltf_metal_roughness *out_r
     for(int i = 0; i < factorCount; i++){
       out_roughness->baseColor.xyzw[i] = baseColorFactor[i];
     }
+    vfree(baseColorFactor, sizeof(f64)*factorCount, MEMORY_TAG_JSON);
   }
   json_value baseColorTexture = {0};
   if(load_json_object(roughness, "baseColorTexture", &baseColorTexture) == TRUE){
     VEL_CHECK_MSG(extract_texture_info(&baseColorTexture, &out_roughness->baseColorTexture), "Malformed baseColorTexture in material");
+    free_json_value(&baseColorTexture);
   }else{
     out_roughness->baseColorTexture.textureIndex = U64_MAX;
   }
@@ -235,6 +239,7 @@ b8 extract_metallic_roughness(json_value* roughness, gltf_metal_roughness *out_r
   json_value metallicRoughnessTexture = {0};
   if(load_json_object(roughness, "metallicRoughnessTexture", &metallicRoughnessTexture) == TRUE){
     VEL_CHECK_MSG(extract_texture_info(&metallicRoughnessTexture, &out_roughness->metallicRoughnessTexture), "Malformed metallicRoughnessTexture in material");
+    free_json_value(&metallicRoughnessTexture);
   }else{
     out_roughness->metallicRoughnessTexture.textureIndex = U64_MAX;
   }
@@ -279,6 +284,7 @@ b8 extract_gltf_material(json_value* material, gltf_material *out_material){
     for(int i = 0; i < emissiveCount; i++){
       out_material->emissiveFactor.xyz[i] = emissiveArray[i];
     }
+    vfree(emissiveArray, sizeof(f64)*emissiveCount, MEMORY_TAG_JSON);
   }
   if(load_json_string(material, "alphaMode", &out_material->alphaMode) == FALSE){
     const char *defaultAlphaMode = "OPAQUE";
@@ -309,10 +315,10 @@ b8 extract_gltf_mesh_primitive_attribute(json_value* attributes, gltf_mesh_primi
   out_attributes->colorCount = 0;
   out_attributes->jointCount = 0;
   out_attributes->weightCount = 0;
-  char *texName = "TEXCOORD_n";
-  char *colorName = "COLOR_n";
-  char *jointName = "JOINTS_n";
-  char *weightName = "WEIGHTS_n";
+  char texName[] = "TEXCOORD_n";
+  char colorName[] = "COLOR_n";
+  char jointName[] = "JOINTS_n";
+  char weightName[] = "WEIGHTS_n";
   for(int i = 0; i < MAX_ATT_NUMBER; i++){
     char textNumber = '0'+i;
     texName[9] = textNumber;// position 9 is the n in the string
@@ -365,7 +371,81 @@ b8 extract_gltf_mesh_primitive(json_value* primitive, gltf_mesh_primitive *out_p
   json_value attributes = {0};
   VEL_CHECK_MSG(load_json_object(primitive, "attributes", &attributes), "No attributes variable in mesh primitive");
   VEL_CHECK(extract_gltf_mesh_primitive_attribute(&attributes, &out_primitive->attributes));
-  //
+  out_primitive->indicies = U64_MAX;
+  load_json_unsigned_integer(primitive, "indices", &out_primitive->indicies);
+  out_primitive->material = U64_MAX;
+  load_json_unsigned_integer(primitive, "material", &out_primitive->material);
+  out_primitive->mode = 4;
+  load_json_unsigned_integer(primitive, "mode", &out_primitive->mode);
+  json_value *morphTargets = NULL;
+  if(load_json_object_array(primitive, "targets", &morphTargets, &out_primitive->morphCount) == TRUE){
+    out_primitive->morphTargets = vallocate(sizeof(gltf_mesh_primitive_attribute)*out_primitive->morphCount, MEMORY_TAG_GLTF);
+    for(int i = 0; i < out_primitive->morphCount; i++){
+      extract_gltf_mesh_primitive_attribute(&morphTargets[i], &out_primitive->morphTargets[i]);
+      free_json_value(&morphTargets[i]);
+    }
+    vfree(morphTargets, sizeof(json_value)*out_primitive->morphCount, MEMORY_TAG_JSON);
+  }
+  return TRUE;
+}
+
+b8 extract_gltf_mesh(json_value *mesh, gltf_mesh *out_mesh){
+  json_value *meshes = NULL;
+  VEL_CHECK_MSG(load_json_object_array(mesh, "primitives", &meshes, &out_mesh->primitiveCount), "No primitives attribute in mesh");
+  out_mesh->primitives = vallocate(sizeof(gltf_mesh_primitive)*out_mesh->primitiveCount, MEMORY_TAG_GLTF);
+  for(int i = 0; i < out_mesh->primitiveCount; i++){
+    VEL_CHECK_MSG(extract_gltf_mesh_primitive(&meshes[i], &out_mesh->primitives[i]), "Malformed primitive in mesh");
+    free_json_value(&meshes[i]);
+  }
+  vfree(meshes, sizeof(json_value)*out_mesh->primitiveCount, MEMORY_TAG_JSON);
+  
+  load_json_float_array(mesh, "weights", &out_mesh->weights, &out_mesh->weightCount);
+  load_json_string(mesh, "name", &out_mesh->name);
+  return TRUE;
+}
+
+b8 extract_gltf_animation_sampler(json_value *sampler, gltf_animation_sampler *out_sampler){
+  VEL_CHECK_MSG(load_json_unsigned_integer(sampler, "input", &out_sampler->input), "No input variable in animation sampler");
+  VEL_CHECK_MSG(load_json_unsigned_integer(sampler, "output", &out_sampler->output), "No output variable in animation sampler");
+  if(load_json_string(sampler, "interpolation", &out_sampler->interpolation) == FALSE){
+    const char defaultInt[] = "LINEAR";
+    out_sampler->interpolation = vallocate(vstrlen(defaultInt)+1, MEMORY_TAG_STRING);
+    vcopy_memory(out_sampler->interpolation, defaultInt, vstrlen(defaultInt));
+  }
+  return TRUE;
+}
+
+b8 extract_gltf_animation_channel(json_value *channel, gltf_animation_channel *out_channel){
+  VEL_CHECK_MSG(load_json_unsigned_integer(channel, "sampler", &out_channel->sampler), "No sampler variable in animation channel");
+  json_value target = {0};
+  VEL_CHECK_MSG(load_json_object(channel, "target", &target), "No target variable in animation channel");
+  out_channel->target.node = U64_MAX;
+  load_json_unsigned_integer(&target, "node", &out_channel->target.node);
+  VEL_CHECK_MSG(load_json_string(&target, "path", &out_channel->target.path), "No path variable in animation channel target");
+  free_json_value(&target);
+  return TRUE;
+}
+
+b8 extract_gltf_animation(json_value *animation, gltf_animation *out_animation){
+  json_value *channels = NULL;
+  VEL_CHECK_MSG(load_json_object_array(animation, "channels", &channels, &out_animation->channelCount), "No channels variable in GLTF animation");
+  out_animation->channels = vallocate(sizeof(gltf_animation_channel)*out_animation->channelCount, MEMORY_TAG_GLTF);
+  for(int i = 0; i < out_animation->channelCount; i++){
+    VEL_CHECK(extract_gltf_animation_channel(&channels[i], &out_animation->channels[i]));
+    free_json_value(&channels[i]);
+  }
+  vfree(channels, sizeof(json_value)*out_animation->channelCount, MEMORY_TAG_JSON);
+
+  json_value *samplers = NULL;
+  VEL_CHECK_MSG(load_json_object_array(animation, "samplers", &samplers, &out_animation->samplerCount), "No samplers variable in GLTF animation");
+  out_animation->samplers = vallocate(sizeof(gltf_animation_sampler)*out_animation->samplerCount, MEMORY_TAG_GLTF);
+  for(int i = 0; i < out_animation->samplerCount; i++){
+    VEL_CHECK(extract_gltf_animation_sampler(&samplers[i], &out_animation->samplers[i]));
+    free_json_value(&samplers[i]);
+  }
+  vfree(samplers, sizeof(json_value)*out_animation->samplerCount, MEMORY_TAG_JSON);
+  out_animation->name = NULL;
+  load_json_string(animation, "name", &out_animation->name);
   return TRUE;
 }
 
@@ -441,6 +521,30 @@ int import_material_thread(void* data){
   material_thread_data* materialData = (material_thread_data*)data;
   VEL_CHECK_MSG(extract_gltf_material(materialData->material, materialData->out_material), "Unable to process GLTF Material");
   vfree(data, sizeof(material_thread_data), MEMORY_TAG_GLTF);
+  return TRUE;
+}
+
+//json_value *mesh, gltf_mesh *out_mesh
+typedef struct _mesh_thread_data{
+  json_value *mesh;
+  gltf_mesh *out_mesh;
+}mesh_thread_data;
+int import_mesh_thread(void* data){
+  mesh_thread_data *meshData = (mesh_thread_data*)data;
+  VEL_CHECK_MSG(extract_gltf_mesh(meshData->mesh, meshData->out_mesh), "Unable to process GLTF Mesh");
+  vfree(data, sizeof(mesh_thread_data), MEMORY_TAG_GLTF);
+  return TRUE;
+}
+
+//json_value *animation, gltf_animation *out_animation
+typedef struct _animation_thread_data{
+  json_value *animation;
+  gltf_animation *out_animation;
+}animation_thread_data;
+int import_animation_thread(void* data){
+  animation_thread_data *animationData = (animation_thread_data*)data;
+  VEL_CHECK_MSG(extract_gltf_animation(animationData->animation, animationData->out_animation), "Unable to process GLTF Animation");
+  vfree(data, sizeof(animation_thread_data), MEMORY_TAG_GLTF);
   return TRUE;
 }
 #endif
@@ -582,14 +686,62 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     }
   }
 
+  json_value *meshes = NULL;
+  if(load_json_object_array(&gltfJson, "meshes", &meshes, &out_gltf->meshCount) == TRUE){
+    out_gltf->meshes = vallocate(sizeof(gltf_mesh)*out_gltf->meshCount, MEMORY_TAG_GLTF);
+    for(int i = 0; i < out_gltf->meshCount; i++){
+      mesh_thread_data *meshData = vallocate(sizeof(mesh_thread_data), MEMORY_TAG_GLTF);
+      meshData->mesh = &meshes[i];
+      meshData->out_mesh = &out_gltf->meshes[i];
+      thrd_create(threadIds+threadCount, import_mesh_thread, meshData);
+      threadCount++;
+    }
+  }
+
+  json_value *animations = NULL;
+  if(load_json_object_array(&gltfJson, "animations", &animations, &out_gltf->animationCount) == TRUE){
+    out_gltf->animations = vallocate(sizeof(gltf_animation)*out_gltf->animationCount, MEMORY_TAG_GLTF);
+    for(int i = 0; i < out_gltf->animationCount; i++){
+      animation_thread_data *animationData = vallocate(sizeof(animation_thread_data), MEMORY_TAG_GLTF);
+      animationData->animation = &animations[i];
+      animationData->out_animation = &out_gltf->animations[i];
+      thrd_create(threadIds+threadCount, import_animation_thread, animationData);
+      threadCount++;
+    }
+  }
+
   b8 retVal = TRUE;
   for(int i = 0; i < threadCount; i++){
     int result;
     thrd_join(threadIds[i], &result);
-    if(result == FALSE){
+    if(result == FALSE && retVal == TRUE){
       VERROR("Unable to load gltf file %s", uri);
       retVal = FALSE;
     }
+  }
+  if(buffers != NULL){
+    vfree(buffers, sizeof(json_value)*out_gltf->bufferCount, MEMORY_TAG_GLTF);
+  }
+  if(bufferViews != NULL){
+    vfree(bufferViews, sizeof(json_value)*out_gltf->bufferViewCount, MEMORY_TAG_GLTF);
+  }
+  if(accessors != NULL){
+    vfree(accessors, sizeof(json_value)*out_gltf->accessorCount, MEMORY_TAG_GLTF);
+  }
+  if(images != NULL){
+    vfree(images, sizeof(json_value)*out_gltf->imageCount, MEMORY_TAG_GLTF);
+  }
+  if(textures != NULL){
+    vfree(textures, sizeof(json_value)*out_gltf->textureCount, MEMORY_TAG_GLTF);
+  }
+  if(materials != NULL){
+    vfree(materials, sizeof(json_value)*out_gltf->materialCount, MEMORY_TAG_GLTF);
+  }
+  if(meshes != NULL){
+    vfree(meshes, sizeof(json_value)*out_gltf->meshCount, MEMORY_TAG_GLTF);
+  }
+  if(animations != NULL){
+    vfree(animations, sizeof(json_value)*out_gltf->animationCount, MEMORY_TAG_GLTF);
   }
   return retVal;
 }
@@ -647,6 +799,78 @@ void free_gltf_material(gltf_material* material){
   }
 }
 
+void free_gltf_mesh_primitive_attribute(gltf_mesh_primitive_attribute *att){
+  if(att->texCoords != NULL){
+    vfree(att->texCoords, sizeof(u64)*att->texCount, MEMORY_TAG_GLTF);
+  }
+  if(att->colors != NULL){
+    vfree(att->colors, sizeof(u64)*att->colorCount, MEMORY_TAG_GLTF);
+  }
+  if(att->joints != NULL){
+    vfree(att->joints, sizeof(u64)*att->jointCount, MEMORY_TAG_GLTF);
+  }
+  if(att->weights != NULL){
+    vfree(att->weights, sizeof(u64)*att->weightCount, MEMORY_TAG_GLTF);
+  }
+}
+
+void free_gltf_mesh_primitive(gltf_mesh_primitive *prim){
+  free_gltf_mesh_primitive_attribute(&prim->attributes);
+  if(prim->morphTargets != NULL){
+    for(int i = 0; i < prim->morphCount; i++){
+      free_gltf_mesh_primitive_attribute(&prim->morphTargets[i]);
+    }
+    vfree(prim->morphTargets, sizeof(gltf_mesh_primitive_attribute)*prim->morphCount, MEMORY_TAG_GLTF);
+  }
+}
+
+void free_gltf_mesh(gltf_mesh *mesh){
+  for(int i = 0; i < mesh->primitiveCount; i++){
+    free_gltf_mesh_primitive(&mesh->primitives[i]);
+  }
+  vfree(mesh->primitives, sizeof(gltf_mesh_primitive)*mesh->primitiveCount, MEMORY_TAG_GLTF);
+  if(mesh->weights != NULL){
+    vfree(mesh->weights, sizeof(f64)*mesh->weightCount, MEMORY_TAG_GLTF);
+  }
+  if(mesh->name != NULL){
+    vfree(mesh->name, vstrlen(mesh->name)+1, MEMORY_TAG_STRING);
+  }
+}
+
+void free_gltf_animation_sampler(gltf_animation_sampler *out_sampler){
+  if(out_sampler->interpolation != NULL){
+    vfree(out_sampler->interpolation, vstrlen(out_sampler->interpolation)+1, MEMORY_TAG_STRING);
+  }
+}
+
+void free_gltf_animation_channel_target(gltf_animation_channel_target *out_target){
+  if(out_target->path != NULL){
+    vfree(out_target->path, vstrlen(out_target->path)+1, MEMORY_TAG_GLTF);
+  }
+}
+
+void free_gltf_animation_channel(gltf_animation_channel *out_channel){
+  free_gltf_animation_channel_target(&out_channel->target);
+}
+
+void free_gltf_animation(gltf_animation *out_animation){
+  if(out_animation->channels != NULL){
+    for(int i = 0; i < out_animation->channelCount; i++){
+      free_gltf_animation_channel(&out_animation->channels[i]);
+    }
+    vfree(out_animation->channels, sizeof(gltf_animation)*out_animation->channelCount, MEMORY_TAG_GLTF);
+  }
+  if(out_animation->samplers != NULL){
+    for(int i = 0; i < out_animation->samplerCount; i++){
+      free_gltf_animation_sampler(&out_animation->samplers[i]);
+    }
+    vfree(out_animation->samplers, sizeof(gltf_animation_sampler)*out_animation->samplerCount, MEMORY_TAG_GLTF);
+  }
+  if(out_animation->name != NULL){
+    vfree(out_animation->name, vstrlen(out_animation->name)+1, MEMORY_TAG_STRING);
+  }
+}
+
 void free_gltf(gltf_object* out_gltf){
   if(out_gltf->buffers != NULL){
     for(int i = 0; i < out_gltf->bufferCount; i++){
@@ -688,5 +912,19 @@ void free_gltf(gltf_object* out_gltf){
       free_gltf_material(&out_gltf->materials[i]);
     }
     vfree(out_gltf->materials, out_gltf->materialCount*sizeof(gltf_material), MEMORY_TAG_GLTF);
+  }
+
+  if(out_gltf->meshes != NULL){
+    for(int i = 0; i < out_gltf->meshCount; i++){
+      free_gltf_mesh(&out_gltf->meshes[i]);
+    }
+    vfree(out_gltf->meshes, sizeof(gltf_mesh)*out_gltf->meshCount, MEMORY_TAG_GLTF);
+  }
+
+  if(out_gltf->animations != NULL){
+    for(int i = 0; i < out_gltf->animationCount; i++){
+      free_gltf_animation(&out_gltf->animations[i]);
+    }
+    vfree(out_gltf->animations, sizeof(gltf_animation)*out_gltf->animationCount, MEMORY_TAG_GLTF);
   }
 }
