@@ -127,6 +127,8 @@ typedef struct _gltf_mesh_primitive{
   gltf_mesh_primitive_attribute attributes;
   u64 indicies;
   u64 material;
+  gltf_mesh_primitive_attribute *morphTargets;
+  u64 morphCount;
   u64 mode;
 }gltf_mesh_primitive;
 
@@ -135,7 +137,32 @@ typedef struct _gltf_mesh{
   u64 primitiveCount;
   f64 *weights;
   u64 weightCount;
+  char *name;
 }gltf_mesh;
+
+typedef struct _gltf_animation_sampler{
+  u64 input;
+  char *interpolation;
+  u64 output;
+}gltf_animation_sampler;
+
+typedef struct _gltf_animation_channel_target{
+  u64 node;
+  char *path;
+}gltf_animation_channel_target;
+
+typedef struct _gltf_animation_channel{
+  u64 sampler;
+  gltf_animation_channel_target target;
+}gltf_animation_channel;
+
+typedef struct _gtlf_animation{
+  gltf_animation_channel *channels;
+  u64 channelCount;
+  gltf_animation_sampler *samplers;
+  u64 samplerCount;
+  char *name;
+}gltf_animation;
 
 typedef struct _gltf_object{
   gltf_buffer *buffers;
@@ -152,6 +179,8 @@ typedef struct _gltf_object{
   u64 textureCount;
   gltf_mesh *meshes;
   u64 meshCount;
+  gltf_animation *animations;
+  u64 animationCount;
 }gltf_object;
 
 typedef struct _import_thread_tracking{
