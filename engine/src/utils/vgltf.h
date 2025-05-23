@@ -164,6 +164,27 @@ typedef struct _gtlf_animation{
   char *name;
 }gltf_animation;
 
+typedef struct _gltf_camera_perspective{
+  f64 aspectRatio;
+  f64 yfov;
+  f64 zfar;
+  f64 znear;
+}gltf_camera_perspective;
+
+typedef struct _gltf_camera_orthographic{
+  f64 xmag;
+  f64 ymag;
+  f64 zfar;
+  f64 znear;
+}gltf_camera_orthographic;
+
+typedef struct _gltf_camera{
+  gltf_camera_perspective perspective;
+  gltf_camera_orthographic orthographic;
+  char *type;
+  char *name;
+}gltf_camera;
+
 typedef struct _gltf_object{
   gltf_buffer *buffers;
   u64 bufferCount;
@@ -181,6 +202,8 @@ typedef struct _gltf_object{
   u64 meshCount;
   gltf_animation *animations;
   u64 animationCount;
+  gltf_camera *cameras;
+  u64 cameraCount;
 }gltf_object;
 
 typedef struct _import_thread_tracking{

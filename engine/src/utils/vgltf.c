@@ -457,6 +457,45 @@ b8 extract_gltf_animation(json_value *animation, void *out_ptr){
   return TRUE;
 }
 
+b8 extract_gltf_camera_perspective(json_value *perspective, gltf_camera_perspective *out_per){
+  out_per->aspectRatio = 0;
+  load_json_float(perspective, "aspectRatio", &out_per->aspectRatio);
+  VEL_CHECK_MSG(load_json_float(perspective, "yfov", &out_per->yfov), "Variable yfov not in GLTF camera perspective");
+  out_per->zfar = 0;
+  load_json_float(perspective, "zfar", &out_per->zfar);
+  VEL_CHECK_MSG(load_json_float(perspective, "znear", &out_per->znear), "Variable znear not in GLTF camera perspective");
+  return TRUE;
+}
+
+b8 extract_gltf_camera_orthographic(json_value *orthographic, gltf_camera_orthographic *out_ortho){
+  VEL_CHECK_MSG(load_json_float(orthographic, "xmag", &out_ortho->xmag), "Variable xmag not in GLTF camera orthographic");
+  VEL_CHECK_MSG(load_json_float(orthographic, "ymag", &out_ortho->ymag), "Variable ymag not in GLTF camera orthographic");
+  VEL_CHECK_MSG(load_json_float(orthographic, "zfar", &out_ortho->zfar), "Variable zfar not in GLTF camera orthographic");
+  VEL_CHECK_MSG(load_json_float(orthographic, "znear", &out_ortho->znear), "Variable znear not in GLTF camera orthographic");
+  return TRUE;
+}
+
+b8 extract_gltf_camera(json_value *camera, void *out_ptr){
+  gltf_camera *out_camera = (gltf_camera*)out_ptr;
+  VEL_CHECK_MSG(load_json_string(camera, "type", &out_camera->type), "Camera type not identified");
+  json_value cameraData = {0};
+  if(vstrcmp(out_camera->type, "perspective") == TRUE){
+    //TODO: fix json code, if a string is the same name as a variable than it won't load
+    VEL_CHECK_MSG(load_json_object(camera, "perspective", &cameraData), "Perspective camera data not present while type was identified as perspective");
+    extract_gltf_camera_perspective(&cameraData, &out_camera->perspective);
+  }else if(vstrcmp(out_camera->type, "orthographic") == TRUE){
+    VEL_CHECK_MSG(load_json_object(camera, "orthographic", &cameraData), "Orthographic camera data not present while type was identified as orthographic");
+    extract_gltf_camera_orthographic(&cameraData, &out_camera->orthographic);
+  }else{
+    VERROR("GLTF Camera had illegal type %s", out_camera->type);
+    vfree(out_camera->type, vstrlen(out_camera->type)+1, MEMORY_TAG_STRING);
+    return FALSE;
+  }
+  free_json_value(&cameraData);
+  load_json_string(camera, "name", &out_camera->name);
+  return TRUE;
+}
+
 #ifndef __STDC_NO_THREADS__
 //json_value* buffer, gltf_buffer* out_buffer, const char* uriPath
 typedef struct _thread_data{
@@ -580,6 +619,9 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   json_value *animations = NULL;
   START_IMPORT_THREAD(animations, out_gltf->animations, out_gltf->animationCount, NULL, extract_gltf_animation, NULL, gltf_animation, "animations", threadIds, threadCount);
 
+  json_value *cameras = NULL;
+  START_IMPORT_THREAD(cameras, out_gltf->cameras, out_gltf->cameraCount, NULL, extract_gltf_camera, NULL, gltf_camera, "cameras", threadIds, threadCount);
+  
   b8 retVal = TRUE;
   for(int i = 0; i < threadCount; i++){
     int result;
@@ -741,6 +783,15 @@ void free_gltf_animation(gltf_animation *out_animation){
   }
 }
 
+void free_gltf_camera(gltf_camera *out_camera){
+  if(out_camera->type != NULL){
+    vfree(out_camera->type, vstrlen(out_camera->type)+1, MEMORY_TAG_STRING);
+  }
+  if(out_camera->name != NULL){
+    vfree(out_camera->name, vstrlen(out_camera->name)+1, MEMORY_TAG_STRING);
+  }
+}
+
 void free_gltf(gltf_object* out_gltf){
   if(out_gltf->buffers != NULL){
     for(int i = 0; i < out_gltf->bufferCount; i++){
@@ -796,5 +847,12 @@ void free_gltf(gltf_object* out_gltf){
       free_gltf_animation(&out_gltf->animations[i]);
     }
     vfree(out_gltf->animations, sizeof(gltf_animation)*out_gltf->animationCount, MEMORY_TAG_GLTF);
+  }
+  
+  if(out_gltf->cameras != NULL){
+    for(int i = 0; i < out_gltf->cameraCount; i++){
+      free_gltf_camera(&out_gltf->cameras[i]);
+    }
+    vfree(out_gltf->cameras, sizeof(gltf_camera)*out_gltf->cameraCount, MEMORY_TAG_GLTF);
   }
 }
