@@ -1,5 +1,6 @@
 #include "application.h"
 #include "utils/vgltf.h"
+#include "utils/vstring.h"
 
 b8 close_event_handler(event* event, void* state){
   application_state* app_state = (application_state*)state;
@@ -42,11 +43,26 @@ b8 application_start(application_state *app_state){
   return TRUE;
 }
 
+#include "utils/vjson.h"
 b8 application_run(application_state* app_state){
-  gltf_object obj = {0};
+  /*gltf_object obj = {0};
   if(import_gltf("Models/Avocado/scene.gltf", &obj) == TRUE){
     free_gltf(&obj);
+  }*/
+  i64 testVal = -3523425;
+  char *numStr = NULL;
+  vinttostr(testVal, &numStr);
+  VINFO("Number String: %s", numStr);
+  u8 testStr[] = "true}";
+  b8 extractedValue = FALSE;
+  u64 numLength = 0;
+  process_json_bool(testStr, &extractedValue, &numLength);
+  if(extractedValue == TRUE){
+    VINFO("TRUE");
+  }else if(extractedValue == FALSE){
+    VINFO("FALSE");
   }
+  VINFO("char at the end %c", testStr[numLength])
   while(app_state->is_running){
     platform_pump_messages(&app_state->platform);
     pump_events(99.9f);
