@@ -71,3 +71,53 @@ u64 vfind(const char* str, char character){
   }
   return U64_MAX;
 }
+
+b8 vstrtoint(const char *str, i64 *out_int){
+  u64 index = 0;
+  i64 negativeMul = 1;
+  if(str[index] == '-'){
+    index++;
+    negativeMul = -1;
+  }
+  if(str[index] < '0' || str[index] > '9'){
+    return FALSE;
+  }
+  while(str[index] >= '0' && str[index] <= '9'){
+    index++;
+  }
+  u64 place = 1;
+  for(int i = index; i >= 0; i--){
+    if(str[index] >= '0' && str[index] <= '9'){
+      (*out_int) += (str[i] - '0')*place;
+    }
+  }
+  (*out_int) *= negativeMul;
+  return TRUE;
+}
+
+b8 vinttostr(i64 in, char **out_str){
+  i64 scratchValue = in;
+  u64 digitLength = 0;
+  if(scratchValue < 0){
+    scratchValue *= -1;
+    digitLength++;
+  }
+  while(scratchValue > 0){
+    scratchValue/=10;
+    digitLength++;
+  }
+  (*out_str) = vallocate(digitLength+1, MEMORY_TAG_STRING);
+  (*out_str)[digitLength] = 0;
+  scratchValue = in;
+  if(scratchValue < 0){
+    (*out_str)[0] = '-';
+    scratchValue *= -1;
+  }
+  digitLength--;
+  while(scratchValue > 0){
+    (*out_str)[digitLength] = (scratchValue%10)+'0';
+    scratchValue /= 10;
+    digitLength--;
+  }
+  return TRUE;
+}

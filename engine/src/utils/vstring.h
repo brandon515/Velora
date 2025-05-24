@@ -49,3 +49,6 @@ VAPI u64 vfind(const char* str, char character);
  * @return A pointer to a heap allocated string with data copied from str1 and str2
  */
 VAPI char* vconcat(const char *str1, const char* str2);
+
+VAPI b8 vstrtoint(const char *str, i64 *out_int);
+VAPI b8 vinttostr(i64 in, char **out_str);
