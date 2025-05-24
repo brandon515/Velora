@@ -2,6 +2,7 @@
 #include "core/vmemory.h"
 #include "core/logger.h"
 #include "utils/vstring.h"
+#include "container/darray.h"
 #include <stdlib.h>
 
 b8 is_number(char character){
@@ -142,6 +143,175 @@ b8 extract_json_array(u8* data, json_value *out_object){
   return TRUE;
 }
 
+b8 process_json_string(u8 *data, char** out_str, u64 *jsonStrLength){
+  if((*data) !=  '"'){
+    return FALSE;
+  }
+  u8 *lengthArray = data;
+  lengthArray++;
+  u64 byteLength = 0;
+  while(TRUE){
+    if((*lengthArray) == '"'){
+      break;
+    }
+    if((*lengthArray) == '\\'){
+      lengthArray++;
+      if((*lengthArray) == 'u'){
+        lengthArray = lengthArray+4;
+      }
+    }
+    lengthArray++;
+    byteLength++;
+  }
+  byteLength++; // Gotta add the zero termination
+  (*jsonStrLength) = (lengthArray-data)+1; // data[jsonStrLength] is the character after the last "
+  (*out_str) = vallocate(byteLength, MEMORY_TAG_STRING);
+  char *str = (*out_str);
+  u64 inputStrIndex = 0;
+  data++;
+  for(int i = 0; i < byteLength-1; i++){
+    if(data[inputStrIndex] == '\\'){
+      inputStrIndex++;
+      switch(data[inputStrIndex]){
+        case '"':
+          str[i] = '"';
+          break;
+        case '\\':
+          str[i] = '\\';
+          break;
+        case '/':
+          str[i] = '/';
+          break;
+        case 'b':
+          str[i] = '\b';
+          break;
+        case 'f':
+          str[i] = '\f';
+          break;
+        case 'n':
+          str[i] = '\n';
+          break;
+        case 'r':
+          str[i] = '\r';
+          break;
+        case 't':
+          str[i] = '\t';
+          break;
+        case 'u':
+          inputStrIndex = inputStrIndex+4;
+          str[i] = '?';
+      }
+    }else{
+      str[i] = data[inputStrIndex];
+    }
+    inputStrIndex++;
+  }
+  str[byteLength-1] = 0;
+  return TRUE;
+}
+
+b8 process_json_integer(u8 *data, i64 *out_value, u64 *jsonNumberLength){
+  if((*data) != '-' && (*data) < '0' && (*data) > '9'){
+    return FALSE;
+  }
+  (*jsonNumberLength) = 0;
+  i64 negativeMul = 1;
+  if((*data) == '-'){
+    negativeMul = -1;
+    (*jsonNumberLength)++;
+  }
+  while(data[(*jsonNumberLength)] >= '0' && data[(*jsonNumberLength)] <= '9'){
+    (*jsonNumberLength)++;
+  }
+  (*out_value) = 0;
+  u64 curPlace = 1;
+  for(int i = (*jsonNumberLength); i >= 0; i--){
+    if(data[i] >= '0' && data[i] <= '9'){
+      (*out_value) += ((data[i]-'0') * curPlace);
+      curPlace *= 10;
+    }
+  }
+  (*out_value) *= negativeMul;
+  return TRUE;
+}
+
+b8 process_json_float(u8 *data, f64 *out_value, u64 *jsonNumberLength){
+  if((*data) != '-' && (*data) <= '0' && (*data) >= '9'){
+    return FALSE;
+  }
+  char scratchStr[1024];
+  u64 numberLen = 0;
+  while((data[numberLen] >= '0' && data[numberLen] <= '9') || data[numberLen] == '.' || data[numberLen] == 'e' || data[numberLen] == 'E' || data[numberLen] == '-'){
+    scratchStr[numberLen] = data[numberLen];
+    numberLen++;
+  }
+  (*jsonNumberLength) = numberLen;
+  scratchStr[numberLen] = 0;
+  (*out_value) = atof(scratchStr);
+  return TRUE; 
+}
+
+b8 process_json_bool(u8 *data, b8 *out_value, u64 *jsonLength){
+  if((*data) != 't' && (*data) != 'f'){
+    return FALSE;
+  }
+  if((*data) == 't'){
+    (*out_value) = TRUE;
+  }else{
+    (*out_value) = FALSE;
+  }
+  (*jsonLength) = 0;
+  while(data[(*jsonLength)] >= 'a' && data[(*jsonLength)] <= 'z'){
+    (*jsonLength)++;
+  }
+  return TRUE;
+}
+
+b8 identify_json_value(u8* data, json_type *out_type){
+  if((*data) == '"'){
+    (*out_type) = VELORA_JSON_STRING;
+  }else if((*data) == '['){
+    (*out_type) = VELORA_JSON_ARRAY;
+  }else if((*data) == '{'){
+    (*out_type) = VELORA_JSON_OBJECT;
+  }else if((*data) == 't' || (*data) == 'f'){
+    (*out_type) = VELORA_JSON_BOOL;
+  }else if((*data) == '-' || ((*data) >= '0' && (*data) <= '9')){
+    u64 index = 0;
+    if(data[index] == '-'){
+      index++;
+    }
+    while(data[index] >= '0' && data[index] <= '9'){
+      index++;
+    }
+    if(data[index] == '.' || data[index] == 'e' || data[index] == 'E'){
+      (*out_type) = VELORA_JSON_DOUBLE;
+    }else{
+      (*out_type) = VELORA_JSON_INTEGER;
+    }
+  }else if((*data) == 'n'){
+    (*out_type) = VELORA_JSON_NULL;
+  }else{
+    return FALSE;
+  }
+  return TRUE;
+}
+
+b8 process_json_array(u8* data, json_value **out_value, u64 *jsonLength){
+  if((*data) != '['){
+    return FALSE;
+  }
+  u64 index = 1; // start after the opening bracket
+  while(data[index] < ' '){
+    index++;
+  }
+  //darray *jsonValues = darray_new(sizeof(json_value));
+  while(data[index] != ']'){
+    //json_value arrayElem = {0};
+  }
+  return TRUE;
+}
+
 b8 get_json_value(u8* data, const char *name, json_value *out_object){  // change this to find the json object and return it out a pointer in the function parameters
   u8 *local_array = data;
   if((*local_array) != '{'){
@@ -150,20 +320,20 @@ b8 get_json_value(u8* data, const char *name, json_value *out_object){  // chang
   }
   local_array++;
   u64 level = 1;
-  b8 inArray = FALSE;
+  u64 inArray = 0;
   while(level > 0){
     u8 character = (*local_array);
-    if(character == '{' || character == ':'){
+    if((character == '{' || character == ':') && inArray == 0){
       level++; 
     }else if(character == '['){
-      inArray = TRUE;
+      inArray++;
       level++;
     }else if(character == ']'){
-      inArray = FALSE;
+      inArray--;
       level--;
-    }else if(character == '}' || (character == ',' && inArray == FALSE)){
+    }else if((character == '}' || character == ',') && inArray == 0){
       level--;
-    }else if(character == '"' && level == 1){
+    }else if(character == '"' && level == 1 && inArray == 0){
       // See if this is the value we're trying to pull
       u64 stringSize = 0;
       local_array++;
@@ -210,7 +380,16 @@ void free_json_value(json_value *value){
 }
 
 void print_json_value(json_value *val){
+  VINFO("Name: %s", val->name);
   switch(val->type){
+    case VELORA_JSON_BOOL:
+    VINFO("Type: Boolean");
+    if(val->data.boolean == TRUE){
+      VINFO("Data: TRUE");
+    }else if(val->data.boolean == FALSE){
+      VINFO("Data: FALSE");
+    }
+    break;
     case VELORA_JSON_DOUBLE:
     VINFO("Type: Double");
     VINFO("Data: %f", val->data);
@@ -233,6 +412,9 @@ void print_json_value(json_value *val){
     for(int i = 0; i < len; i++){
       print_json_value(&val->data.array[i]);
     }
+    break;
+    case VELORA_JSON_NULL:
+    VINFO("Type: NULL");
     break;
   }
 }

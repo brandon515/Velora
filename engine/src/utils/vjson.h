@@ -3,6 +3,8 @@
 #include "core/logger.h"
 
 typedef enum _json_type{
+  VELORA_JSON_NULL,
+  VELORA_JSON_BOOL,
   VELORA_JSON_INTEGER,
   VELORA_JSON_DOUBLE,
   VELORA_JSON_STRING,
@@ -17,10 +19,13 @@ typedef union _json_data{
   f64 dFloat;
   char* string;
   u8* object;
+  b8 boolean;
+  json_value* objectArray;
   json_value* array;
 }json_data;
 
 typedef struct _json_value{
+  char *name;
   json_type type; // The type of value from the json file
   json_data data; // a union of all the data types a json variable could possibly be
   u64 dataSize; // datasize for the pointer data types, this is unused for integer and doubles
@@ -42,6 +47,10 @@ VAPI b8 get_json_value(u8* data, const char *name, json_value *out_object);
  */
 VAPI void free_json_value(json_value *value);
 
+b8 process_json_bool(u8 *data, b8 *out_value, u64 *jsonLength);
+b8 process_json_float(u8 *data, f64 *out_value, u64 *jsonNumberLength);
+b8 process_json_integer(u8 *data, i64 *out_value, u64 *jsonNumberLength);
+b8 process_json_string(u8 *data, char** out_str, u64 *jsonStrLength);
 /**
  * @brief Prints out the value using VINFO
  * @param val The json_value to print out
