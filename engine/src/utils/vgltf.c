@@ -87,13 +87,11 @@ b8 extract_gltf_sparse_accessor(json_value* sparseAccessor, gltf_sparse_accessor
   VEL_CHECK_MSG(load_json_unsigned_integer(&indices, "componentType", &out_acc->indices.cType), "Indices object in sparse accessor doesn't have a component type");
   out_acc->indices.byteOffset = 0;
   load_json_unsigned_integer(&indices, "byteOffset", &out_acc->indices.byteOffset);
-  free_json_value(&indices);
 
   //Load the values
   VEL_CHECK_MSG(load_json_unsigned_integer(&values, "bufferView", &out_acc->values.bufferViewIndex), "Values object in sparse accessor doesn't have a buffer view reference");
   out_acc->values.byteOffset = 0;
   load_json_unsigned_integer(&values, "byteOffset", &out_acc->values.byteOffset);
-  free_json_value(&values);
 
   return TRUE;
 }
@@ -233,7 +231,6 @@ b8 extract_metallic_roughness(json_value* roughness, gltf_metal_roughness *out_r
   json_value baseColorTexture = {0};
   if(load_json_object(roughness, "baseColorTexture", &baseColorTexture) == TRUE){
     VEL_CHECK_MSG(extract_texture_info(&baseColorTexture, &out_roughness->baseColorTexture), "Malformed baseColorTexture in material");
-    free_json_value(&baseColorTexture);
   }else{
     out_roughness->baseColorTexture.textureIndex = U64_MAX;
   }
@@ -244,7 +241,6 @@ b8 extract_metallic_roughness(json_value* roughness, gltf_metal_roughness *out_r
   json_value metallicRoughnessTexture = {0};
   if(load_json_object(roughness, "metallicRoughnessTexture", &metallicRoughnessTexture) == TRUE){
     VEL_CHECK_MSG(extract_texture_info(&metallicRoughnessTexture, &out_roughness->metallicRoughnessTexture), "Malformed metallicRoughnessTexture in material");
-    free_json_value(&metallicRoughnessTexture);
   }else{
     out_roughness->metallicRoughnessTexture.textureIndex = U64_MAX;
   }
@@ -388,7 +384,6 @@ b8 extract_gltf_mesh_primitive(json_value* primitive, gltf_mesh_primitive *out_p
     out_primitive->morphTargets = vallocate(sizeof(gltf_mesh_primitive_attribute)*out_primitive->morphCount, MEMORY_TAG_GLTF);
     for(int i = 0; i < out_primitive->morphCount; i++){
       extract_gltf_mesh_primitive_attribute(&morphTargets[i], &out_primitive->morphTargets[i]);
-      free_json_value(&morphTargets[i]);
     }
     vfree(morphTargets, sizeof(json_value)*out_primitive->morphCount, MEMORY_TAG_JSON);
   }
@@ -402,7 +397,6 @@ b8 extract_gltf_mesh(json_value *mesh, void *out_ptr){
   out_mesh->primitives = vallocate(sizeof(gltf_mesh_primitive)*out_mesh->primitiveCount, MEMORY_TAG_GLTF);
   for(int i = 0; i < out_mesh->primitiveCount; i++){
     VEL_CHECK_MSG(extract_gltf_mesh_primitive(&meshes[i], &out_mesh->primitives[i]), "Malformed primitive in mesh");
-    free_json_value(&meshes[i]);
   }
   vfree(meshes, sizeof(json_value)*out_mesh->primitiveCount, MEMORY_TAG_JSON);
   
@@ -429,7 +423,6 @@ b8 extract_gltf_animation_channel(json_value *channel, gltf_animation_channel *o
   out_channel->target.node = U64_MAX;
   load_json_unsigned_integer(&target, "node", &out_channel->target.node);
   VEL_CHECK_MSG(load_json_string(&target, "path", &out_channel->target.path), "No path variable in animation channel target");
-  free_json_value(&target);
   return TRUE;
 }
 
@@ -440,7 +433,6 @@ b8 extract_gltf_animation(json_value *animation, void *out_ptr){
   out_animation->channels = vallocate(sizeof(gltf_animation_channel)*out_animation->channelCount, MEMORY_TAG_GLTF);
   for(int i = 0; i < out_animation->channelCount; i++){
     VEL_CHECK(extract_gltf_animation_channel(&channels[i], &out_animation->channels[i]));
-    free_json_value(&channels[i]);
   }
   vfree(channels, sizeof(json_value)*out_animation->channelCount, MEMORY_TAG_JSON);
 
@@ -449,7 +441,6 @@ b8 extract_gltf_animation(json_value *animation, void *out_ptr){
   out_animation->samplers = vallocate(sizeof(gltf_animation_sampler)*out_animation->samplerCount, MEMORY_TAG_GLTF);
   for(int i = 0; i < out_animation->samplerCount; i++){
     VEL_CHECK(extract_gltf_animation_sampler(&samplers[i], &out_animation->samplers[i]));
-    free_json_value(&samplers[i]);
   }
   vfree(samplers, sizeof(json_value)*out_animation->samplerCount, MEMORY_TAG_JSON);
   out_animation->name = NULL;
@@ -491,7 +482,6 @@ b8 extract_gltf_camera(json_value *camera, void *out_ptr){
     vfree(out_camera->type, vstrlen(out_camera->type)+1, MEMORY_TAG_STRING);
     return FALSE;
   }
-  free_json_value(&cameraData);
   load_json_string(camera, "name", &out_camera->name);
   return TRUE;
 }
@@ -555,8 +545,8 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   VFATAL("Compiler doesn't support C11 threads, this is needed to import GLTF Files");
   return FALSE;
   #endif
-  velora_file gltfFile = {0};
-  if(get_file_contents(uri, &gltfFile) == FALSE){
+  json_value gltfJson = {0};
+  if(import_json_file(uri, &gltfJson) == FALSE){
     VERROR("Unable to read GLTF file %s", uri);
     return FALSE;
   }
@@ -565,10 +555,6 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   u64 threadCount = 0;
   char* uriPath = get_file_path(uri);
 
-  json_value gltfJson = {0};
-  gltfJson.data.object = gltfFile.contents;
-  gltfJson.dataSize = gltfFile.size;
-  gltfJson.type = VELORA_JSON_OBJECT;
 
   char **extensionsRequired = NULL;
   u64 extentionCount = 0;
@@ -597,7 +583,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
 
   json_value *buffers = NULL;
   START_IMPORT_THREAD(buffers, out_gltf->buffers, out_gltf->bufferCount, uriPath, NULL, extract_gltf_buffer, gltf_buffer, "buffers", threadIds, threadCount);
-
+  
   json_value *bufferViews = NULL;
   START_IMPORT_THREAD(bufferViews, out_gltf->bufferViews, out_gltf->bufferViewCount, NULL, extract_gltf_buffer_view, NULL, gltf_buffer_view, "bufferViews", threadIds, threadCount);
 
@@ -655,6 +641,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   if(animations != NULL){
     vfree(animations, sizeof(json_value)*out_gltf->animationCount, MEMORY_TAG_GLTF);
   }
+  free_json_value(&gltfJson);
   return retVal;
 }
 
