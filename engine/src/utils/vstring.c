@@ -96,6 +96,13 @@ b8 vstrtoint(const char *str, i64 *out_int){
 }
 
 b8 vinttostr(i64 in, char **out_str){
+  if(in == 0){
+    const char *zeroStr = "0";
+    u64 strMemLength = vstrlen(zeroStr)+1;
+    (*out_str) = vallocate(strMemLength, MEMORY_TAG_STRING);
+    vcopy_memory((*out_str), zeroStr, strMemLength);
+    return TRUE;
+  }
   i64 scratchValue = in;
   u64 digitLength = 0;
   if(scratchValue < 0){
