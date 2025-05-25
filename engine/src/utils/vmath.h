@@ -124,6 +124,11 @@ mat4 translation_matrix(vec3 translation);
 mat4 scaling_matrix(vec3 scale);
 mat4 rotation_matrix(quat quaternion);
 
+b8 indentity_mat4(mat4 *outMatrix);
+b8 indentity_mat3(mat3 *outMatrix);
+b8 indentity_mat2(mat2 *outMatrix);
+
+
 /**
  * @brief Multiply two arbitrary matrices together, the ordering is not arbitrary however
  * @param mat1 A pointer to the f32 array for the first matrix

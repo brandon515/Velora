@@ -1,6 +1,8 @@
 #include "vmath.h"
 #include <math.h>
 
+
+
 vec3 multiply_scalar(vec3 vector, f32 scalar){
   vec3 ret_vec;
   for(int i = 0; i < 3; i++){
@@ -16,6 +18,16 @@ b8 identity_matrix(u64 rowsCols, f32* outMatrix){
     }
   }
   return TRUE;
+}
+
+b8 indentity_mat4(mat4 *outMatrix){
+  return identity_matrix(4, outMatrix->mat);
+}
+b8 indentity_mat3(mat3 *outMatrix){
+  return identity_matrix(3, outMatrix->mat);
+}
+b8 indentity_mat2(mat2 *outMatrix){
+  return identity_matrix(2, outMatrix->mat);
 }
 
 mat4 translation_matrix(vec3 translation){
