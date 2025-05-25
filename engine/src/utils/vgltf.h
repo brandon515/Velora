@@ -22,6 +22,17 @@
 #define GLTF_MODE_TRIANGLES_STRIP 5
 #define GLTF_MODE_TRIANGLES_FAN 6
 
+#define GLTF_SAMPLER_FILTER_NEAREST 9728
+#define GLTF_SAMPLER_FILTER_LINEAR 9729
+#define GLTF_SAMPLER_FILTER_NEAREST_MIPMAP_NEAREST 9784
+#define GLTF_SAMPLER_FILTER_LINEAR_MIPMAP_NEAREST 9785
+#define GLTF_SAMPLER_FILTER_NEAREST_MIPMAP_LINEAR 9786
+#define GLTF_SAMPLER_FILTER_LINEAR_MIPMAP_LINEAR 9787
+
+#define GLTF_SAMPLER_WRAP_CLAMP_TO_EDGE 33071
+#define GLTF_SAMPLER_WRAP_MIRRORED_REPEAT 33648
+#define GLTF_SAMPLER_WRAP_REPEAT 10497
+
 typedef struct _gltf_buffer{
   u64 size; // The size of the buffer in bytes
   u8* buffer; // The stream of bytes, the gltf_buffer serves as the owner of the data stream
@@ -185,6 +196,50 @@ typedef struct _gltf_camera{
   char *name;
 }gltf_camera;
 
+typedef struct _gltf_skin{
+  u64 inverseBindMatrices;
+  u64 skeleton;
+  u64 *joints;
+  u64 jointCount;
+  char *name;
+}gltf_skin;
+
+typedef struct _gltf_asset{
+  char *copyright;
+  char *generator;
+  char *version;
+  char *minVersion;
+}gltf_asset;
+
+typedef struct _gltf_sampler{
+  u64 magFilter;
+  u64 minFilter;
+  u64 wrapS;
+  u64 wrapT;
+  char *name;
+}gltf_sampler;
+
+typedef struct _gltf_node{
+  u64 camera;
+  u64 *children;
+  u64 childCount;
+  u64 skin;
+  mat4 matrix;
+  u64 mesh;
+  quat rotation;
+  vec3 scale;
+  vec3 translation;
+  f64 *weights;
+  u64 weightCount;
+  char *name;
+}gltf_node;
+
+typedef struct _gltf_scene{
+  u64 *nodes;
+  u64 nodeCount;
+  char *name;
+}gltf_scene;
+
 typedef struct _gltf_object{
   gltf_buffer *buffers;
   u64 bufferCount;
@@ -204,6 +259,16 @@ typedef struct _gltf_object{
   u64 animationCount;
   gltf_camera *cameras;
   u64 cameraCount;
+  gltf_skin *skins;
+  u64 skinCount;
+  gltf_sampler *samplers;
+  u64 samplerCount;
+  gltf_node *nodes;
+  u64 nodeCount;
+  gltf_scene *scenes;
+  u64 sceneCount;
+  gltf_asset asset;
+  u64 scene;
 }gltf_object;
 
 typedef struct _import_thread_tracking{
