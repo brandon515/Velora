@@ -18,7 +18,6 @@ typedef union _json_data{
   i64 integer;
   f64 dFloat;
   char* string;
-  u8* object;
   b8 boolean;
   json_value* objectArray;
   json_value* array;
@@ -33,24 +32,20 @@ typedef struct _json_value{
 
 
 /**
- * @brief Pulls a value out of the raw data from a JSON object
- * @param data The data for a valid JSON object
- * @param name The variable name that needs to be pulled
- * @param out_object A pointer to a json_value that will be filled with the requested data
- * @return FALSE if the variable doesn't exist or the data doesn't contain a JSON object, TRUE otherwise
- */
-VAPI b8 get_json_value(u8* data, const char *name, json_value *out_object);
-
-/**
- * @brief Frees the values inside the json_value struct if it needs to be freed
+ * @brief Frees the values inside the json_value struct if it needs to be freed, this is only to be used on json_value gotten from import_json_file
  * @param value a json_value that was created with get_json_value
  */
 VAPI void free_json_value(json_value *value);
 
-b8 process_json_bool(u8 *data, b8 *out_value, u64 *jsonLength);
-b8 process_json_float(u8 *data, f64 *out_value, u64 *jsonNumberLength);
-b8 process_json_integer(u8 *data, i64 *out_value, u64 *jsonNumberLength);
-b8 process_json_string(u8 *data, char** out_str, u64 *jsonStrLength);
+
+/**
+ * @brief Imports the data from the uri provided and puts it into the json_value
+ * @param uri The file path to the Json file
+ * @param out_value a pointer to the json_value that needs to be filled
+ * @return FALSE if the json file is malformed in some way or if it's not able to be found, TRUE otherwise
+ */
+VAPI b8 import_json_file(const char *uri, json_value *out_value);
+
 /**
  * @brief Prints out the value using VINFO
  * @param val The json_value to print out

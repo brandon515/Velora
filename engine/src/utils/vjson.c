@@ -2,146 +2,9 @@
 #include "core/vmemory.h"
 #include "core/logger.h"
 #include "utils/vstring.h"
+#include "utils/vfile.h"
 #include "container/darray.h"
 #include <stdlib.h>
-
-b8 is_number(char character){
-  return (character >= 48) && (character <= 57);
-}
-
-b8 extract_json_object(u8* data, json_value *out_object){
-  u64 jsonDataSize = 1;
-  u64 workingLevel = 1;
-  while(workingLevel >= 1){
-    if(data[jsonDataSize] == '}' || data[jsonDataSize] == ']'){
-      workingLevel--;
-    }else if(data[jsonDataSize] == '{' || data[jsonDataSize] == '['){
-      workingLevel++;
-    }
-    jsonDataSize++;
-  }
-  out_object->dataSize = jsonDataSize+1;
-  out_object->data.object = vallocate(out_object->dataSize, MEMORY_TAG_JSON);
-  vcopy_memory(out_object->data.object, data, jsonDataSize);
-  out_object->data.object[jsonDataSize] = 0;
-  out_object->type = VELORA_JSON_OBJECT;
-  return TRUE;
-}
-
-b8 extract_json_number(u8 *data, json_value *out_object){
-  i8 negativeMul = 1;
-  if((*data) == '-'){
-    negativeMul = -1;
-    data++;
-  }
-  u64 numberLength = 0;
-  while(data[numberLength] != ',' && data[numberLength] >= ' ' && data[numberLength] != '}' && data[numberLength] != ']'){
-    numberLength++;
-  }
-  out_object->type = VELORA_JSON_INTEGER;
-  for(int i = 0; i < numberLength; i++){
-    if(data[i] == '.'){
-      out_object->type = VELORA_JSON_DOUBLE;
-    }
-  }
-  if(out_object->type == VELORA_JSON_INTEGER){ // The value is an integer
-    u64 place = 1;
-    for(int i = numberLength-1; i >= 0; i--){
-      out_object->data.integer += (data[i]-'0')*place;
-      place *= 10;
-    }
-    out_object->data.integer *= negativeMul;
-  }else if(out_object->type == VELORA_JSON_DOUBLE){ // The value is a float
-    char floatStr[numberLength+1];
-    vcopy_memory(floatStr, data, numberLength);
-    floatStr[numberLength] = 0;
-    out_object->data.dFloat = atof(floatStr);
-    out_object->data.dFloat *= negativeMul;
-  }
-  return TRUE;
-}
-
-b8 extract_json_string(u8 *data, json_value *out_object){
-  out_object->type = VELORA_JSON_STRING;
-  data++;
-  u64 valueSize = 0;
-  while(data[valueSize] != '"'){
-    valueSize++;
-  }
-  out_object->dataSize = valueSize+1;
-  out_object->data.string = vallocate(out_object->dataSize, MEMORY_TAG_JSON);
-  vcopy_memory(out_object->data.string, data, valueSize);
-  out_object->data.string[valueSize] = 0;
-  return TRUE;
-}
-
-b8 extract_json_value(u8* data, json_value *out_object){
-  char idenChar = (*data);
-  if(idenChar == '{'){ // { means it's an object
-    return extract_json_object(data, out_object);
-  }else if(is_number(idenChar) || idenChar == '-'){// This is a number of some sort, get the ful number and look for a . to see if it's a float
-    return extract_json_number(data, out_object);
-  }else if(idenChar == '"'){
-    return extract_json_string(data, out_object);
-  }else if(idenChar == 't'){
-    out_object->type = VELORA_JSON_INTEGER;
-    out_object->data.integer = TRUE;
-    return TRUE;
-  }else if(idenChar == 'f'){
-    out_object->type = VELORA_JSON_INTEGER;
-    out_object->data.integer = FALSE;
-    return TRUE;
-  }else{
-    return FALSE;
-  }
-}
-
-b8 extract_json_array(u8* data, json_value *out_object){
-  u64 jsonDataSize = 1;
-  u64 numOfItems = 1;
-  u64 workingLevel = 1;
-  while(workingLevel >= 1){
-    if(data[jsonDataSize] == '}' || data[jsonDataSize] == ']'){
-      workingLevel--;
-    }else if(data[jsonDataSize] == '{' || data[jsonDataSize] == '['){
-      workingLevel++;
-    }else if(data[jsonDataSize] == ',' && workingLevel == 1){
-      numOfItems++;
-    }
-    jsonDataSize++;
-  }
-  out_object->type = VELORA_JSON_ARRAY;
-  out_object->dataSize = sizeof(json_value)*numOfItems;
-  out_object->data.array = vallocate(out_object->dataSize, MEMORY_TAG_JSON);
-  u64 arrayIt = 0;
-  jsonDataSize = 1;
-  workingLevel = 1;
-  data++;
-  while((*data) <= ' '){ //clearing out whitespace
-    data++;
-  }
-  VEL_CHECK(extract_json_value(data, &out_object->data.array[arrayIt]));
-  arrayIt++;
-  while(workingLevel >= 1){
-    if((*data) == '}' || (*data) == ']'){
-      workingLevel--;
-    }else if((*data) == '{' || (*data) == '['){
-      workingLevel++;
-    }else if(((*data) == ',') && workingLevel == 1){
-      data++;
-      while((*data) <= ' '){ //clearing out whitespace
-        data++;
-      }
-      if((*data) == '{'){
-        workingLevel++;
-      }
-      VEL_CHECK(extract_json_value(data, &out_object->data.array[arrayIt]));
-      arrayIt++;
-    }
-    data++;
-  }
-  return TRUE;
-}
 
 b8 process_json_string(u8 *data, char** out_str, u64 *jsonStrLength){
   if((*data) !=  '"'){
@@ -297,7 +160,9 @@ b8 identify_json_value(u8* data, json_type *out_type){
   return TRUE;
 }
 
-b8 process_json_array(u8* data, json_value **out_value, u64 *jsonLength){
+b8 process_json_object(u8 *data, json_value **out_value, u64 *jsonLength, u64 *outNumOfItems);
+
+b8 process_json_array(u8* data, json_value **out_value, u64 *jsonLength, u64 *outNumOfItems){
   if((*data) != '['){
     return FALSE;
   }
@@ -305,77 +170,150 @@ b8 process_json_array(u8* data, json_value **out_value, u64 *jsonLength){
   while(data[index] < ' '){
     index++;
   }
-  //darray *jsonValues = darray_new(sizeof(json_value));
+  darray *jsonValues = darray_new(sizeof(json_value));
   while(data[index] != ']'){
-    //json_value arrayElem = {0};
+    json_value arrayElem = {0};
+    VEL_CHECK(vinttostr((i64)jsonValues->length, &arrayElem.name));
+    while(data[index] <= ' '){
+      index++;
+    }
+    VEL_CHECK(identify_json_value(&data[index], &arrayElem.type));
+    u64 bytesToIncreaseIndex = 0;
+    switch(arrayElem.type){
+      case VELORA_JSON_BOOL:
+      VEL_CHECK(process_json_bool(&data[index], &arrayElem.data.boolean, &bytesToIncreaseIndex));
+      break;
+      case VELORA_JSON_DOUBLE:
+      VEL_CHECK(process_json_float(&data[index], &arrayElem.data.dFloat, &bytesToIncreaseIndex));
+      break;
+      case VELORA_JSON_INTEGER:
+      VEL_CHECK(process_json_integer(&data[index], &arrayElem.data.integer, &bytesToIncreaseIndex));
+      break;
+      case VELORA_JSON_STRING:
+      VEL_CHECK(process_json_string(&data[index], &arrayElem.data.string, &bytesToIncreaseIndex));
+      arrayElem.dataSize = vstrlen(arrayElem.data.string)+1;
+      break;
+      case VELORA_JSON_NULL:
+      break;
+      case VELORA_JSON_ARRAY:
+      VEL_CHECK(process_json_array(&data[index], &arrayElem.data.array, &bytesToIncreaseIndex, &arrayElem.dataSize));
+      arrayElem.dataSize *= sizeof(json_value);
+      break;
+      case VELORA_JSON_OBJECT:
+      VEL_CHECK(process_json_object(&data[index], &arrayElem.data.objectArray, &bytesToIncreaseIndex, &arrayElem.dataSize));
+      arrayElem.dataSize *= sizeof(json_value);
+      break;
+    }
+    darray_push(jsonValues, &arrayElem);
+    index += bytesToIncreaseIndex;
+    while(data[index] == ',' || data[index] <= ' '){
+      index++;
+    }
   }
+  (*jsonLength) = index+1;
+  if(jsonValues->length != 0){
+    (*outNumOfItems) = jsonValues->length;
+    (*out_value) = vallocate(sizeof(json_value)*jsonValues->length, MEMORY_TAG_JSON);
+    vcopy_memory((*out_value), jsonValues->data, sizeof(json_value)*jsonValues->length);
+  }
+  darray_free(jsonValues);
   return TRUE;
 }
 
-b8 get_json_value(u8* data, const char *name, json_value *out_object){  // change this to find the json object and return it out a pointer in the function parameters
-  u8 *local_array = data;
-  if((*local_array) != '{'){
-    VERROR("Attempted to parse JSON data without leading {, may be an array or value");
+b8 process_json_object(u8 *data, json_value **out_value, u64 *jsonLength, u64 *outNumOfItems){
+  if((*data) != '{'){
     return FALSE;
   }
-  local_array++;
-  u64 level = 1;
-  u64 inArray = 0;
-  while(level > 0){
-    u8 character = (*local_array);
-    if((character == '{' || character == ':') && inArray == 0){
-      level++; 
-    }else if(character == '['){
-      inArray++;
-      level++;
-    }else if(character == ']'){
-      inArray--;
-      level--;
-    }else if((character == '}' || character == ',') && inArray == 0){
-      level--;
-    }else if(character == '"' && level == 1 && inArray == 0){
-      // See if this is the value we're trying to pull
-      u64 stringSize = 0;
-      local_array++;
-      while(local_array[stringSize] != '"'){
-        stringSize++;
-      }
-      char jsonName[stringSize+1];
-      vcopy_memory(jsonName, local_array, stringSize);
-      local_array = local_array+stringSize+1;
-      jsonName[stringSize] = 0; //Gotta be sure to zero terminate the string
-      if(vstrcmp(jsonName, name) == FALSE){
-        continue;
-      }
-      //This is indeed the value we need
-      out_object->data.integer = 0;
-      //Get past the space and : 
-      while((*local_array) == ' ' || (*local_array) == ':'){
-        local_array++;
-      }
-      char idenChar = (*local_array);
-      if(idenChar == '['){
-        return extract_json_array(local_array, out_object);
-      }else{
-        return extract_json_value(local_array, out_object);
-      }
-    }
-    local_array++;
+  u64 index = 1;
+  darray *jsonValues = darray_new(sizeof(json_value));
+  while(data[index] != '"' && data[index] != '}'){
+    index++;
   }
-  return FALSE;
+  while(data[index] != '}'){
+    json_value objElem = {0};
+    u64 amountToMove = 0;
+    VEL_CHECK(process_json_string(&data[index], &objElem.name, &amountToMove));
+    index += amountToMove;
+    while(data[index] != ':'){
+      index++;
+    }
+    index++;
+    while(data[index] <= ' '){
+      index++;
+    }
+    VEL_CHECK(identify_json_value(&data[index], &objElem.type));
+    switch(objElem.type){
+      case VELORA_JSON_BOOL:
+      VEL_CHECK(process_json_bool(&data[index], &objElem.data.boolean, &amountToMove));
+      break;
+      case VELORA_JSON_DOUBLE:
+      VEL_CHECK(process_json_float(&data[index], &objElem.data.dFloat, &amountToMove));
+      break;
+      case VELORA_JSON_INTEGER:
+      VEL_CHECK(process_json_integer(&data[index], &objElem.data.integer, &amountToMove));
+      break;
+      case VELORA_JSON_STRING:
+      VEL_CHECK(process_json_string(&data[index], &objElem.data.string, &amountToMove));
+      objElem.dataSize = vstrlen(objElem.data.string)+1;
+      break;
+      case VELORA_JSON_NULL:
+      break;
+      case VELORA_JSON_ARRAY:
+      VEL_CHECK(process_json_array(&data[index], &objElem.data.array, &amountToMove, &objElem.dataSize));
+      objElem.dataSize *= sizeof(json_value);
+      break;
+      case VELORA_JSON_OBJECT:
+      VEL_CHECK(process_json_object(&data[index], &objElem.data.objectArray, &amountToMove, &objElem.dataSize));
+      objElem.dataSize *= sizeof(json_value);
+      break;
+    }
+    darray_push(jsonValues, &objElem);
+    index += amountToMove;
+    while(data[index] == ',' || data[index] <= ' '){
+      index++;
+    }
+  }
+  (*jsonLength) = index+1;
+  if(jsonValues->length > 0){
+    (*outNumOfItems) = jsonValues->length;
+    (*out_value) = vallocate(sizeof(json_value)*jsonValues->length, MEMORY_TAG_JSON);
+    vcopy_memory((*out_value), jsonValues->data, sizeof(json_value)*jsonValues->length);
+  }
+  darray_free(jsonValues);
+  return TRUE;
+}
+
+b8 import_json_file(const char *uri, json_value *out_value){
+  velora_file jsonFile = {0};
+  VEL_CHECK(get_file_contents(uri, &jsonFile));
+  out_value->type = VELORA_JSON_OBJECT;
+  u64 fileSize = 0;
+  u64 numOfItems = 0;
+  VEL_CHECK(process_json_object(jsonFile.contents, &out_value->data.objectArray, &fileSize, &numOfItems));
+  out_value->dataSize = numOfItems*sizeof(json_value);
+  const char *rootName = "ROOT";
+  u64 strLen = vstrlen(rootName);
+  out_value->name = vallocate(strLen+1, MEMORY_TAG_STRING);
+  vcopy_memory(out_value->name, rootName, strLen);
+  out_value->name[strLen] = 0;
+  return TRUE;
 }
 
 void free_json_value(json_value *value){
-  if(value->type == VELORA_JSON_STRING ||
-     value->type == VELORA_JSON_OBJECT
-  ){
-    vfree(value->data.object, value->dataSize, MEMORY_TAG_JSON);
+  if(value->type == VELORA_JSON_STRING){
+    vfree(value->data.string, value->dataSize, MEMORY_TAG_JSON);
   }else if(value->type == VELORA_JSON_ARRAY){
     u64 len = value->dataSize/sizeof(json_value);
     for(int i = 0; i < len; i++){
       free_json_value(&value->data.array[i]);
     }
-    vfree(value->data.object, value->dataSize, MEMORY_TAG_JSON);
+    vfree(value->data.array, value->dataSize, MEMORY_TAG_JSON);
+  }else if(value->type == VELORA_JSON_OBJECT){
+    u64 len = value->dataSize/sizeof(json_value);
+    for(int i = 0; i < len; i++){
+      free_json_value(&value->data.objectArray[i]);
+    }
+    vfree(value->data.objectArray, value->dataSize, MEMORY_TAG_JSON);
   }
 }
 
@@ -402,17 +340,20 @@ void print_json_value(json_value *val){
     VINFO("Type: String");
     VINFO("data: %s", val->data);
     break;
-    case VELORA_JSON_OBJECT:
+    case VELORA_JSON_OBJECT:{
     VINFO("Type: Object");
-    VINFO("Data: %s", val->data);
-    break;
-    case VELORA_JSON_ARRAY:
+    u64 len = val->dataSize/sizeof(json_value);
+    for(int i = 0; i < len; i++){
+      print_json_value(&val->data.objectArray[i]);
+    }
+    break;}
+    case VELORA_JSON_ARRAY:{
     VINFO("Type: Array");
     u64 len = val->dataSize/sizeof(json_value);
     for(int i = 0; i < len; i++){
       print_json_value(&val->data.array[i]);
     }
-    break;
+    break;}
     case VELORA_JSON_NULL:
     VINFO("Type: NULL");
     break;
@@ -423,173 +364,197 @@ b8 load_json_signed_integer(json_value* obj, const char *name, i64 *value){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT){
     return FALSE;
   }
-  json_value dummy = {0};
-  if(get_json_value(obj->data.object, name, &dummy) == FALSE || dummy.type != VELORA_JSON_INTEGER){
-    return FALSE;
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(obj->data.objectArray[i].type == VELORA_JSON_INTEGER && vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      (*value) = obj->data.objectArray[i].data.integer;
+      return TRUE;
+    }
   }
-  (*value) = dummy.data.integer;
-  free_json_value(&dummy);
-  return TRUE;
+  return FALSE;
 }
 
 b8 load_json_unsigned_integer(json_value* obj, const char *name, u64 *value){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT){
     return FALSE;
   }
-  json_value dummy = {0};
-  if(get_json_value(obj->data.object, name, &dummy) == FALSE || dummy.type != VELORA_JSON_INTEGER){
-    return FALSE;
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(obj->data.objectArray[i].type == VELORA_JSON_INTEGER && vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      (*value) = (u64)obj->data.objectArray[i].data.integer;
+      return TRUE;
+    }
   }
-  if(dummy.data.integer < 0){
-    return FALSE;
-  }
-  (*value) = dummy.data.integer;
-  free_json_value(&dummy);
-  return TRUE;
+  return FALSE;
 }
 
 b8 load_json_string(json_value* obj, const char *name, char **value){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT){
     return FALSE;
   }
-  json_value dummy = {0};
-  if(get_json_value(obj->data.object, name, &dummy) == FALSE || dummy.type != VELORA_JSON_STRING){
-    return FALSE;
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(obj->data.objectArray[i].type == VELORA_JSON_STRING && vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      (*value) = vallocate(obj->data.objectArray[i].dataSize, MEMORY_TAG_STRING);
+      vcopy_memory((*value), obj->data.objectArray[i].data.string, obj->data.objectArray[i].dataSize);
+      return TRUE;
+    }
   }
-  (*value) = vallocate(dummy.dataSize, MEMORY_TAG_STRING);
-  vcopy_memory((*value), dummy.data.string, dummy.dataSize);
-  free_json_value(&dummy);
-  return TRUE;
+  return FALSE;
 }
 
 b8 load_json_float(json_value* obj, const char *name, f64 *value){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT){
     return FALSE;
   }
-  json_value dummy = {0};
-  if(get_json_value(obj->data.object, name, &dummy) == FALSE || dummy.type != VELORA_JSON_DOUBLE){
-    return FALSE;
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      if(obj->data.objectArray[i].type == VELORA_JSON_DOUBLE){
+        (*value) = obj->data.objectArray[i].data.dFloat;
+        return TRUE;
+      }else if(obj->data.objectArray[i].type == VELORA_JSON_INTEGER){
+        (*value) = obj->data.objectArray[i].data.integer*1.0f;
+        return TRUE;
+      }else{
+        return FALSE;
+      }
+    }
   }
-  (*value) = dummy.data.dFloat;
-  free_json_value(&dummy);
-  return TRUE;
+  return FALSE;
 }
 
 b8 load_json_object(json_value* obj, const char *name, json_value *value){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT){
     return FALSE;
   }
-  if(get_json_value(obj->data.object, name, value) == FALSE || value->type != VELORA_JSON_OBJECT){
-    return FALSE;
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(obj->data.objectArray[i].type == VELORA_JSON_OBJECT && vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      vcopy_memory(value, &obj->data.objectArray[i], sizeof(json_value));
+      return TRUE;
+    }
   }
-  return TRUE;
+  return FALSE;
 }
 
 b8 load_json_signed_integer_array(json_value* obj, const char *name, i64 **value, u64 *count){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT || count == NULL){
     return FALSE;
   }
-  json_value dummy = {0};
-  if(get_json_value(obj->data.object, name, &dummy) == FALSE || dummy.type != VELORA_JSON_ARRAY){
-    return FALSE;
-  }
-  (*count) = dummy.dataSize/sizeof(json_value);
-  (*value) = vallocate((*count)*sizeof(u64), MEMORY_TAG_JSON);
-  i64 *valueArray = (*value);
-  for(int i = 0; i < (*count); i++){
-    if(dummy.data.array[i].type != VELORA_JSON_INTEGER){
-      return FALSE;
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(obj->data.objectArray[i].type == VELORA_JSON_ARRAY && vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      json_value *arrayObj = obj->data.objectArray[i].data.array;
+      u64 arrayLen = arrayObj->dataSize/sizeof(json_value);
+      (*value) = vallocate(arrayLen*sizeof(i64), MEMORY_TAG_JSON);
+      (*count) = arrayLen;
+      for(int i = 0; i < arrayLen; i++){
+        if(arrayObj->data.array[i].type != VELORA_JSON_INTEGER){
+          vfree((*value), arrayLen*sizeof(i64), MEMORY_TAG_JSON);
+          (*count) = 0;
+          return FALSE;
+        }
+        (*value)[i] = arrayObj->data.array[i].data.integer;
+      }
+      return TRUE;
     }
-    valueArray[i] = dummy.data.array[i].data.integer;
   }
-  free_json_value(&dummy);
-  return TRUE;
+  return FALSE;
 }
 
 b8 load_json_unsigned_integer_array(json_value* obj, const char *name, u64 **value, u64 *count){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT || count == NULL){
     return FALSE;
   }
-  json_value dummy = {0};
-  if(get_json_value(obj->data.object, name, &dummy) == FALSE || dummy.type != VELORA_JSON_ARRAY){
-    return FALSE;
-  }
-  (*count) = dummy.dataSize/sizeof(json_value);
-  (*value) = vallocate((*count)*sizeof(u64), MEMORY_TAG_JSON);
-  u64 *valueArray = (*value);
-  for(int i = 0; i < (*count); i++){
-    if(dummy.data.array[i].type != VELORA_JSON_INTEGER || dummy.data.array[i].data.integer < 0){
-      return FALSE;
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(obj->data.objectArray[i].type == VELORA_JSON_ARRAY && vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      json_value *arrayObj = obj->data.objectArray[i].data.array;
+      u64 arrayLen = arrayObj->dataSize/sizeof(json_value);
+      (*value) = vallocate(arrayLen*sizeof(u64), MEMORY_TAG_JSON);
+      (*count) = arrayLen;
+      for(int i = 0; i < arrayLen; i++){
+        if(arrayObj->data.array[i].type != VELORA_JSON_INTEGER){
+          vfree((*value), arrayLen*sizeof(u64), MEMORY_TAG_JSON);
+          (*count) = 0;
+          return FALSE;
+        }
+        (*value)[i] = (u64)arrayObj->data.array[i].data.integer;
+      }
+      return TRUE;
     }
-    valueArray[i] = dummy.data.array[i].data.integer;
   }
-  free_json_value(&dummy);
-  return TRUE;
+  return FALSE;
 }
 
 b8 load_json_float_array(json_value* obj, const char *name, f64 **value, u64 *count){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT || count == NULL){
     return FALSE;
   }
-  json_value dummy = {0};
-  if(get_json_value(obj->data.object, name, &dummy) == FALSE || dummy.type != VELORA_JSON_ARRAY){
-    return FALSE;
-  }
-  (*count) = dummy.dataSize/sizeof(json_value);
-  (*value) = vallocate((*count)*sizeof(f64), MEMORY_TAG_JSON);
-  f64 *valueArray = (*value);
-  for(int i = 0; i < (*count); i++){
-    if(dummy.data.array[i].type != VELORA_JSON_DOUBLE){
-      return FALSE;
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(obj->data.objectArray[i].type == VELORA_JSON_ARRAY && vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      json_value *arrayObj = obj->data.objectArray[i].data.array;
+      u64 arrayLen = arrayObj->dataSize/sizeof(json_value);
+      (*value) = vallocate(arrayLen*sizeof(f64), MEMORY_TAG_JSON);
+      (*count) = arrayLen;
+      for(int i = 0; i < arrayLen; i++){
+        if(arrayObj->data.array[i].type != VELORA_JSON_DOUBLE){
+          vfree((*value), arrayLen*sizeof(f64), MEMORY_TAG_JSON);
+          (*count) = 0;
+          return FALSE;
+        }
+        (*value)[i] = arrayObj->data.array[i].data.dFloat;
+      }
+      return TRUE;
     }
-    valueArray[i] = dummy.data.array[i].data.dFloat;
   }
-  free_json_value(&dummy);
-  return TRUE;
+  return FALSE;
 }
 
 b8 load_json_string_array(json_value* obj, const char *name, char ***value, u64 *count){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT || count == NULL){
     return FALSE;
   }
-  json_value dummy = {0};
-  if(get_json_value(obj->data.object, name, &dummy) == FALSE || dummy.type != VELORA_JSON_ARRAY){
-    return FALSE;
-  }
-  (*count) = dummy.dataSize/sizeof(json_value);
-  (*value) = vallocate((*count)*sizeof(char*), MEMORY_TAG_JSON);
-  char **valueArray = (*value);
-  for(int i = 0; i < (*count); i++){
-    if(dummy.data.array[i].type != VELORA_JSON_STRING){
-      return FALSE;
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(obj->data.objectArray[i].type == VELORA_JSON_ARRAY && vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      json_value *arrayObj = obj->data.objectArray[i].data.array;
+      u64 arrayLen = arrayObj->dataSize/sizeof(json_value);
+      (*value) = vallocate(arrayLen*sizeof(char*), MEMORY_TAG_JSON);
+      (*count) = arrayLen;
+      for(int i = 0; i < arrayLen; i++){
+        if(arrayObj->data.array[i].type != VELORA_JSON_STRING){
+          for(int j = 0; j < i; j++){
+            vfree((*value)[i], arrayObj->data.array[j].dataSize, MEMORY_TAG_STRING);
+          }
+          vfree((*value), arrayLen*sizeof(char*), MEMORY_TAG_JSON);
+          (*count) = 0;
+          return FALSE;
+        }
+        (*value)[i] = vallocate(arrayObj->data.array[i].dataSize, MEMORY_TAG_STRING);
+        vcopy_memory((*value)[i], arrayObj->data.array[i].data.string, arrayObj->data.array[i].dataSize);
+      }
+      return TRUE;
     }
-    valueArray[i] = vallocate(dummy.data.array[i].dataSize, MEMORY_TAG_STRING);
-    vcopy_memory(valueArray[i], dummy.data.array[i].data.string, dummy.data.array[i].dataSize);
   }
-  free_json_value(&dummy);
-  return TRUE;
+  return FALSE;
 }
 
 b8 load_json_object_array(json_value* obj, const char *name, json_value **value, u64 *count){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT || count == NULL){
     return FALSE;
   }
-  json_value dummy = {0};
-  if(get_json_value(obj->data.object, name, &dummy) == FALSE || dummy.type != VELORA_JSON_ARRAY){
-    return FALSE;
-  }
-  (*count) = dummy.dataSize/sizeof(json_value);
-  (*value) = vallocate(dummy.dataSize, MEMORY_TAG_JSON);
-  json_value *valueArray = (*value);
-  for(int i = 0; i < (*count); i++){
-    if(dummy.data.array[i].type != VELORA_JSON_OBJECT){
-      return FALSE;
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(obj->data.objectArray[i].type == VELORA_JSON_ARRAY && vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      json_value *arrayObj = &obj->data.objectArray[i];
+      (*value) = vallocate(arrayObj->dataSize, MEMORY_TAG_JSON);
+      (*count) = arrayObj->dataSize/sizeof(json_value);
+      vcopy_memory((*value), arrayObj->data.array, arrayObj->dataSize);
+      return TRUE;
     }
-    valueArray[i].data.object = vallocate(dummy.data.array[i].dataSize, MEMORY_TAG_JSON);
-    valueArray[i].dataSize = dummy.data.array[i].dataSize;
-    valueArray[i].type = dummy.data.array[i].type;
-    vcopy_memory(valueArray[i].data.object, dummy.data.array[i].data.object, dummy.data.array[i].dataSize);
   }
-  free_json_value(&dummy);
-  return TRUE;
+  return FALSE;
 }
