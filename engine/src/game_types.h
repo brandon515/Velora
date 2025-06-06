@@ -4,6 +4,7 @@
 #include "core/application.h"
 #include "core/vmemory.h"
 #include "core/input.h"
+#include "container/darray.h"
 
 typedef struct _game{
   application_config app_config;
@@ -14,6 +15,8 @@ typedef struct _game{
   void (*on_resize)(struct _game* game_inst, u32 width, u32 height);
 
   input_state input;
+
+  darray *componentLists;
   
   void* state;
 } game;
