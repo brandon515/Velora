@@ -27,6 +27,7 @@
   MEM_TAG(MEMORY_TAG_IMAGE)               \
   MEM_TAG(MEMORY_TAG_JSON)                \
   MEM_TAG(MEMORY_TAG_FILE)                \
+  MEM_TAG(MEMORY_TAG_ECS)                \
   MEM_TAG(MEMORY_TAG_END_TAG)             \
 
 #define GENERATE_ENUM(ENUM) ENUM,
