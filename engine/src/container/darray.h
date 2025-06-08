@@ -33,7 +33,7 @@ VAPI darray* darray_new(u64 stride);
  * @param data  Data pointer to the item being added
  * @result Pointer to the dynamic array
  */
-VAPI darray* darray_push(darray* arr, void* data);
+VAPI darray* darray_push(darray* arr, const void* data);
 
 /*!
  * @brief Copies the data from end of the darray and decreases the length by one. Doesn't zero out the final item.
@@ -50,7 +50,7 @@ VAPI darray* darray_pop(darray* arr, void* dest);
  * @param index Index to place data
  * @result Pointer to darray, returns NULL if trying to insert beyond the length of the array
  */
-VAPI darray* darray_insert(darray* arr, void* data, u64 index);
+VAPI darray* darray_insert(darray* arr, const void* data, u64 index);
 
 /*!
  * @brief Removes data from index and closes the gap in memory, putting the removed data into dest

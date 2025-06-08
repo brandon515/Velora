@@ -27,7 +27,7 @@ darray* darray_reallocate(darray* arr){
   return arr;
 }
 
-darray* darray_push(darray* arr, void* data){
+darray* darray_push(darray* arr, const void* data){
   darray* ret_arr = arr;
   if(ret_arr->length+1 >= ret_arr->cap){
     ret_arr = darray_reallocate(arr);
@@ -48,7 +48,7 @@ darray* darray_pop(darray* arr, void* dest){
   return arr;
 }
 
-darray* darray_insert(darray* arr, void* data, u64 index){
+darray* darray_insert(darray* arr, const void* data, u64 index){
   darray* ret_arr = arr;
   if(index >= arr->length){
     VWARN("Attempted to insert into a dynamic array past it's length");
