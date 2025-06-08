@@ -6,6 +6,9 @@ static entity_component_system componentLists;
 static b8 ECS_INIT = FALSE;
 
 b8 initilize_entity_component_system(){
+  if(ECS_INIT == TRUE){
+    return FALSE;
+  }
   componentLists.list = darray_new(sizeof(vcomponent_list));
   ECS_INIT = TRUE;
   return TRUE;
@@ -59,6 +62,31 @@ b8 register_component(const vcomponent *comp, vcomponent_type compType){
   return TRUE;
 }
 
+void free_component(vcomponent comp){
+  vfree(comp.data, comp.dataSize, MEMORY_TAG_ECS);
+}
+
+void free_component_list(vcomponent_list compList){
+  vcomponent *comps = compList.data->data;
+  for(int i = 0; i < compList.data->length; i++){
+    free_component(comps[i]);
+  }
+  darray_free(compList.data);
+}
+
+b8 free_entity_component_system(){
+  if(ECS_INIT == FALSE){
+    return FALSE;
+  }
+  vcomponent_list *compLists = componentLists.list->data;
+  for(int i = 0; i < componentLists.list->length; i++){
+    free_component_list(compLists[i]);
+  }
+  darray_free(componentLists.list);
+  ECS_INIT = FALSE;
+  return TRUE;
+}
+
 b8 delete_component(vcomponent_type type, u64 entityID){
   if(ECS_INIT == FALSE){
     return FALSE;
@@ -70,6 +98,7 @@ b8 delete_component(vcomponent_type type, u64 entityID){
   vcomponent *comps = compTypeList.data->data;
   for(int i = 0; i < compTypeList.data->length; i++){
     if(comps[i].entityID == entityID){
+      free_component(comps[i]);
       darray_delete(compTypeList.data->data, i);
       return TRUE;
     }
@@ -103,8 +132,10 @@ b8 delete_entity(u64 entityID){
     vcomponent *components = compTypeList[i].data->data;
     for(int j = 0; j < compTypeList[i].data->length; j++){
       if(components[i].entityID == entityID){
+        free_component(components[i]);
         darray_delete(compTypeList[i].data, i);
         entityExisted = TRUE;
+        break;
       }
     }
   }
