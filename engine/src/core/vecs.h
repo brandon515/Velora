@@ -20,4 +20,9 @@ typedef struct _vcomponent{
   void *data;
 }vcomponent;
 
-b8 initilize_entity_component_system(entity_component_system *componentLists);
+b8 initilize_entity_component_system();
+u64 get_new_entity_id();
+b8 register_component(const vcomponent *comp, vcomponent_type compType);
+b8 delete_component(vcomponent_type type, u64 entityID);
+b8 get_components(vcomponent_type type, vcomponent **outList, u64 *outLength);
+b8 delete_entity(u64 entityID);

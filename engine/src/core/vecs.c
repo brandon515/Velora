@@ -2,19 +2,24 @@
 #include "core/logger.h"
 #include "core/vmemory.h"
 
-b8 initilize_entity_component_system(entity_component_system *componentLists){
-  componentLists->list = darray_new(sizeof(vcomponent_list));
+static entity_component_system componentLists;
+static b8 ECS_INIT = FALSE;
+
+b8 initilize_entity_component_system(){
+  componentLists.list = darray_new(sizeof(vcomponent_list));
+  ECS_INIT = TRUE;
   return TRUE;
 }
 
 u64 get_new_entity_id(){
   static u64 newID = 0;
-  u64 retVal = newID;
-  newID++;
-  return retVal;
+  return newID++;
 }
 
-b8 get_component_list(entity_component_system componentLists, vcomponent_list *outList, vcomponent_type requestedType){
+b8 get_component_list(vcomponent_list *outList, vcomponent_type requestedType){
+  if(ECS_INIT == FALSE){
+    return FALSE;
+  }
   vcomponent_list *compLists = componentLists.list->data;
   for(int i = 0; i < componentLists.list->length; i++){
     if(compLists[i].type == requestedType){
@@ -25,9 +30,12 @@ b8 get_component_list(entity_component_system componentLists, vcomponent_list *o
   return FALSE;
 }
 
-b8 register_component(entity_component_system componentLists, const vcomponent *comp, vcomponent_type compType){
+b8 register_component(const vcomponent *comp, vcomponent_type compType){
+  if(ECS_INIT == FALSE){
+    return FALSE;
+  }
   vcomponent_list compTypeList;
-  if(get_component_list(componentLists, &compTypeList, compType) == FALSE){
+  if(get_component_list(&compTypeList, compType) == FALSE){
     vcomponent_list newList = {
       .type = compType,
       .data = darray_new(sizeof(vcomponent)),
@@ -51,9 +59,12 @@ b8 register_component(entity_component_system componentLists, const vcomponent *
   return TRUE;
 }
 
-b8 delete_component(entity_component_system componentLists, vcomponent_type type, u64 entityID){
+b8 delete_component(vcomponent_type type, u64 entityID){
+  if(ECS_INIT == FALSE){
+    return FALSE;
+  }
   vcomponent_list compTypeList;
-  if(get_component_list(componentLists, &compTypeList, type) == FALSE){
+  if(get_component_list(&compTypeList, type) == FALSE){
     return FALSE;
   }
   vcomponent *comps = compTypeList.data->data;
@@ -64,4 +75,38 @@ b8 delete_component(entity_component_system componentLists, vcomponent_type type
     }
   }
   return FALSE;
+}
+
+b8 get_components(vcomponent_type type, vcomponent **outList, u64 *outLength){
+  if(ECS_INIT == FALSE){
+    return FALSE;
+  }
+  vcomponent_list *data = componentLists.list->data;
+  for(int i = 0; i < componentLists.list->length; i++){
+    if(data[i].type == type){
+      (*outLength) = data[i].data->length;
+      (*outList) = data[i].data->data;//vallocate((*outLength)*sizeof(vcomponent), MEMORY_TAG_ECS);
+      //vcopy_memory((*outList), data[i].data->data, sizeof(vcomponent)*(*outLength));
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+b8 delete_entity(u64 entityID){
+  if(ECS_INIT == FALSE){
+    return FALSE;
+  }
+  b8 entityExisted = FALSE;
+  vcomponent_list *compTypeList = componentLists.list->data;
+  for(int i = 0; i < componentLists.list->length; i++){
+    vcomponent *components = compTypeList[i].data->data;
+    for(int j = 0; j < compTypeList[i].data->length; j++){
+      if(components[i].entityID == entityID){
+        darray_delete(compTypeList[i].data, i);
+        entityExisted = TRUE;
+      }
+    }
+  }
+  return entityExisted;
 }
