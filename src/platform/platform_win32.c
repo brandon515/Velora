@@ -14,11 +14,6 @@
 #include <Windows.h>
 #include <windowsx.h>
 
-typedef struct _internal_state{
-  HINSTANCE instance;
-  HWND window;
-} internal_state;
-
 static f64 clock_frequency;
 static LARGE_INTEGER start_time;
 
@@ -95,11 +90,6 @@ i32 height){
   i32 show_window_command_flags = should_activate ? SW_SHOW : SW_SHOWNOACTIVATE;
 
   ShowWindow(state->window, show_window_command_flags);
-
-  if(initiate_render_system(plat_state->render_state, application_name, state->window, state->instance) == FALSE){
-    VFATAL("Unable to start rendering system");
-    return FALSE;
-  }
 
   LARGE_INTEGER freq;
   QueryPerformanceFrequency(&freq);

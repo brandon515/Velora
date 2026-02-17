@@ -2,11 +2,24 @@
 
 #include "defines.h"
 #include "core/logger.h"
-#include "render/velora_render.h"
+
+#if VPLATFORM_LINUX
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+typedef struct _internal_state{
+  Display *dis;
+  Window win;
+  Atom xlib_wm_delete_window;
+} internal_state;
+#elif VPLATFORM_WINDOWS
+typedef struct _internal_state{
+  HINSTANCE instance;
+  HWND window;
+} internal_state;
+#endif
 
 typedef struct platform_state {
-    void* internal_state;
-    render_state* render_state;
+    internal_state* internal_state;
 } platform_state;
 
 b8 platform_startup(

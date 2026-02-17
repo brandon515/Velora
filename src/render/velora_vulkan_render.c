@@ -17,10 +17,8 @@
 #include <windowsx.h>
 #include <vulkan/vulkan_win32.h>
 #elif VPLATFORM_LINUX
-#include <wayland-client.h>
-#include "platform/xdg-shell-client-protocol.h"
-#include <xkbcommon/xkbcommon.h>
-#include <vulkan/vulkan_wayland.h>
+#include <X11/Xlib.h>
+#include <vulkan/vulkan_xlib.h>
 #endif
 
 #define VELORA_VULKAN_API_VERSION VK_API_VERSION_1_4
@@ -222,7 +220,7 @@ b8 create_vulkan_instance(vulkan_state* state, const char* app_name){
   enable_optional_feature(extensions, &extension_count, VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
   #elif VPLATFORM_LINUX
   enable_optional_feature(extensions, &extension_count, VK_KHR_SURFACE_EXTENSION_NAME);
-  enable_optional_feature(extensions, &extension_count, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+  enable_optional_feature(extensions, &extension_count, VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
   #else
   VFATAL("Vulkan render backend chosen on unsupported system");
   return FALSE;
@@ -1803,21 +1801,51 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
 
 
 
+typedef struct _window_dimensions {
+  u32 width;
+  u32 height;
+} window_dimensions;
+
+b8 create_window_surface(vulkan_state* state, internal_state* plat_internal_state, window_dimensions *outDim);
+
 #ifdef VPLATFORM_WINDOWS
-b8 create_window_surface(vulkan_state* state, HWND window, HINSTANCE handle){
+b8 create_window_surface(vulkan_state* state, internal_state* plat_internal_state, window_dimensions *outDim){
   VkWin32SurfaceCreateInfoKHR createInfo = {
     .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-    .hwnd = window,
-    .hinstance = handle,
+    .hwnd = plat_internal_state->window,
+    .hinstance = plat_internal_state->instance,
   };
   VK_CHECK(
     vkCreateWin32SurfaceKHR(state->instance, &createInfo, NULL, &state->surface), 
     "Unable to create windows surface for vulkan renderer"
   );
+  RECT winSize;
+  GetClientRect(window, &winSize);
+  outDim->width = winSize.right;
+  outDim->height = winSize.bottom;
   return TRUE;
 }
+#elif VPLATFORM_LINUX
+b8 create_window_surface(vulkan_state* state, internal_state* plat_internal_state, window_dimensions *outDim){
+  VkXlibSurfaceCreateInfoKHR createInfo = {
+    .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+    .flags = 0,
+    .dpy = plat_internal_state->dis,
+    .window = plat_internal_state->win,
+  };
+  VK_CHECK(
+    vkCreateXlibSurfaceKHR(state->instance, &createInfo, NULL, &state->surface), 
+    "Unable to create XLib surface for vulkan renderer"
+  );
+  XWindowAttributes winAtt;
+  XGetWindowAttributes(plat_internal_state->dis, plat_internal_state->win, &winAtt);
+  outDim->width = winAtt.width;
+  outDim->height = winAtt.height;
+  return TRUE;
+}
+#endif //VPLATFORM_*
 
-b8 initiate_render_system(render_state* state, const char* application_name, HWND window, HINSTANCE handle){
+b8 initiate_render_system(render_state* state, const char* application_name, internal_state* plat_internal_state){
   state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vk_state->currentFrame = 0;
@@ -1846,13 +1874,12 @@ b8 initiate_render_system(render_state* state, const char* application_name, HWN
   enable_optional_feature(deviceExtensions, &extensionCount, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
   VEL_CHECK(create_vulkan_instance(vk_state, application_name));
-  VEL_CHECK(create_window_surface(vk_state, window, handle));
+  window_dimensions winAtt;
+  VEL_CHECK(create_window_surface(vk_state, plat_internal_state, &winAtt));
   VEL_CHECK(obtain_physical_device(vk_state, deviceExtensions, extensionCount));
   VEL_CHECK(create_logical_device(vk_state, deviceExtensions, extensionCount));
   VEL_CHECK(create_vma_allocator(vk_state));
-  RECT winSize;
-  GetClientRect(window, &winSize);
-  VEL_CHECK(create_swapchain(vk_state, winSize.right, winSize.bottom));
+  VEL_CHECK(create_swapchain(vk_state, winAtt.width, winAtt.height));
   VEL_CHECK(create_swapchain_image_views(vk_state));
   VEL_CHECK(create_render_pass(vk_state));
   VEL_CHECK(create_descriptor_set_layout(vk_state));
@@ -1869,48 +1896,6 @@ b8 initiate_render_system(render_state* state, const char* application_name, HWN
   VEL_CHECK(create_descriptor_sets(vk_state));
   return TRUE;
 }
-#elif VPLATFORM_LINUX
-b8 create_window_surface(vulkan_state* state, struct wl_display* display, struct wl_surface* surface){
-  VkWin32SurfaceCreateInfoKHR createInfo = {
-    .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-    .hwnd = window,
-    .hinstance = handle,
-  };
-  VK_CHECK(
-    vkCreateWin32SurfaceKHR(state->instance, &createInfo, NULL, &state->surface), 
-    "Unable to create windows surface for vulkan renderer"
-  );
-  return TRUE;
-}
-
-b8 initiate_render_system(render_state* state, const char* application_name, struct wl_display* display, struct wl_surface* surface){
-  state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
-  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
-
-  const char* deviceExtensions[10];
-  u32 extensionCount = 0;
-
-  enable_optional_feature(deviceExtensions, &extensionCount, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-  VEL_CHECK(create_vulkan_instance(vk_state, application_name));
-  VEL_CHECK(create_window_surface(vk_state, window, handle));
-  VEL_CHECK(obtain_physical_device(vk_state, deviceExtensions, extensionCount));
-  VEL_CHECK(create_logical_device(vk_state, deviceExtensions, extensionCount));
-  VEL_CHECK(create_vma_allocator(vk_state));
-  RECT winSize;
-  GetClientRect(window, &winSize);
-  VEL_CHECK(create_swapchain(vk_state, winSize.right, winSize.bottom));
-  VEL_CHECK(create_swapchain_image_views(vk_state));
-  VEL_CHECK(create_render_pass(vk_state));
-  VEL_CHECK(create_graphics_pipeline(vk_state));
-  VEL_CHECK(create_frame_buffers(vk_state));
-  VEL_CHECK(create_command_pool(vk_state));
-  VEL_CHECK(create_command_buffer(vk_state));
-  VEL_CHECK(create_sync_objects(vk_state));
-  return TRUE;
-}
-#endif //VPLATFORM_*
-
 
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;

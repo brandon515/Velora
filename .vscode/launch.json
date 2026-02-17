@@ -30,7 +30,7 @@
           "name": "(Linux) Launch",
           "type": "cppdbg",
           "request": "launch",
-          "program": "${workspaceFolder}/bin/testbed",
+          "program": "${workspaceFolder}/bin/engine",
           "args": [],
           "stopAtEntry": false,
           "cwd": "${workspaceFolder}/bin/",
