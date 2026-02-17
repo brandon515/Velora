@@ -44,7 +44,7 @@ b8 initiate_input_system(input_state* state);
  * @param out_id the ID number assigned to the action, this is how the game should interact with this action in this system
  * @return TRUE if the input was successfully mapped, FALSE if this input_name has already been used
  */
-VAPI b8 register_input_mapping(input_state* state, const char* input_name, u32* out_id);
+ b8 register_input_mapping(input_state* state, const char* input_name, u32* out_id);
 
 /**
  * @brief Binds a hardware input to a game input, if the action_id is already bound to the mapping_id than the input action value is updated
@@ -53,7 +53,7 @@ VAPI b8 register_input_mapping(input_state* state, const char* input_name, u32* 
  * @param action_id The hardware ID to map
  * @return TRUE if the input action was successfully bound, FALSE if the mapping_id doesn't exist, or if the binding already exists.
  */
-VAPI b8 bind_input_action(input_state* state, u64 mapping_id, event_id action_id, i8 valueToMap);
+ b8 bind_input_action(input_state* state, u64 mapping_id, event_id action_id, i8 valueToMap);
 
 /**
  * @brief Unbinds an existing hardware input from a game input
@@ -62,6 +62,6 @@ VAPI b8 bind_input_action(input_state* state, u64 mapping_id, event_id action_id
  * @param action_id The ID of the action that should no longer be bound to the mapping
  * @return TRUE if the action was successfully unbound from the mapping, FALSE if the mapping doesn't exist or if the action wasn't bound
  */
-VAPI b8 unbind_input_action(input_state* state, u64 mapping_id, event_id action_id);
+ b8 unbind_input_action(input_state* state, u64 mapping_id, event_id action_id);
 
 b8 shutdown_input_sytem(input_state* state);

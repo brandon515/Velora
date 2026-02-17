@@ -12,7 +12,7 @@ C_FLAGS = -g -Wvarargs -Wall -Werror
 CPP_FLAGS = -Wno-nullability-completeness -g -std=c++23
 I_FLAGS = -Isrc -I$(VULKAN_SDK)/include
 L_FLAGS = -lvulkan -L$(VULKAN_SDK)/lib -lX11 -lm -lstdc++
-DEFINES = -D_DEBUG -DVEXPORT -DVULKAN_RENDER -D_CRT_SECURE_NO_WARNINGS
+DEFINES = -D_DEBUG -DVULKAN_RENDER -D_CRT_SECURE_NO_WARNINGS
 
 ALL: $(SPV) bin/engine
 

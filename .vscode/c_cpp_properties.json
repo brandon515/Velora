@@ -3,14 +3,13 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**",
+                "${workspaceFolder}/src",
                 "${VULKAN_SDK}/Include"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE",
-                "VEXPORT",
                 "VULKAN_RENDER"
             ],
             "windowsSdkVersion": "10.0.22621.0",
@@ -22,14 +21,13 @@
         {
             "name": "Win32_testing",
             "includePath": [
-                "${workspaceFolder}/**",
+                "${workspaceFolder}/src",
                 "${VULKAN_SDK}/Include"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE",
-                "VEXPORT",
                 "TESTING",
                 "VULKAN_RENDER"
             ],
@@ -42,14 +40,13 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**",
+                "${workspaceFolder}/src",
                 "${VULKAN_SDK}/include"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE",
-                "VEXPORT",
                 "VULKAN_RENDER"
             ],
             "compilerPath": "/usr/bin/clang",

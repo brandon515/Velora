@@ -21,10 +21,10 @@ typedef enum log_level {
   LOG_LEVEL_TRACE = 5
 } log_level;
 
-VAPI b8 initialize_logging();
-VAPI void shutdown_logging();
+ b8 initialize_logging();
+ void shutdown_logging();
 
-VAPI void log_output(log_level level, const char* message, ...);
+ void log_output(log_level level, const char* message, ...);
 
 #ifndef VFATAL
 #define VFATAL(message, ...) log_output(LOG_LEVEL_FATAL, message, ##__VA_ARGS__);

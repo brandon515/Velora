@@ -283,10 +283,10 @@ typedef struct _import_thread_tracking{
  * @param out_gltf A gltf_object variable to be filled with the data pointed at by the URI
  * @return FALSE if the file doesn't exist or the file isn't valid JSON, TRUE otherwise
  */
-VAPI b8 import_gltf(const char *uri, gltf_object *out_gltf);
+ b8 import_gltf(const char *uri, gltf_object *out_gltf);
 
 /**
  * @brief Frees the memory that the gltf_object uses but not the pointer itself
  * @param out_gltf The gltf_object that's been filled with import_gltf
  */
-VAPI void free_gltf(gltf_object* out_gltf);
+ void free_gltf(gltf_object* out_gltf);

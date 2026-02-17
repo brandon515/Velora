@@ -17,13 +17,13 @@ typedef struct _velora_pixels{
  * @param out_pixels a pointer to a velora_pixels struct
  * @return returns FALSE if image doesn't exist, TRUE otherwise
  */
-VAPI b8 import_pixels(const char *uri, velora_pixels *out_pixels);
+ b8 import_pixels(const char *uri, velora_pixels *out_pixels);
 
 /**
  * @brief frees the memory allocated in import_pixels
  * @param out_pixels a pointer to the velora_pixels that was previously allocated by import_pixels
  */
-VAPI void free_pixels(velora_pixels *pixels);
+ void free_pixels(velora_pixels *pixels);
 
 
 

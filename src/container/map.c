@@ -40,7 +40,7 @@ void map_set_item(int_map* map, u64 key, void* item){
   }
 }
 
-VAPI void map_free(int_map* map){
+ void map_free(int_map* map){
   darray_free(map->data);
   darray_free(map->keys);
   vfree(map, sizeof(map), MEMORY_TAG_INT_MAP);

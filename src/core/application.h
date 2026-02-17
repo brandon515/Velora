@@ -19,6 +19,6 @@ typedef struct _application_state{
     f64 last_time;
   } application_state;
 
-VAPI b8 application_start(application_state* app_state);
+ b8 application_start(application_state* app_state);
 
-VAPI b8 application_run(application_state* app_state);  
+ b8 application_run(application_state* app_state);  

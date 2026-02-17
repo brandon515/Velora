@@ -25,7 +25,7 @@ typedef struct _darray{
  * @param stride  The size of each individual item
  * @result A newly allocated dynamic array on the heap
  */
-VAPI darray* darray_new(u64 stride);
+ darray* darray_new(u64 stride);
 
 /*!
  * @brief Copies the data from the pointer given into the end of the dynamic array
@@ -33,7 +33,7 @@ VAPI darray* darray_new(u64 stride);
  * @param data  Data pointer to the item being added
  * @result Pointer to the dynamic array
  */
-VAPI darray* darray_push(darray* arr, const void* data);
+ darray* darray_push(darray* arr, const void* data);
 
 /*!
  * @brief Copies the data from end of the darray and decreases the length by one. Doesn't zero out the final item.
@@ -41,7 +41,7 @@ VAPI darray* darray_push(darray* arr, const void* data);
  * @param dest  Pointer to deposit the data
  * @result Pointer to darray, returns NULL if dynamic array is empty
  */
-VAPI darray* darray_pop(darray* arr, void* dest);
+ darray* darray_pop(darray* arr, void* dest);
 
 /*!
  * @brief Places data from data pointer to the index
@@ -50,7 +50,7 @@ VAPI darray* darray_pop(darray* arr, void* dest);
  * @param index Index to place data
  * @result Pointer to darray, returns NULL if trying to insert beyond the length of the array
  */
-VAPI darray* darray_insert(darray* arr, const void* data, u64 index);
+ darray* darray_insert(darray* arr, const void* data, u64 index);
 
 /*!
  * @brief Removes data from index and closes the gap in memory, putting the removed data into dest
@@ -59,7 +59,7 @@ VAPI darray* darray_insert(darray* arr, const void* data, u64 index);
  * @param dest  Pointer to copy data into, this should already be allocated
  * @return Pointer to darray, returns NULL if index is beyond the length of the dynamic array
  */
-VAPI darray* darray_remove(darray* arr, u64 index, void* dest);
+ darray* darray_remove(darray* arr, u64 index, void* dest);
 
 /*!
  * @brief Destroys data at index and closes the gap in memory
@@ -67,19 +67,19 @@ VAPI darray* darray_remove(darray* arr, u64 index, void* dest);
  * @param index Index to remove
  * @return Pointer to darray, returns NULL if index is beyond the length of the dynamic array
  */
-VAPI darray* darray_delete(darray* arr, u64 index);
+ darray* darray_delete(darray* arr, u64 index);
 
 /*!
  * @brief Cleans up the dynamic array by free the data and itself, the dynamic array should not be used beyond this call
  * @param arr Pointer to dynamic array
  */
-VAPI void darray_free(darray* arr);
+ void darray_free(darray* arr);
 
 /*!
  * @brief Zeros out the memory of the dynamic array while leaving the cap intact
  * @param arr Pointer to dynamic array
  */
-VAPI void darray_clear(darray* arr);
+ void darray_clear(darray* arr);
 
 /*!
  * @brief Deletes the first num_of_items items in the dynamic array in FIFO order
@@ -87,4 +87,4 @@ VAPI void darray_clear(darray* arr);
  * @param num_of_items Number of items to delete
  * @result Pointer to array, returns NULL if num_of_items is larger than the dynamic array's length
  */
-VAPI darray* darray_drain(darray* arr, u64 num_of_items);
+ darray* darray_drain(darray* arr, u64 num_of_items);
