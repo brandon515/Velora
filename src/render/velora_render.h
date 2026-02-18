@@ -16,4 +16,4 @@ b8 render_postframe(render_state* state);
 
 b8 resize_handler(event* newEvent, void* state);
 
-b8 initiate_render_system(render_state* state, const char* application_name, internal_state *plat_internal_state);
+b8 initiate_render_system(render_state* state, const char* application_name, platform_state *plat_internal_state);

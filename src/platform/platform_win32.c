@@ -20,16 +20,12 @@ static LARGE_INTEGER start_time;
 LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 b8 platform_startup(
-platform_state* plat_state,
+platform_state* state,
 const char* application_name,
 i32 x,
 i32 y,
 i32 width,
 i32 height){
-  plat_state->internal_state = platform_allocate(sizeof(internal_state), FALSE);
-  plat_state->render_state = platform_allocate(sizeof(render_state), FALSE);
-  internal_state* state = (internal_state*)plat_state->internal_state;
-
   state->instance = GetModuleHandleA(0);
 
   const char class_name[] = "Velora Window Class";
@@ -99,11 +95,7 @@ i32 height){
   return TRUE;
 }
 
-void platform_shutdown(platform_state* plat_state){
-  internal_state* state = (internal_state*)plat_state->internal_state;
-  
-  shutdown_render_system(plat_state->render_state);
-  platform_free(plat_state->render_state, FALSE);
+void platform_shutdown(platform_state* state){
   if(state->window){
     DestroyWindow(state->window);
     state->window = 0;

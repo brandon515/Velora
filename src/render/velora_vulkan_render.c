@@ -1806,10 +1806,10 @@ typedef struct _window_dimensions {
   u32 height;
 } window_dimensions;
 
-b8 create_window_surface(vulkan_state* state, internal_state* plat_internal_state, window_dimensions *outDim);
+b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_state, window_dimensions *outDim);
 
 #ifdef VPLATFORM_WINDOWS
-b8 create_window_surface(vulkan_state* state, internal_state* plat_internal_state, window_dimensions *outDim){
+b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_state, window_dimensions *outDim){
   VkWin32SurfaceCreateInfoKHR createInfo = {
     .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
     .hwnd = plat_internal_state->window,
@@ -1826,7 +1826,7 @@ b8 create_window_surface(vulkan_state* state, internal_state* plat_internal_stat
   return TRUE;
 }
 #elif VPLATFORM_LINUX
-b8 create_window_surface(vulkan_state* state, internal_state* plat_internal_state, window_dimensions *outDim){
+b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_state, window_dimensions *outDim){
   VkXlibSurfaceCreateInfoKHR createInfo = {
     .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
     .flags = 0,
@@ -1845,7 +1845,7 @@ b8 create_window_surface(vulkan_state* state, internal_state* plat_internal_stat
 }
 #endif //VPLATFORM_*
 
-b8 initiate_render_system(render_state* state, const char* application_name, internal_state* plat_internal_state){
+b8 initiate_render_system(render_state* state, const char* application_name, platform_state* plat_internal_state){
   state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vk_state->currentFrame = 0;

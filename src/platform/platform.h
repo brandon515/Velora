@@ -6,21 +6,17 @@
 #if VPLATFORM_LINUX
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-typedef struct _internal_state{
+typedef struct platform_state{
   Display *dis;
   Window win;
   Atom xlib_wm_delete_window;
-} internal_state;
+} platform_state;
 #elif VPLATFORM_WINDOWS
-typedef struct _internal_state{
+typedef struct platform_state{
   HINSTANCE instance;
   HWND window;
-} internal_state;
-#endif
-
-typedef struct platform_state {
-    internal_state* internal_state;
 } platform_state;
+#endif
 
 b8 platform_startup(
     platform_state* plat_state,

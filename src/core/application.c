@@ -31,7 +31,7 @@ b8 application_start(application_state *app_state){
     return FALSE;
   }
 
-  if(initiate_render_system(app_state->render_state, NAME, app_state->platform.internal_state) == FALSE){
+  if(initiate_render_system(app_state->render_state, NAME, &app_state->platform) == FALSE){
     platform_console_write("Unable to initiate render system", LOG_LEVEL_FATAL);
     return FALSE;
   }
@@ -59,6 +59,7 @@ b8 application_run(application_state* app_state){
     }
   }
   platform_shutdown(&app_state->platform);
+  shutdown_render_system(&app_state->render_state);
   shutdown_input_sytem(&app_state->input);
 
   return TRUE;

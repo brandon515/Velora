@@ -9,14 +9,12 @@
 #include <errno.h>
 
 b8 platform_startup(
-platform_state* plat_state,
+platform_state* state,
 const char* application_name,
 i32 x,
 i32 y,
 i32 width,
 i32 height){
-  plat_state->internal_state = platform_allocate(sizeof(internal_state), FALSE);
-  internal_state* state = (internal_state*) plat_state->internal_state;
   XInitThreads();
   state->dis = XOpenDisplay(NULL);
   if(state->dis == NULL){
@@ -55,14 +53,12 @@ i32 height){
   return TRUE;
 }
 
-void platform_shutdown(platform_state* plat_state){
-  internal_state* state = (internal_state*) plat_state->internal_state;
+void platform_shutdown(platform_state* state){
   XDestroyWindow(state->dis, state->win);
   XCloseDisplay(state->dis);
 }
 
-b8 platform_pump_messages(platform_state* plat_state){
-  internal_state* state = (internal_state*)plat_state->internal_state;
+b8 platform_pump_messages(platform_state* state){
   XEvent newXEvent;
   XCheckWindowEvent(state->dis, state->win, StructureNotifyMask, &newXEvent);
   if(newXEvent.type == MapNotify){
