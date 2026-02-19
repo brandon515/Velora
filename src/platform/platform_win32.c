@@ -104,7 +104,6 @@ void platform_shutdown(platform_state* state){
 
 void* platform_allocate(u64 size, b8 aligned){
   void* ret = malloc(size);
-  platform_zero_memory(ret, size);
   return ret;
 }
 
