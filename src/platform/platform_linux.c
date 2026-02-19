@@ -45,8 +45,6 @@ i32 height){
   XSelectInput(state->dis, state->win, ExposureMask | KeyPressMask);
   XMapWindow(state->dis, state->win);
   XFlush(state->dis);
-  state->xlib_wm_delete_window = XInternAtom(state->dis, "WM_DELETE_WINDOW", FALSE);
-  XSetWMProtocols(state->dis, state->win, &state->xlib_wm_delete_window, 1);
 
   
   

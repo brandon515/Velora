@@ -9,7 +9,6 @@
 typedef struct platform_state{
   Display *dis;
   Window win;
-  Atom xlib_wm_delete_window;
 } platform_state;
 #elif VPLATFORM_WINDOWS
 typedef struct platform_state{
