@@ -59,7 +59,7 @@ b8 application_run(application_state* app_state){
     }
   }
   platform_shutdown(&app_state->platform);
-  shutdown_render_system(&app_state->render_state);
+  shutdown_render_system(app_state->render_state);
   shutdown_input_sytem(&app_state->input);
 
   return TRUE;
