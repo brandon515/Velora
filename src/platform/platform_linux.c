@@ -59,7 +59,7 @@ void platform_shutdown(platform_state* state){
 b8 platform_pump_messages(platform_state* state){
   XEvent newXEvent;
   XCheckWindowEvent(state->dis, state->win, StructureNotifyMask, &newXEvent);
-  if(newXEvent.type == MapNotify){
+  if(newXEvent.type == DestroyNotify){
     event new_event ={
       .event_type = ENGINE_CLOSE_GAME,
       .event_data_size = 0,
