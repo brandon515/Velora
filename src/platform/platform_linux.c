@@ -3,6 +3,7 @@
 
 #include "core/logger.h"
 #include "core/event.h"
+#include "core/vmemory.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -35,14 +36,14 @@ i32 height){
   windowAttributes.colormap = colormap;
   windowAttributes.background_pixel = 0;
   windowAttributes.border_pixel = 0;
-  windowAttributes.event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask | ExposureMask;
+  windowAttributes.event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask | ExposureMask | ResizeRedirectMask;
 
   //int whiteColor = WhitePixel(state->dis, DefaultScreen(state->dis));
   state->win = XCreateWindow(state->dis, RootWindow(state->dis, visInfoTemplate.screen), x, y, width, height, 0,
                               visualInfo->depth, InputOutput, visualInfo->visual,
                               CWBackPixel | CWBorderPixel | CWEventMask | CWColormap, &windowAttributes);
   
-  XSelectInput(state->dis, state->win, ExposureMask | KeyPressMask);
+  XSelectInput(state->dis, state->win, StructureNotifyMask | ExposureMask | KeyPressMask | ResizeRedirectMask);
   XMapWindow(state->dis, state->win);
   XFlush(state->dis);
 
@@ -58,14 +59,28 @@ void platform_shutdown(platform_state* state){
 
 b8 platform_pump_messages(platform_state* state){
   XEvent newXEvent;
-  XCheckWindowEvent(state->dis, state->win, StructureNotifyMask, &newXEvent);
-  if(newXEvent.type == DestroyNotify){
-    event new_event ={
-      .event_type = ENGINE_CLOSE_GAME,
-      .event_data_size = 0,
-      .event_data = 0,
-    };
-    fire_event(&new_event);
+  while(XPending(state->dis)){
+    XNextEvent(state->dis, &newXEvent);
+    VINFO("Event type number: %u", newXEvent.type);
+    if(newXEvent.type == DestroyNotify){
+      event new_event ={
+        .event_type = ENGINE_CLOSE_GAME,
+        .event_data_size = 0,
+        .event_data = 0,
+      };
+      fire_event(&new_event);
+    }else if(newXEvent.type == ResizeRequest){
+      XResizeRequestEvent eventDat = newXEvent.xresizerequest;
+      resize_data* dat = vallocate(sizeof(resize_data), MEMORY_TAG_EVENT_DATA);
+      dat->height = eventDat.height;
+      dat->width = eventDat.width;
+      event new_event = {
+        .event_type = ENGINE_WINDOW_RESIZE,
+        .event_data_size = sizeof(resize_data),
+        .event_data = dat,
+      };
+      queue_event(&new_event);
+    }
   }
   return TRUE;
 }
