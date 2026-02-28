@@ -11,8 +11,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <Windows.h>
-#include <windowsx.h>
 
 static f64 clock_frequency;
 static LARGE_INTEGER start_time;
