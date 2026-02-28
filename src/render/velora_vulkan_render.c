@@ -1259,7 +1259,7 @@ b8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
 
 b8 create_sync_objects(vulkan_state* state){
   state->imageAvailable = vallocate(sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
-  state->renderFinished = vallocate(sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  state->renderFinished = vallocate(sizeof(VkSemaphore)*state->swapchainImageCount, MEMORY_TAG_RENDERER);
   state->inFlight = vallocate(sizeof(VkFence)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   VkSemaphoreCreateInfo semInfo = {
     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -1268,14 +1268,16 @@ b8 create_sync_objects(vulkan_state* state){
     .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
     .flags = VK_FENCE_CREATE_SIGNALED_BIT, // Make it so that the render loop doesn't hang on the fence for the first frame
   };
+  for(int i = 0; i < state->swapchainImageCount; i++){
+    VK_CHECK(
+      vkCreateSemaphore(state->logicalDevice, &semInfo, NULL, &state->renderFinished[i]),
+      "Unable to create Semaphore for renderFinished"
+    );
+  }
   for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
     VK_CHECK(
       vkCreateSemaphore(state->logicalDevice, &semInfo, NULL, &state->imageAvailable[i]),
-      "Unable to create Semaphore"
-    );
-    VK_CHECK(
-      vkCreateSemaphore(state->logicalDevice, &semInfo, NULL, &state->renderFinished[i]),
-      "Unable to create Semaphore"
+      "Unable to create Semaphore for imageAvailable"
     );
     VK_CHECK(
       vkCreateFence(state->logicalDevice, &fenceInfo, NULL, &state->inFlight[i]),
@@ -1283,6 +1285,19 @@ b8 create_sync_objects(vulkan_state* state){
     );
   }
   return TRUE;
+}
+
+void destroy_sync_objects(vulkan_state* state){
+  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+    vkDestroySemaphore(state->logicalDevice, state->imageAvailable[i], NULL);
+    vkDestroyFence(state->logicalDevice, state->inFlight[i], NULL);
+  }
+  for(int i = 0; i < state->swapchainImageCount; i++){
+    vkDestroySemaphore(state->logicalDevice, state->renderFinished[i], NULL);
+  }
+  vfree(state->imageAvailable, sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  vfree(state->renderFinished, sizeof(VkSemaphore)*state->swapchainImageCount, MEMORY_TAG_RENDERER);
+  vfree(state->inFlight, sizeof(VkFence)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
 }
 
 void destroy_velora_buffer(vulkan_state* state, velora_buffer* buffer){
@@ -1907,14 +1922,7 @@ void shutdown_render_system(render_state* state){
   vkDestroyDescriptorSetLayout(vk_state->logicalDevice, vk_state->descriptorSetLayout, NULL);
   destroy_velora_buffer(vk_state, &vk_state->vertexIndexBuffer);
   destroy_velora_buffer(vk_state, &vk_state->uniformBuffer);
-  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-    vkDestroySemaphore(vk_state->logicalDevice, vk_state->imageAvailable[i], NULL);
-    vkDestroySemaphore(vk_state->logicalDevice, vk_state->renderFinished[i], NULL);
-    vkDestroyFence(vk_state->logicalDevice, vk_state->inFlight[i], NULL);
-  }
-  vfree(vk_state->imageAvailable, sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
-  vfree(vk_state->renderFinished, sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
-  vfree(vk_state->inFlight, sizeof(VkFence)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  destroy_sync_objects(vk_state);
   vkDestroyCommandPool(vk_state->logicalDevice, vk_state->graphicsCommandPool, NULL);
   vkDestroyCommandPool(vk_state->logicalDevice, vk_state->transferCommandPool, NULL);
   vfree(vk_state->commandBuffer, sizeof(VkCommandBuffer)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
@@ -2004,7 +2012,7 @@ b8 render_frame(render_state* state){
   
   VkSemaphore waitSemaphores[] = {vk_state->imageAvailable[vk_state->currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-  VkSemaphore signalSemaphores[] = {vk_state->renderFinished[vk_state->currentFrame]};
+  VkSemaphore signalSemaphores[] = {vk_state->renderFinished[imageIndex]};
   update_uniform_buffer(vk_state);
   VkSubmitInfo submitInfo = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
