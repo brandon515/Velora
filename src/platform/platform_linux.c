@@ -47,7 +47,8 @@ i32 height){
   XMapWindow(state->dis, state->win);
   XFlush(state->dis);
 
-  
+  state->xim = XOpenIM(state->dis, 0, 0, 0);
+  state->xic = XCreateIC(state->xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, NULL);
   
   return TRUE;
 }
@@ -80,6 +81,14 @@ b8 platform_pump_messages(platform_state* state){
         .event_data = dat,
       };
       queue_event(&new_event);
+    }else if(newXEvent.type == KeyPress){
+      XKeyPressedEvent eventDat = newXEvent.xkey;
+      VINFO("Key Code: %u", eventDat.keycode);
+      char buffer[32];
+      KeySym ignore;
+      Status returnStatus;
+      Xutf8LookupString(state->xic, &eventDat, buffer, 32, &ignore, &returnStatus);
+      VINFO("utf8 buffer: %c", buffer[0]);
     }
   }
   return TRUE;

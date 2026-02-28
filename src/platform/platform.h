@@ -9,8 +9,12 @@
 typedef struct platform_state{
   Display *dis;
   Window win;
+  XIM xim;
+  XIC xic;
 } platform_state;
 #elif VPLATFORM_WINDOWS
+#include <Windows.h>
+#include <windowsx.h>
 typedef struct platform_state{
   HINSTANCE instance;
   HWND window;
