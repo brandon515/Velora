@@ -32,37 +32,56 @@ typedef enum _event_id{
  */
 typedef b8 (*event_listener)(event* event, void* state);
 
- void initiate_event_system();
- void shutdown_event_system();
+void initiate_event_system();
+void shutdown_event_system();
+
+/*!
+ * @brief Creates an event, copies the data pointer into a heap allocated variable created in this function, and queues event
+ * @param e_type The event type to be created
+ * @param e_data_size The size of the data structure in bytes
+ * @param data A pointer to the data, this data is copied into the heap so the data pointer can be safely freed after calling this function
+ * @return TRUE if event has been queued, FALSE if event system hasn't been initilized
+ */
+b8 create_and_queue_event(u64 e_type, u64 e_data_size, void *data);
+
+/*!
+ * @brief Creates an event, copies the data pointer into a heap allocated variable created in this function, and fires event immediately
+ * @param e_type The event type to be created
+ * @param e_data_size The size of the data structure in bytes
+ * @param data A pointer to the data, this data is copied into the heap so the data pointer can be safely freed after calling this function
+ * @return TRUE if event has been queued, FALSE if event system hasn't been initilized
+ */
+b8 create_and_fire_event(u64 e_type, u64 e_data_size, void *data);
 
 /*!
  * @brief Registers a listener to a specfic event
  * @param e_type  A u64 that signifies the type of event the listener wants to get
  * @param func  A function pointer of event_listener type that will process the event
+ * @param state A pointer to the state that will be altered whenever this listener procs
  * @result The listenerID associated with that event. This is used to remove the listener later if needed
  */
- u64 register_listener(u64 e_type, event_listener func, void* state);
+u64 register_listener(u64 e_type, event_listener func, void* state);
 
 /*!
  * @brief Copies the data in the pointer to the dynamic array and queues up an event to be dispatched in the main loop of the engine
  * @param new_event  An event struct containing the data needed to process the event
  * @result Returns TRUE if the event was able to be queued, FALSE if not
  */
- b8 queue_event(event* new_event);
+b8 queue_event(event* new_event);
 
 /*!
  * @brief Fires an event off to the listeners that have subscribed to it RIGHT NOW
  * @param new_event  An event struct containing the data needed to process the event
  * @result Returns FALSE if no listener is available for the event fired, retruns TRUE otherwise
  */
- b8 fire_event(event* new_event);
+b8 fire_event(event* new_event);
 
 /*!
  * @brief deletes listener from the lineup
  * @param listener_id A u64 that was given when the listener asked to listen to the event
  * @result Returns FALSE if the listener has already been removed, TRUE if the listener was successfully detached
  */
- b8 deregister_listener(u64 listener_id);
+b8 deregister_listener(u64 listener_id);
 
 /*!
  * @brief Works through the event queue within the time limit. The time limit may go over by a bit, the function won't stop processing an event only between events

@@ -32,6 +32,10 @@ void shutdown_event_system(){
 }
 
 u64 register_listener(u64 e_type, event_listener func, void* state){
+  if(event_listeners == NULL){
+    VERROR("Event system not initilized");
+    return U64_MAX;
+  }
   u64 ret_id = listener_id;
   listener_id++;
   event_listener_data dat = {
@@ -44,12 +48,51 @@ u64 register_listener(u64 e_type, event_listener func, void* state){
   return ret_id;
 }
 
+void createEvent(u64 e_type, u64 e_data_size, void *data, event *outEvent){
+  if(e_data_size > 0 && data != NULL){
+    void *newEventData = vallocate(e_data_size, MEMORY_TAG_EVENT_DATA);
+    vcopy_memory(newEventData, data, e_data_size);
+    outEvent->event_data_size = e_data_size;
+    outEvent->event_type = e_type;
+    outEvent->event_data = newEventData;
+  }else{
+    outEvent->event_type = e_type;
+    outEvent->event_data_size = 0;
+    outEvent->event_data = NULL;
+  }
+}
+
+b8 create_and_queue_event(u64 e_type, u64 e_data_size, void *data){
+  if(event_queue == NULL){
+    VERROR("Event system not initilized");
+    return FALSE;
+  }
+  event newEvent;
+  createEvent(e_type, e_data_size, data, &newEvent);
+  darray_push(event_queue, &newEvent);
+  return TRUE;
+}
+
+b8 create_and_fire_event(u64 e_type, u64 e_data_size, void *data){
+  event newEvent;
+  createEvent(e_type, e_data_size, data, &newEvent);
+  return fire_event(&newEvent);
+}
+
 b8 queue_event(event* new_event){
+  if(event_queue == NULL){
+    VERROR("Event system not initilized");
+    return FALSE;
+  }
   darray_push(event_queue, new_event);
   return TRUE;
 }
 
 b8 pump_events(f64 time_limit){
+  if(event_queue == NULL || event_listeners == NULL){
+    VERROR("Event system not initilized");
+    return FALSE;
+  }
   f64 start_time = platform_get_absolute_time();
   event* queue = (event*)event_queue->data;
   for(int i = 0; i < event_queue->length; i++){
@@ -69,6 +112,10 @@ b8 pump_events(f64 time_limit){
 }
 
 b8 fire_event(event* new_event){
+  if(event_listeners == NULL){
+    VERROR("Event system not initilized");
+    return FALSE;
+  }
   if(event_listeners->length == 0){
     return FALSE;
   }
@@ -88,6 +135,10 @@ b8 fire_event(event* new_event){
 }
 
 b8 deregister_listener(u64 listener_id){
+  if(event_queue == NULL || event_listeners == NULL){
+    VERROR("Event system not initilized");
+    return FALSE;
+  }
   if(event_listeners->length == 0){
     return FALSE;
   }
