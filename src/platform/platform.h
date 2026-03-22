@@ -11,6 +11,7 @@ typedef struct platform_state{
   Window win;
   XIM xim;
   XIC xic;
+  u32 mouseX, mouseY;
 } platform_state;
 #elif VPLATFORM_WINDOWS
 #include <Windows.h>

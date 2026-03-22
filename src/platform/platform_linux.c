@@ -32,18 +32,20 @@ i32 height){
   
   Colormap colormap = XCreateColormap(state->dis, RootWindow(state->dis, visInfoTemplate.screen), visualInfo->visual, AllocNone);
 
+  u32 event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask | ExposureMask | ResizeRedirectMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask;
+
   XSetWindowAttributes windowAttributes = {};
   windowAttributes.colormap = colormap;
   windowAttributes.background_pixel = 0;
   windowAttributes.border_pixel = 0;
-  windowAttributes.event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask | ExposureMask | ResizeRedirectMask;
+  windowAttributes.event_mask = event_mask;
 
   //int whiteColor = WhitePixel(state->dis, DefaultScreen(state->dis));
   state->win = XCreateWindow(state->dis, RootWindow(state->dis, visInfoTemplate.screen), x, y, width, height, 0,
                               visualInfo->depth, InputOutput, visualInfo->visual,
                               CWBackPixel | CWBorderPixel | CWEventMask | CWColormap, &windowAttributes);
   
-  XSelectInput(state->dis, state->win, StructureNotifyMask | ExposureMask | KeyPressMask | ResizeRedirectMask);
+  XSelectInput(state->dis, state->win, event_mask);
   XMapWindow(state->dis, state->win);
   XFlush(state->dis);
 
@@ -62,33 +64,90 @@ b8 platform_pump_messages(platform_state* state){
   XEvent newXEvent;
   while(XPending(state->dis)){
     XNextEvent(state->dis, &newXEvent);
-    VINFO("Event type number: %u", newXEvent.type);
-    if(newXEvent.type == DestroyNotify){
-      event new_event ={
-        .event_type = ENGINE_CLOSE_GAME,
-        .event_data_size = 0,
-        .event_data = 0,
-      };
-      fire_event(&new_event);
-    }else if(newXEvent.type == ResizeRequest){
+    switch (newXEvent.type)
+    {
+    case DestroyNotify:
+      create_and_fire_event(ENGINE_CLOSE_GAME, 0, NULL);
+      return TRUE;
+    case ResizeRequest:{
       XResizeRequestEvent eventDat = newXEvent.xresizerequest;
-      resize_data* dat = vallocate(sizeof(resize_data), MEMORY_TAG_EVENT_DATA);
-      dat->height = eventDat.height;
-      dat->width = eventDat.width;
-      event new_event = {
-        .event_type = ENGINE_WINDOW_RESIZE,
-        .event_data_size = sizeof(resize_data),
-        .event_data = dat,
+      resize_data dat = {
+        .height = eventDat.height,
+        .width = eventDat.width
       };
-      queue_event(&new_event);
-    }else if(newXEvent.type == KeyPress){
-      XKeyPressedEvent eventDat = newXEvent.xkey;
-      VINFO("Key Code: %u", eventDat.keycode);
-      char buffer[32];
+      create_and_queue_event(ENGINE_WINDOW_RESIZE, sizeof(resize_data), &dat);
+    }break;
+    case KeyPress:
+    case KeyRelease:{
+      XKeyEvent eventDat = newXEvent.xkey;
+      button_data dat = {
+        .button_code = eventDat.keycode,
+        .pressed = (newXEvent.type == KeyPress),
+      };
+      create_and_queue_event(ENGINE_INPUT_BUTTON, sizeof(dat), &dat);
+      /*char buffer[32];
       KeySym ignore;
       Status returnStatus;
-      Xutf8LookupString(state->xic, &eventDat, buffer, 32, &ignore, &returnStatus);
-      VINFO("utf8 buffer: %c", buffer[0]);
+      Xutf8LookupString(state->xic, &eventDat, buffer, 32, &ignore, &returnStatus);*/
+    }break;
+    case ButtonPress:
+    case ButtonRelease:{
+      XButtonEvent eventDat = newXEvent.xbutton;
+      // Mouse wheel up
+      if(eventDat.button == Button4){
+        if(newXEvent.type == ButtonRelease){
+          break;
+        }
+        mouse_wheel_data dat = {
+          .direction = 1,
+        };
+        create_and_queue_event(ENGINE_MOUSE_WHEEL, sizeof(dat), &dat);
+        break;
+      // Mouse wheel down
+      }else if(eventDat.button == Button5){
+        if(newXEvent.type == ButtonRelease){
+          break;
+        }
+        mouse_wheel_data dat = {
+          .direction = -1,
+        };
+        create_and_queue_event(ENGINE_MOUSE_WHEEL, sizeof(dat), &dat);
+        break;
+      }
+      mouse_button_data dat = {
+        .pressed = (newXEvent.type == ButtonPress),
+        .x = state->mouseX,
+        .y = state->mouseY,
+      };
+      if(eventDat.button == Button1){
+        dat.button_code = MOUSE_L_BUTTON;
+      }else if(eventDat.button == Button2){
+        dat.button_code = MOUSE_M_BUTTON;
+      }else if(eventDat.button == Button3){
+        dat.button_code = MOUSE_R_BUTTON;
+      }else if(eventDat.button == 8){
+        dat.button_code = MOUSE_X1_BUTTON;
+      }else if(eventDat.button == 9){
+        dat.button_code = MOUSE_X2_BUTTON;
+      }else{
+        VERROR("Unsupported mouse button pressed");
+        VERROR("  Mouse button number: %d", eventDat.button);
+        break;
+      }
+      create_and_queue_event(ENGINE_MOUSE_BUTTON, sizeof(dat), &dat);
+    }break;
+    case MotionNotify:{
+      XPointerMovedEvent eventDat = newXEvent.xmotion;
+      state->mouseX = eventDat.x;
+      state->mouseY = eventDat.y;
+      mouse_position_data dat = {
+        .x = eventDat.x,
+        .y = eventDat.y,
+      };
+      create_and_queue_event(ENGINE_MOUSE_POSITION, sizeof(dat), &dat);
+    }break;
+    default:
+      break;
     }
   }
   return TRUE;
