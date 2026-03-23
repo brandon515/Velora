@@ -18,7 +18,7 @@ typedef struct _vcomponent_list{
 typedef struct _vcomponent{
   u64 entityID;
   u64 dataSize;
-  void *data; // This will be allocated outside the ECS but will be freed in the ECS
+  void *data; 
 }vcomponent;
 
 /**
@@ -37,15 +37,17 @@ b8 free_entity_component_system();
  * @brief Returns a unique entity id
  * @return A u64 that hasn't been used by an entity previously
  */
-u64 get_new_entity_id();
+u64 create_new_entity();
 
 /**
- * @brief Registers a new component with the ECS. Only 1 component of it's type can be attached to each entity. 
- * @param comp A pointer to the data that will be copied into the ECS.
+ * @brief Registers a new component with the ECS. Only 1 component of it's type can be attached to each entity.
  * @param compType The type of component to register
+ * @param entityId The type of component to register
+ * @param dataSize The type of component to register
+ * @param data The type of component to register
  * @return FALSE if ECS hasn't been initilized or if a component of this type is already attached to the entity indicted in comp. TRUE otherwise.
  */
-b8 register_component(const vcomponent *comp, vcomponent_type compType);
+b8 attach_component(vcomponent_type compType, u64 entityId, u64 dataSize, void *data);
 
 /**
  * @brief Deletes a single component off an entity

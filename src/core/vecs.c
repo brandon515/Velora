@@ -14,7 +14,7 @@ b8 initilize_entity_component_system(){
   return TRUE;
 }
 
-u64 get_new_entity_id(){
+u64 create_new_entity(){
   static u64 newID = 0;
   return newID++;
 }
@@ -33,32 +33,38 @@ b8 get_component_list(vcomponent_list *outList, vcomponent_type requestedType){
   return FALSE;
 }
 
-b8 register_component(const vcomponent *comp, vcomponent_type compType){
+b8 attach_component(vcomponent_type compType, u64 entityId, u64 dataSize, void *data){
   if(ECS_INIT == FALSE){
     return FALSE;
   }
   vcomponent_list compTypeList;
+  vcomponent newComp = {
+    .data = vallocate(dataSize, MEMORY_TAG_ECS),
+    .dataSize = dataSize,
+    .entityID = entityId,
+  };
+  vcopy_memory(newComp.data, data, dataSize);
   if(get_component_list(&compTypeList, compType) == FALSE){
     vcomponent_list newList = {
       .type = compType,
       .data = darray_new(sizeof(vcomponent)),
     };
-    darray_push(newList.data, comp);
+    darray_push(newList.data, &newComp);
     darray_push(componentLists.list, &newList);
     return TRUE;
   }
   vcomponent *comps = (vcomponent*)compTypeList.data->data;
   for(int i = 0; i < compTypeList.data->length; i++){
-    if(comps[i].entityID == comp->entityID){
+    if(comps[i].entityID == newComp.entityID){
       return FALSE;
     }
-    if(comps[i].entityID > comp->entityID){
-      darray_insert(compTypeList.data, comp, i);
+    if(comps[i].entityID > newComp.entityID){
+      darray_insert(compTypeList.data, &newComp, i);
       return TRUE;
     }
   }
   // If we got here, that means comp has the highest entityID in the list, just push it to the end
-  darray_push(compTypeList.data, comp);
+  darray_push(compTypeList.data, &newComp);
   return TRUE;
 }
 
