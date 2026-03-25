@@ -11,7 +11,7 @@
 #include "utils/vfile.h"
 #include <vulkan/vk_enum_string_helper.h>
 #include "core/event.h"
-#include "utils/vimport.h"
+#include "utils/vimage.h"
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -1820,8 +1820,6 @@ typedef struct _window_dimensions {
   u32 width;
   u32 height;
 } window_dimensions;
-
-b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_state, window_dimensions *outDim);
 
 #ifdef VPLATFORM_WINDOWS
 b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_state, window_dimensions *outDim){

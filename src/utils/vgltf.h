@@ -1,7 +1,7 @@
 #pragma once
 #include "defines.h"
 #include "utils/vmath.h"
-#include "utils/vimport.h"
+#include "utils/vimage.h"
 #include <threads.h>
 
 #define GLTF_VERTEX_ARRAY 34962
