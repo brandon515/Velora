@@ -33,6 +33,23 @@ b8 get_component_list(vcomponent_list *outList, vcomponent_type requestedType){
   return FALSE;
 }
 
+vcomponent* get_component(u64 entityID, vcomponent_type compType){
+  if(ECS_INIT == FALSE){
+    return NULL;
+  }
+  vcomponent_list compList;
+  if(get_component_list(&compList, compType) == FALSE){
+    return NULL;
+  }
+  vcomponent *dataList = compList.data->data;
+  for(int i = 0; i < compList.data->length; i++){
+    if(dataList[i].entityID == entityID){
+      return &dataList[i];
+    }
+  }
+  return NULL;
+}
+
 b8 attach_component(vcomponent_type compType, u64 entityId, u64 dataSize, void *data){
   if(ECS_INIT == FALSE){
     return FALSE;
