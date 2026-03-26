@@ -88,3 +88,20 @@ typedef struct _darray{
  * @result Pointer to array, returns NULL if num_of_items is larger than the dynamic array's length
  */
  darray* darray_drain(darray* arr, u64 num_of_items);
+
+ /*!
+  * @brief Gets a pointer to the data in the dynamic array. Making this pointer mutable
+  * @param arr Pointer to dynamic array
+  * @param index The index of the item in the array
+  * @result Pointer to the data in the array. This pointer is not to be kept as it might change if the dynamic array changes. return NULL if the index is larger than the size of the array
+  */
+ void* darray_get_pointer(darray* arr, u64 index);
+
+ /*!
+  * @brief Gets the data at the index in the dynamic array. The data is copied into the pointer, making this data immutable
+  * @param arr Pointer to dynamic array
+  * @param index The index of the item in the array
+  * @param data A pointer to a stack variable or already allocated heap variable to house the data
+  * @result TRUE if data was able to be loaded, FALSE if the data wasn't able to be loaded for any reason, usually this is because the index is larger than the size of the dynamic array
+  */
+ b8 darray_get_data(darray* arr, u64 index, void* data);

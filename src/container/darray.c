@@ -125,3 +125,18 @@ darray* darray_drain(darray* arr, u64 num_of_items){
   arr->length -= num_of_items;
   return arr;
 }
+
+void* darray_get_pointer(darray* arr, u64 index){
+  if(arr->length >= index){
+    return NULL;
+  }
+  return arr->data+(index*arr->stride*index);
+}
+
+b8 darray_get_data(darray* arr, u64 index, void* data){
+  if(arr->length >= index){
+    return FALSE;
+  }
+  vcopy_memory(data, arr->data+(arr->stride*index), arr->stride);
+  return TRUE;
+}
