@@ -20,6 +20,11 @@ typedef struct _darray{
   u64 cap;    // max number of elements for memory allocated in data
 } darray;
 
+typedef struct _iterator{
+  darray *array;
+  u64 curIndex;
+}iterator;
+
 /*!
  * @brief Creates a new dynamic array on the heap
  * @param stride  The size of each individual item
@@ -105,3 +110,11 @@ typedef struct _darray{
   * @result TRUE if data was able to be loaded, FALSE if the data wasn't able to be loaded for any reason, usually this is because the index is larger than the size of the dynamic array
   */
  b8 darray_get_data(darray* arr, u64 index, void* data);
+
+ iterator create_iterator(darray* arr);
+
+ void iterator_restart(iterator* iter);
+
+ b8 iterator_next(iterator* iter, void** dataPointer);
+
+ u64 iterator_index_of_last_Item(iterator* iter);

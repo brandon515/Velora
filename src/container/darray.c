@@ -140,3 +140,31 @@ b8 darray_get_data(darray* arr, u64 index, void* data){
   vcopy_memory(data, arr->data+(arr->stride*index), arr->stride);
   return TRUE;
 }
+
+iterator create_iterator(darray* arr){
+  iterator ret = {
+    .array = arr,
+    .curIndex = 0,
+  };
+  return ret;
+}
+
+void iterator_restart(iterator* iter){
+  iter->curIndex = 0;
+}
+
+b8 iterator_next(iterator* iter, void** dataPointer){
+  if(iter->curIndex >= iter->array->length){
+    return FALSE;
+  }
+  (*dataPointer) = darray_get_pointer(iter->array, iter->curIndex);
+  iter->curIndex = iter->curIndex+1;
+  return TRUE;
+}
+
+u64 iterator_index_of_last_Item(iterator* iter){
+  if(iter->curIndex == 0){
+    return U64_MAX;
+  }
+  return iter->curIndex-1;
+}
