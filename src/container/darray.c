@@ -141,7 +141,7 @@ b8 darray_get_data(darray* arr, u64 index, void* data){
   return TRUE;
 }
 
-iterator create_iterator(darray* arr){
+iterator darray_create_iterator(darray* arr){
   iterator ret = {
     .array = arr,
     .curIndex = 0,

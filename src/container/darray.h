@@ -116,7 +116,7 @@ b8 darray_get_data(darray* arr, u64 index, void* data);
  * @param arr Pointer to dynamic array
  * @result Pass by reference iterator struct for this dynamic array
  */
-iterator create_iterator(darray* arr);
+iterator darray_create_iterator(darray* arr);
 
 /*!
  * @brief Resets to the iterator to the start of the dynamic array
