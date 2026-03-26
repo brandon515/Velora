@@ -41,10 +41,11 @@ vcomponent* get_component(u64 entityID, vcomponent_type compType){
   if(get_component_list(&compList, compType) == FALSE){
     return NULL;
   }
-  vcomponent *dataList = compList.data->data;
-  for(int i = 0; i < compList.data->length; i++){
-    if(dataList[i].entityID == entityID){
-      return &dataList[i];
+  iterator it = darray_create_iterator(compList.data);
+  vcomponent *dat;
+  while(iterator_next(&it, &dat)){
+    if(dat->entityID == entityID){
+      return dat;
     }
   }
   return NULL;
@@ -70,12 +71,14 @@ b8 attach_component(vcomponent_type compType, u64 entityId, u64 dataSize, void *
     darray_push(componentLists.list, &newList);
     return TRUE;
   }
-  vcomponent *comps = (vcomponent*)compTypeList.data->data;
-  for(int i = 0; i < compTypeList.data->length; i++){
-    if(comps[i].entityID == newComp.entityID){
+  iterator it = darray_create_iterator(compTypeList.data);
+  vcomponent *comp;
+  while(iterator_next(&it, &comp)){
+    if(comp->entityID == newComp.entityID){
       return FALSE;
     }
-    if(comps[i].entityID > newComp.entityID){
+    if(comp->entityID > newComp.entityID){
+      u64 i = iterator_index_of_last_Item(&it);
       darray_insert(compTypeList.data, &newComp, i);
       return TRUE;
     }
@@ -129,16 +132,14 @@ b8 delete_component(vcomponent_type type, u64 entityID){
   return FALSE;
 }
 
-b8 get_components(vcomponent_type type, vcomponent **outList, u64 *outLength){
+b8 get_components(vcomponent_type type, darray** outList){
   if(ECS_INIT == FALSE){
     return FALSE;
   }
   vcomponent_list *data = componentLists.list->data;
   for(int i = 0; i < componentLists.list->length; i++){
     if(data[i].type == type){
-      (*outLength) = data[i].data->length;
-      (*outList) = data[i].data->data;//vallocate((*outLength)*sizeof(vcomponent), MEMORY_TAG_ECS);
-      //vcopy_memory((*outList), data[i].data->data, sizeof(vcomponent)*(*outLength));
+      (*outList) = data[i].data;
       return TRUE;
     }
   }

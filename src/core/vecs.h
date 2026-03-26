@@ -60,11 +60,10 @@ b8 delete_component(vcomponent_type type, u64 entityID);
 /**
  * @brief Gets a pointer to an array filled with the components of the type supplied. Do not free this pointer
  * @param type The type of components to get a list of
- * @param outList A double pointer that will point the underlying pointer at the data in the dynamic array, do not free this pointer
- * @param outLength The number of components in the list
+ * @param outList A double pointer that will point the dynamic array containing the components with the type requested
  * @return FALSE if no component of this type was ever registered with the ECS, TRUE otherwise
  */
-b8 get_components(vcomponent_type type, vcomponent **outList, u64 *outLength);
+b8 get_components(vcomponent_type type, darray** outList);
 
 /**
  * @brief Goes through and deteles all components attached to an entity, this is very expensive and time consuming
