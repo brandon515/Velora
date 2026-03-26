@@ -43,7 +43,7 @@ vcomponent* get_component(u64 entityID, vcomponent_type compType){
   }
   iterator it = darray_create_iterator(compList.data);
   vcomponent *dat;
-  while(iterator_next(&it, &dat)){
+  while(iterator_next(&it, (void**)&dat)){
     if(dat->entityID == entityID){
       return dat;
     }
@@ -73,7 +73,7 @@ b8 attach_component(vcomponent_type compType, u64 entityId, u64 dataSize, void *
   }
   iterator it = darray_create_iterator(compTypeList.data);
   vcomponent *comp;
-  while(iterator_next(&it, &comp)){
+  while(iterator_next(&it, (void**)&comp)){
     if(comp->entityID == newComp.entityID){
       return FALSE;
     }
