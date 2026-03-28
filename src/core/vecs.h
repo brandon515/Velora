@@ -71,3 +71,11 @@ b8 get_components(vcomponent_type type, darray** outList);
  * @return TRUE if any component was attached to this entity, FALSE otherwise
  */
 b8 delete_entity(u64 entityID);
+
+/**
+ * @brief Retrieves pointer to the component data in the dynamic array. Do not free this memory.
+ * @param entityID The id of the entity who's data we want to retrieve
+ * @param compType The type of component to get from this entity
+ * @return A pointer to the data in the component. Otherwise a null pointer if the entity doesn't contain a component of this type.
+ */
+void* get_component_data(u64 entityID, vcomponent_type compType);
