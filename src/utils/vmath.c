@@ -139,10 +139,8 @@ mat4 model_matrix(vec3 translation, quat rotation, vec3 scale){
   mat4 transMatrix = translation_matrix(translation);
   mat4 rotMatrix = rotation_matrix(rotation);
   mat4 scaleMatrix = scaling_matrix(scale);
-  mat4 scratchMatrix = {0};
-  mat4 ret_matrix = {0};
-  matrix4_multiply(rotMatrix, transMatrix, &scratchMatrix);
-  matrix4_multiply(scaleMatrix, scratchMatrix, &ret_matrix);
+  mat4 scratchMatrix = matrix4_multiply(rotMatrix, transMatrix);
+  mat4 ret_matrix = matrix4_multiply(scaleMatrix, scratchMatrix);
   return ret_matrix;
 }
 
@@ -171,28 +169,40 @@ void matrix_vec_multiply(f32* mat, f32* vec, u64 vecLength, f32* outVec){
   matrix_multiply(mat, vecLength, vecLength, vec, vecLength, 1, outVec);
 }
 
-void matrix_vec2_multiply(mat2x2 mat, vec2 vec, vec2* outVec){
-  matrix_vec_multiply(mat.mat, vec.xy, 2, outVec->xy);
+vec2 matrix_vec2_multiply(mat2x2 mat, vec2 vec){
+  vec2 outVec;
+  matrix_vec_multiply(mat.mat, vec.xy, 2, outVec.xy);
+  return outVec;
 }
 
-void matrix_vec3_multiply(mat3x3 mat, vec3 vec, vec3* outVec){
-  matrix_vec_multiply(mat.mat, vec.xyz, 3, outVec->xyz);
+vec3 matrix_vec3_multiply(mat3x3 mat, vec3 vec){
+  vec3 outVec;
+  matrix_vec_multiply(mat.mat, vec.xyz, 3, outVec.xyz);
+  return outVec;
 }
 
-void matrix_vec4_multiply(mat4x4 mat, vec4 vec, vec4* outVec){
-  matrix_vec_multiply(mat.mat, vec.xyzw, 4, outVec->xyzw);
+vec4 matrix_vec4_multiply(mat4x4 mat, vec4 vec){
+  vec4 outVec;
+  matrix_vec_multiply(mat.mat, vec.xyzw, 4, outVec.xyzw);
+  return outVec;
 }
 
-void matrix2_multiply(mat2x2 mat1, mat2x2 mat2, mat2x2* outMatrix){
-  matrix_multiply(mat1.mat, 2, 2, mat2.mat, 2, 2, outMatrix->mat);
+mat2x2 matrix2_multiply(mat2x2 mat1, mat2x2 mat2){
+  mat2x2 outMatrix;
+  matrix_multiply(mat1.mat, 2, 2, mat2.mat, 2, 2, outMatrix.mat);
+  return outMatrix;
 }
 
-void matrix3_multiply(mat3x3 mat1, mat3x3 mat2, mat3x3* outMatrix){
-  matrix_multiply(mat1.mat, 3, 3, mat2.mat, 3, 3, outMatrix->mat);
+mat3x3 matrix3_multiply(mat3x3 mat1, mat3x3 mat2){
+  mat3x3 outMatrix;
+  matrix_multiply(mat1.mat, 3, 3, mat2.mat, 3, 3, outMatrix.mat);
+  return outMatrix;
 }
 
-void matrix4_multiply(mat4x4 mat1, mat4x4 mat2, mat4x4* outMatrix){
-  matrix_multiply(mat1.mat, 4, 4, mat2.mat, 4, 4, outMatrix->mat);
+mat4x4 matrix4_multiply(mat4x4 mat1, mat4x4 mat2){
+  mat4x4 outMatrix;
+  matrix_multiply(mat1.mat, 4, 4, mat2.mat, 4, 4, outMatrix.mat);
+  return outMatrix;
 }
 
 b8 matrix4_invert(mat4x4 mat, mat4x4* outMatrix)

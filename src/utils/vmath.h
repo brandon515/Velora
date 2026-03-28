@@ -205,76 +205,53 @@ mat3 indentity_mat3();
  */
 mat4 indentity_mat4();
 
-
-/**
- * @brief Multiply two arbitrary matrices together, the ordering is not arbitrary however
- * @param mat1 A pointer to the f32 array for the first matrix
- * @param mat1Rows How many rows in the first matrix
- * @param mat1Cols How many columns in the first matrix
- * @param mat2 A pointer to the f32 array for the second matrix
- * @param mat2Rows How many rows in the seconds matrix
- * @param mat2Cols How many columns in the second matrix
- * @param outMatrix The zero'd out matrix to fill with the result. This function doesn't check it but it must be  mat1Rowsxmat2Cols size
- * @return FALSE if mat1Cols and mat2Rows aren't equal, otherwise TRUE
- */
-b8 matrix_multiply(f32* mat1, u64 mat1Rows, u64 mat1Cols, f32* mat2, u64 mat2Rows, u64 mat2Cols, f32* outMatrix);
-
-/**
- * @brief Shorthand for multiplying a matrix with a vector.
- * @param mat The matrix to multiply with the vector. This matrix needs to be vecLengthxvecLength in dimensions
- * @param vec The vector to multiply with the matrix.
- * @param vecLength The number of elements in the vector
- * @param outVec The vector to put the results into
- */
-void matrix_vec_multiply(f32* mat, f32* vec, u64 vecLength, f32* outVec);
-
 /**
  * @brief Type casting for multiplying a 2x2 matrix with a 4 member vector
  * @param mat A 2x2 matrix passed by reference
  * @param vec A 2 member vector passed by reference
- * @param outVec A pointer to the vector with the results
+ * @return A vector with the results
  */
-void matrix_vec2_multiply(mat2x2 mat, vec2 vec, vec2* outVec);
+vec2 matrix_vec2_multiply(mat2x2 mat, vec2 vec);
 
 /**
  * @brief Type casting for multiplying a 2x2 matrix with another
  * @param mat1 A 2x2 matrix passed by reference
  * @param mat2 A 2x2 matrix passed by reference
- * @param outMatrix A pointer to the vector with the results
+ * @return The result of the multiplied matrices
  */
-void matrix2_multiply(mat2x2 mat1, mat2x2 mat2, mat2x2* outMatrix);
+mat2x2 matrix2_multiply(mat2x2 mat1, mat2x2 mat2);
 
 /**
  * @brief Type casting for multiplying a 3x3 matrix with a 4 member vector
  * @param mat A 3x3 matrix passed by reference
  * @param vec A 3 member vector passed by reference
- * @param outVec A pointer to the vector with the results
+ * @return A vector with the results
  */
-void matrix_vec3_multiply(mat3x3 mat, vec3 vec, vec3* outVec);
+vec3 matrix_vec3_multiply(mat3x3 mat, vec3 vec);
 
 /**
  * @brief Type casting for multiplying a 3x3 matrix with another
  * @param mat1 A 3x3 matrix passed by reference
  * @param mat2 A 3x3 matrix passed by reference
- * @param outMatrix A pointer to the vector with the results
+ * @return The result of the multiplied matrices
  */
-void matrix3_multiply(mat3x3 mat1, mat3x3 mat2, mat3x3* outMatrix);
+mat3x3 matrix3_multiply(mat3x3 mat1, mat3x3 mat2);
 
 /**
  * @brief Type casting for multiplying a 4x4 matrix with a 4 member vector
  * @param mat A 4x4 matrix passed by reference
  * @param vec A 4 member vector passed by reference
- * @param outVec A pointer to the vector with the results
+ * @return A vector with the results
  */
-void matrix_vec4_multiply(mat4x4 mat, vec4 vec, vec4* outVec);
+vec4 matrix_vec4_multiply(mat4x4 mat, vec4 vec);
 
 /**
  * @brief Type casting for multiplying a 4x4 matrix with another
  * @param mat1 A 4x4 matrix passed by reference
  * @param mat2 A 4x4 matrix passed by reference
- * @param outMatrix A pointer to the vector with the results
+ * @return The result of the multiplied matrices
  */
-void matrix4_multiply(mat4x4 mat1, mat4x4 mat2, mat4x4* outMatrix);
+mat4x4 matrix4_multiply(mat4x4 mat1, mat4x4 mat2);
 
 /**
  * @brief Shorthand to combine the translation, rotation and scale matrix into one
