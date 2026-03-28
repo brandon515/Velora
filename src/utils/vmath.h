@@ -116,17 +116,94 @@ typedef union _mat4x2{
   f32 mat[8];
 } mat4x2;
 
-vec3 multiply_scalar(vec3 vector, f32 scalar);
 
-b8 identity_matrix(u64 rowsCols, f32* outMatrix);
 
+/**
+ * @brief Scale the vector by the scalar provided
+ * @param vector The vector to be scaled
+ * @param scalar The scalar value to scale the entire vector
+ * @return The scaled up vector
+ */
+vec2 vec2_multiply_scalar(vec2 vector, f32 scalar);
+
+/**
+ * @brief Scale the vector by the scalar provided
+ * @param vector The vector to be scaled
+ * @param scalar The scalar value to scale the entire vector
+ * @return The scaled up vector
+ */
+vec3 vec3_multiply_scalar(vec3 vector, f32 scalar);
+
+/**
+ * @brief Scale the vector by the scalar provided
+ * @param vector The vector to be scaled
+ * @param scalar The scalar value to scale the entire vector
+ * @return The scaled up vector
+ */
+vec4 vec4_multiply_scalar(vec4 vector, f32 scalar);
+
+/**
+ * @brief Add the two vectors together
+ * @param vector1 The first vector
+ * @param vector2 The second vector
+ * @return A new vector with all the members of the vectors of vector1 and vector2 added together
+ */
+vec2 vec2_add(vec2 vector1, vec2 vector2);
+
+/**
+ * @brief Add the two vectors together
+ * @param vector1 The first vector
+ * @param vector2 The second vector
+ * @return A new vector with all the members of the vectors of vector1 and vector2 added together
+ */
+vec3 vec3_add(vec3 vector1, vec3 vector2);
+
+/**
+ * @brief Add the two vectors together
+ * @param vector1 The first vector
+ * @param vector2 The second vector
+ * @return A new vector with all the members of the vectors of vector1 and vector2 added together
+ */
+vec4 vec4_add(vec4 vector1, vec4 vector2);
+
+/**
+ * @brief Gets a translation matrix based on the translation vector
+ * @param translation A vector containing a translation of the object from the origin
+ * @return A 4x4 matrix that is the translation matrix
+ */
 mat4 translation_matrix(vec3 translation);
+
+/**
+ * @brief Gets a scaling matrix based on the scaling of the individual axies
+ * @param scale A vector containing the scale of the object on each axis
+ * @return A 4x4 matrix that is the scaling matrix
+ */
 mat4 scaling_matrix(vec3 scale);
+
+/**
+ * @brief Gets a rotation matrix based on the quaternion
+ * @param quaternion A quaternion that represents the rotation of the oject
+ * @return A 4x4 matrix that is the rotation matrix
+ */
 mat4 rotation_matrix(quat quaternion);
 
-b8 indentity_mat4(mat4 *outMatrix);
-b8 indentity_mat3(mat3 *outMatrix);
-b8 indentity_mat2(mat2 *outMatrix);
+/**
+ * @brief A helper function that returns an identity matrix
+ * @return A 2x2 identity matrix
+ */
+mat2 indentity_mat2();
+
+/**
+ * @brief A helper function that returns an identity matrix
+ * @return A 3x3 identity matrix
+ */
+mat3 indentity_mat3();
+
+/**
+ * @brief A helper function that returns an identity matrix
+ * @return A 4x4 identity matrix
+ */
+mat4 indentity_mat4();
 
 
 /**
@@ -262,7 +339,14 @@ mat4 perspective_projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f3
  */
 mat4 orthographic_projection_matrix(f32 nearClip, f32 farClip, f32 topDistance, f32 aspectRatio);
 
-b8 decompose_model_matrix(mat4 matrix, vec3* out_translation, quat* out_quat, vec3* out_scale);
+/**
+ * @brief creates an orthographic projection matrix based on aspect ratio and field of view
+ * @param matrix The model matrix to decompose
+ * @param out_translation A pointer to an allocated vec3 to put the translation vec3 data into
+ * @param out_quat A pointer to an allocated quat to put the rotation data into
+ * @param out_scale A pointer to an allocated vec3 to put the scale data into
+ */
+void decompose_model_matrix(mat4 matrix, vec3* out_translation, quat* out_quat, vec3* out_scale);
 
 /**
  * @brief Turns the rotation in degrees around each access into a quaternion for the rotation matrix

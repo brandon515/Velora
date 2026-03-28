@@ -1,17 +1,32 @@
 #include "vmath.h"
 #include <math.h>
 
-
-
-vec3 multiply_scalar(vec3 vector, f32 scalar){
-  vec3 ret_vec;
-  for(int i = 0; i < 3; i++){
-    ret_vec.xyz[i] = vector.xyz[i] * scalar;
+void vec_multiply_scalar(f32 *vecData, f32 scalar, u8 numberOfVariables, f32 *outVec){
+  for(int i = 0; i < numberOfVariables; i++){
+    outVec[i] = vecData[i] * scalar;
   }
+}
+
+vec2 vec2_multiply_scalar(vec2 vector, f32 scalar){
+  vec2 ret_vec;
+  vec_multiply_scalar(vector.xy, scalar, 2, ret_vec.xy);
+  return ret_vec;
+  //
+}
+
+vec3 vec3_multiply_scalar(vec3 vector, f32 scalar){
+  vec3 ret_vec;
+  vec_multiply_scalar(vector.xyz, scalar, 3, ret_vec.xyz);
   return ret_vec;
 }
 
-b8 identity_matrix(u64 rowsCols, f32* outMatrix){
+vec4 vec4_multiply_scalar(vec4 vector, f32 scalar){
+  vec4 ret_vec;
+  vec_multiply_scalar(vector.xyzw, scalar, 4, ret_vec.xyzw);
+  return ret_vec;
+}
+
+void identity_matrix(u64 rowsCols, f32* outMatrix){
   for(int i = 0; i < rowsCols; i++){
     for(int j = 0; j < rowsCols; j++){
       outMatrix[i*rowsCols+j] = i==j?1:0;
@@ -20,14 +35,46 @@ b8 identity_matrix(u64 rowsCols, f32* outMatrix){
   return TRUE;
 }
 
-b8 indentity_mat4(mat4 *outMatrix){
-  return identity_matrix(4, outMatrix->mat);
+void vec_add(f32 *vector1, f32 *vector2, u8 numberOfVariables, f32 *outVector){
+  for(int i = 0; i < numberOfVariables; i++){
+    outVector[i] = vector1[i] + vector2[i];
+  }
 }
-b8 indentity_mat3(mat3 *outMatrix){
-  return identity_matrix(3, outMatrix->mat);
+
+vec2 vec2_add(vec2 vector1, vec2 vector2){
+  vec2 retVec;
+  vec_add(vector1.xy, vector2.xy, 2, retVec.xy);
+  return retVec;
 }
-b8 indentity_mat2(mat2 *outMatrix){
-  return identity_matrix(2, outMatrix->mat);
+
+vec3 vec3_add(vec3 vector1, vec3 vector2){
+  vec3 retVec;
+  vec_add(vector1.xyz, vector2.xyz, 3, retVec.xyz);
+  return retVec;
+}
+
+vec4 vec4_add(vec4 vector1, vec4 vector2){
+  vec4 retVec;
+  vec_add(vector1.xyzw, vector2.xyzw, 4, retVec.xyzw);
+  return retVec;
+}
+
+mat2 indentity_mat2(){
+  mat2 retMat;
+  identity_matrix(2, retMat.mat);
+  return retMat;
+}
+
+mat3 indentity_mat3(){
+  mat3 retMat;
+  identity_matrix(3, retMat.mat);
+  return retMat;
+}
+
+mat4 indentity_mat4(){
+  mat4 retMat;
+  identity_matrix(4, retMat.mat);
+  return retMat;
 }
 
 mat4 translation_matrix(vec3 translation){
@@ -383,7 +430,7 @@ quat rotation_to_quat(mat4 rotMat){
   return retQuat;
 }
 
-b8 decompose_model_matrix(mat4 matrix, vec3* out_translation, quat* out_quat, vec3* out_scale){
+void decompose_model_matrix(mat4 matrix, vec3* out_translation, quat* out_quat, vec3* out_scale){
   out_translation->x = matrix.a14;
   out_translation->y = matrix.a24;
   out_translation->z = matrix.a34;
@@ -403,5 +450,4 @@ b8 decompose_model_matrix(mat4 matrix, vec3* out_translation, quat* out_quat, ve
   }
 
   (*out_quat) = rotation_to_quat(matrix);
-  return TRUE;
 }
