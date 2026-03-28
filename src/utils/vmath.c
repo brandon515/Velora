@@ -32,7 +32,6 @@ void identity_matrix(u64 rowsCols, f32* outMatrix){
       outMatrix[i*rowsCols+j] = i==j?1:0;
     }
   }
-  return TRUE;
 }
 
 void vec_add(f32 *vector1, f32 *vector2, u8 numberOfVariables, f32 *outVector){
