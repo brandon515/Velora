@@ -1,6 +1,35 @@
 #include "vmath.h"
 #include <math.h>
 
+void vec_normalize(f32 *vecData, u8 numberOfVariables, f32 *outVec){
+  f32 summation = 0;
+  for(int i = 0; i < numberOfVariables; i++){
+    summation += vecData[i]*vecData[i];
+  }
+  f32 magnitude = sqrt(summation);
+  for(int i = 0; i < numberOfVariables; i++){
+    outVec[i] = vecData[i]/magnitude;
+  }
+}
+
+vec2 vec2_normalize(vec2 vector){
+  vec2 retVec;
+  vec_normalize(vector.xy, 2, retVec.xy);
+  return retVec;
+}
+
+vec3 vec3_normalize(vec3 vector){
+  vec3 retVec;
+  vec_normalize(vector.xyz, 3, retVec.xyz);
+  return retVec;
+}
+
+vec4 vec4_normalize(vec4 vector){
+  vec4 retVec;
+  vec_normalize(vector.xyzw, 4, retVec.xyzw);
+  return retVec;
+}
+
 void vec_multiply_scalar(f32 *vecData, f32 scalar, u8 numberOfVariables, f32 *outVec){
   for(int i = 0; i < numberOfVariables; i++){
     outVec[i] = vecData[i] * scalar;

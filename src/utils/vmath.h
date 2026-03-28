@@ -116,7 +116,26 @@ typedef union _mat4x2{
   f32 mat[8];
 } mat4x2;
 
+/**
+ * @brief Normalizes the vector provided
+ * @param vector The vector to be normalized
+ * @return The normalized vector
+ */
+vec2 vec2_normalize(vec2 vector);
 
+/**
+ * @brief Normalizes the vector provided
+ * @param vector The vector to be normalized
+ * @return The normalized vector
+ */
+vec3 vec3_normalize(vec3 vector);
+
+/**
+ * @brief Normalizes the vector provided
+ * @param vector The vector to be normalized
+ * @return The normalized vector
+ */
+vec4 vec4_normalize(vec4 vector);
 
 /**
  * @brief Scale the vector by the scalar provided
