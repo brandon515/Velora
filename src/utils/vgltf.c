@@ -536,7 +536,7 @@ b8 extract_gltf_node(json_value *node, void *out_ptr){
   load_json_unsigned_integer_array(node, "children", &out_node->children, &out_node->childCount);
   out_node->skin = U64_MAX;
   load_json_unsigned_integer(node, "skin", &out_node->skin);
-  indentity_mat4(&out_node->matrix);
+  out_node->matrix = indentity_mat4();
   f64 *floatArray = NULL;
   u64 floatCount = 0;
   if(load_json_float_array(node, "matrix", &floatArray, &floatCount) == TRUE){
