@@ -33,7 +33,7 @@ b8 get_component_list(vcomponent_list *outList, vcomponent_type requestedType){
   return FALSE;
 }
 
-vcomponent* get_component(u64 entityID, vcomponent_type compType){
+void* get_component_data(u64 entityID, vcomponent_type compType){
   if(ECS_INIT == FALSE){
     return NULL;
   }
@@ -45,7 +45,7 @@ vcomponent* get_component(u64 entityID, vcomponent_type compType){
   vcomponent *dat;
   while(iterator_next(&it, (void**)&dat)){
     if(dat->entityID == entityID){
-      return dat;
+      return dat->data;
     }
   }
   return NULL;
