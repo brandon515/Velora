@@ -42,8 +42,8 @@ u64 create_new_entity();
 /**
  * @brief Registers a new component with the ECS. Only 1 component of it's type can be attached to each entity.
  * @param compType The type of component to register
- * @param entityId The type of component to register
- * @param dataSize The type of component to register
+ * @param entityId The ID of the entity to attach the component to
+ * @param dataSize The size of the data contained in the data pointer
  * @param data The type of component to register
  * @return FALSE if ECS hasn't been initilized or if a component of this type is already attached to the entity indicted in comp. TRUE otherwise.
  */
