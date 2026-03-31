@@ -12,6 +12,7 @@
 #include <vulkan/vk_enum_string_helper.h>
 #include "core/event.h"
 #include "utils/vimage.h"
+#include "components/vrenderable.h"
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -38,25 +39,26 @@ typedef struct _ubo{
   mat4x4 proj;
 } ubo;
 
-typedef struct _velora_buffer{
+typedef struct _push_constant{
+  u32 textureIndex;
+  u32 padding;
+  u64 padding2;
+  mat4 mvp_matrix;
+} push_constant;
+
+typedef struct _vulkan_buffer{
   VkBuffer buffer;
   VmaAllocation memory;
   VmaAllocationInfo memory_info;
-} velora_buffer;
+} vulkan_buffer;
 
-typedef struct _velora_image{
+typedef struct _vulkan_image{
   VkImage image;
   VmaAllocation memory;
   VmaAllocationInfo memory_info;
   VkImageView view;
   VkSampler sampler;
-}velora_image;
-
-typedef struct _vertex {
-  vec3 pos;
-  vec3 color;
-  vec2 texCoord;
-} vertex;
+}vulkan_image;
 
 typedef struct _swapchain_support{
   VkSurfaceCapabilitiesKHR surfaceCapabilities;
@@ -98,14 +100,14 @@ typedef struct _vulkan_state{
   u32 currentFrame;
   b8 windowResized, windowMinimized;
   u32 newWidth, newHeight;
-  velora_buffer vertexIndexBuffer;
-  velora_buffer uniformBuffer;
+  vulkan_buffer vertexIndexBuffer;
+  vulkan_buffer uniformBuffer;
   VkDescriptorPool descriptorPool;
   VkDescriptorSet* descriptorSets;
   u64 vertexCount;
   u64 indexCount;
-  velora_image texImage;
-  velora_image depthImage;
+  vulkan_image texImage;
+  vulkan_image depthImage;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -291,7 +293,7 @@ void end_single_command(vulkan_state* state, VkCommandPool commandPool, VkQueue 
   vkFreeCommandBuffers(state->logicalDevice, commandPool, 1, &commandBuffer);
 }
 
-b8 transition_image_layout(vulkan_state* state, velora_image* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout){
+b8 transition_image_layout(vulkan_state* state, vulkan_image* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout){
   VkCommandBuffer commandBuffer = begin_single_command(
     state,
     state->graphicsCommandPool
@@ -404,7 +406,7 @@ b8 create_image_view(vulkan_state* state, VkImage image, VkFormat format, VkImag
 
 b8 create_exclusive_image(
   vulkan_state *state, 
-  velora_image* image,
+  vulkan_image* image,
   u32 width,
   u32 height,
   VkFormat format,
@@ -445,7 +447,7 @@ b8 create_exclusive_image(
 
 b8 create_shared_image(
   vulkan_state* state,
-  velora_image* image,
+  vulkan_image* image,
   u32 width,
   u32 height,
   VkFormat format,
@@ -1064,12 +1066,22 @@ b8 create_graphics_pipeline(vulkan_state* state){
     .front = {0},
     .back = {0},
   };
+  if(sizeof(push_constant) % 16 != 0){
+    VFATAL("Push constants need to be aligned to 16 bytes.");
+    VFATAL("Current size of push constant struct: %d", sizeof(push_constant));
+    return FALSE;
+  }
+  VkPushConstantRange pushRange = {
+    .offset = 0,
+    .size = sizeof(push_constant),
+    .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT,
+  };
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .setLayoutCount = 1,
     .pSetLayouts = &state->descriptorSetLayout,
-    .pushConstantRangeCount = 0,
-    .pPushConstantRanges = NULL,
+    .pushConstantRangeCount = 1,
+    .pPushConstantRanges = &pushRange,
   };
   VK_CHECK(
     vkCreatePipelineLayout(
@@ -1197,66 +1209,6 @@ b8 create_command_buffer(vulkan_state* state){
   return TRUE;
 }
 
-b8 record_command_buffer(vulkan_state* state, u32 swapchainImageIndex){
-  if(swapchainImageIndex >= state->swapchainImageCount){
-    VFATAL("Attempted to record command buffer for swapchain image that doesn't exist");
-    return FALSE;
-  }
-  VkCommandBufferBeginInfo beginInfo = {
-    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-    .flags = 0,
-    .pInheritanceInfo = NULL,
-  };
-  VK_CHECK(vkBeginCommandBuffer(state->commandBuffer[state->currentFrame], &beginInfo), "Unable to start recording commander buffer");
-
-  VkClearValue clearColor[2];
-  clearColor[0].color =  (VkClearColorValue){{0.0f,0.0f,0.0f,1.0f}};
-  clearColor[1].depthStencil = (VkClearDepthStencilValue){1.0f, 0};
-  VkRenderPassBeginInfo renderPassInfo = {
-    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-    .renderPass = state->renderPass,
-    .framebuffer = state->frameBuffers[swapchainImageIndex],
-    .renderArea.offset = {0,0},
-    .renderArea.extent = state->swapchainExtent,
-    .clearValueCount = 2,
-    .pClearValues = clearColor,
-  };
-  vkCmdBeginRenderPass(state->commandBuffer[state->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-  vkCmdBindPipeline(state->commandBuffer[state->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, state->graphicsPipeline);
-  VkViewport viewport = {
-    .x = 0.0f,
-    .y = 0.0f,
-    .width = (float)state->swapchainExtent.width,
-    .height = (float)state->swapchainExtent.height,
-    .minDepth = 0.0f,
-    .maxDepth = 1.0f,
-  };
-  vkCmdSetViewport(state->commandBuffer[state->currentFrame], 0, 1, &viewport);
-  VkRect2D scissor = {
-    .offset = {0,0},
-    .extent = state->swapchainExtent,
-  };
-  vkCmdSetScissor(state->commandBuffer[state->currentFrame], 0, 1, &scissor);
-  VkBuffer vertexBuffers[] = {state->vertexIndexBuffer.buffer};
-  VkDeviceSize offsets[] = {0};
-  vkCmdBindVertexBuffers(state->commandBuffer[state->currentFrame], 0, 1, vertexBuffers, offsets);
-  vkCmdBindIndexBuffer(state->commandBuffer[state->currentFrame], state->vertexIndexBuffer.buffer, state->vertexCount*sizeof(vertex), VK_INDEX_TYPE_UINT16);
-  vkCmdBindDescriptorSets(
-    state->commandBuffer[state->currentFrame], 
-    VK_PIPELINE_BIND_POINT_GRAPHICS, 
-    state->pipelineLayout,
-    0,
-    1,
-    &state->descriptorSets[state->currentFrame],
-    0,
-    VK_NULL_HANDLE
-  );
-  vkCmdDrawIndexed(state->commandBuffer[state->currentFrame], state->indexCount, 1, 0, 0, 0);
-  vkCmdEndRenderPass(state->commandBuffer[state->currentFrame]);
-  VK_CHECK(vkEndCommandBuffer(state->commandBuffer[state->currentFrame]), "Unable to end recording of command buffer");
-  return TRUE;
-}
-
 b8 create_sync_objects(vulkan_state* state){
   state->imageAvailable = vallocate(sizeof(VkSemaphore)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   state->renderFinished = vallocate(sizeof(VkSemaphore)*state->swapchainImageCount, MEMORY_TAG_RENDERER);
@@ -1300,7 +1252,7 @@ void destroy_sync_objects(vulkan_state* state){
   vfree(state->inFlight, sizeof(VkFence)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
 }
 
-void destroy_velora_buffer(vulkan_state* state, velora_buffer* buffer){
+void destroy_vulkan_buffer(vulkan_state* state, vulkan_buffer* buffer){
   vmaDestroyBuffer(
     state->allocator, 
     buffer->buffer,
@@ -1308,7 +1260,7 @@ void destroy_velora_buffer(vulkan_state* state, velora_buffer* buffer){
   );
 }
 
-void destroy_velora_image(vulkan_state* state, velora_image* image){
+void destroy_vulkan_image(vulkan_state* state, vulkan_image* image){
   vkDestroySampler(
     state->logicalDevice,
     image->sampler,
@@ -1329,7 +1281,7 @@ void destroy_velora_image(vulkan_state* state, velora_image* image){
 b8 recreate_swapchain(vulkan_state* state, u32 width, u32 height){
   vkDeviceWaitIdle(state->logicalDevice);
 
-  destroy_velora_image(state, &state->depthImage);
+  destroy_vulkan_image(state, &state->depthImage);
   destroy_swapchain(state);
   VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
     state->physicalDevice,
@@ -1358,7 +1310,7 @@ b8 resize_handler(event* newEvent, void* state){
 
 b8 create_shared_buffer(
   vulkan_state *state, 
-  velora_buffer* buffer, 
+  vulkan_buffer* buffer, 
   VkBufferUsageFlagBits bufferUsage, 
   VkDeviceSize bufferSize, 
   VkMemoryPropertyFlags memoryType,
@@ -1393,7 +1345,7 @@ b8 create_shared_buffer(
 
 b8 create_exclusive_buffer(
   vulkan_state *state, 
-  velora_buffer* buffer, 
+  vulkan_buffer* buffer, 
   VkBufferUsageFlagBits bufferUsage, 
   VkDeviceSize bufferSize, 
   VkMemoryPropertyFlags memoryType,
@@ -1422,7 +1374,7 @@ b8 create_exclusive_buffer(
   return TRUE;
 }
 
-b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* srcBuffer, VkDeviceSize dataSize, VkDeviceSize srcOffset, VkDeviceSize dstOffset){
+b8 copy_buffer(vulkan_state* state, vulkan_buffer* dstBuffer, vulkan_buffer* srcBuffer, VkDeviceSize dataSize, VkDeviceSize srcOffset, VkDeviceSize dstOffset){
   if(dataSize+dstOffset > dstBuffer->memory_info.size){
     VERROR("Attempted to copy data larger than the capacity of the destination buffer");
     return FALSE;
@@ -1441,9 +1393,9 @@ b8 copy_buffer(vulkan_state* state, velora_buffer* dstBuffer, velora_buffer* src
   return TRUE;
 }
 
-b8 create_vertex_index_buffer(vulkan_state *state, vertex* vertices, u16* indices){
+b8 create_vertex_index_buffer(vulkan_state *state, vertex* vertices, u32* indices){
   const VkDeviceSize vertexBufferSize = sizeof(vertex)*state->vertexCount;
-  const VkDeviceSize indexBufferSize = sizeof(u16)*state->indexCount;
+  const VkDeviceSize indexBufferSize = sizeof(u32)*state->indexCount;
   const VkDeviceSize bufferSize = vertexBufferSize+indexBufferSize;
   if(state->transferQueueIndex == state->graphicsQueueIndex){
     VEL_CHECK(create_exclusive_buffer(
@@ -1470,7 +1422,7 @@ b8 create_vertex_index_buffer(vulkan_state *state, vertex* vertices, u16* indice
       2
     ));
   }
-  velora_buffer vertexStagingBuffer = {0};
+  vulkan_buffer vertexStagingBuffer = {0};
   VEL_CHECK(create_exclusive_buffer(
     state,
     &vertexStagingBuffer,
@@ -1487,7 +1439,7 @@ b8 create_vertex_index_buffer(vulkan_state *state, vertex* vertices, u16* indice
     0,
     vertexBufferSize
   ), "Unable to fill vertex staging buffer with vertex data");
-  velora_buffer indexStagingBuffer = {0};
+  vulkan_buffer indexStagingBuffer = {0};
   VEL_CHECK(create_exclusive_buffer(
     state,
     &indexStagingBuffer,
@@ -1521,8 +1473,8 @@ b8 create_vertex_index_buffer(vulkan_state *state, vertex* vertices, u16* indice
     0,
     vertexBufferSize
   ));
-  destroy_velora_buffer(state, &vertexStagingBuffer);
-  destroy_velora_buffer(state, &indexStagingBuffer);
+  destroy_vulkan_buffer(state, &vertexStagingBuffer);
+  destroy_vulkan_buffer(state, &indexStagingBuffer);
   return TRUE;
 }
 
@@ -1665,7 +1617,7 @@ b8 create_descriptor_sets(vulkan_state* state){
   return TRUE;
 }
 
-b8 copy_buffer_to_image(vulkan_state* state, velora_buffer* buffer, velora_image* image, u32 width, u32 height){
+b8 copy_buffer_to_image(vulkan_state* state, vulkan_buffer* buffer, vulkan_image* image, u32 width, u32 height){
   VkCommandBuffer commandBuffer = begin_single_command(state, state->transferCommandPool);
   
   VkBufferImageCopy region = {
@@ -1704,7 +1656,7 @@ b8 copy_buffer_to_image(vulkan_state* state, velora_buffer* buffer, velora_image
   return TRUE;
 }
 
-b8 create_sampler(vulkan_state* state, velora_image* image){
+b8 create_sampler(vulkan_state* state, vulkan_image* image){
   VkPhysicalDeviceProperties props = {0};
   vkGetPhysicalDeviceProperties(state->physicalDevice, &props);
 
@@ -1735,10 +1687,10 @@ b8 create_sampler(vulkan_state* state, velora_image* image){
   return TRUE;
 }
 
-b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image){
+b8 create_texture(vulkan_state* state, const char* filePath, vulkan_image* image){
   velora_pixels imageData = {0};
   import_pixels(filePath, &imageData);
-  velora_buffer stagingBuffer;
+  vulkan_buffer stagingBuffer;
   create_exclusive_buffer(
     state,
     &stagingBuffer,
@@ -1804,7 +1756,7 @@ b8 create_texture(vulkan_state* state, const char* filePath, velora_image* image
     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
   ));
 
-  destroy_velora_buffer(state, &stagingBuffer);
+  destroy_vulkan_buffer(state, &stagingBuffer);
   free_pixels(&imageData);
   
   VEL_CHECK(create_image_view(state, image->image, VK_FORMAT_R8G8B8A8_SRGB, &image->view, VK_IMAGE_ASPECT_COLOR_BIT));
@@ -1874,7 +1826,7 @@ b8 initiate_render_system(render_state* state, const char* application_name, pla
     { {{0.5f, 0.5f, -0.5f}},   {{0.0f, 0.0f, 1.0f}}, {{0.0f, 1.0f}} },
     { {{-0.5f, 0.5f, -0.5f}},  {{1.0f, 1.0f, 1.0f}}, {{1.0f, 1.0f}} },
   };
-  u16 indices[] = {
+  u32 indices[] = {
     2,1,0,0,3,2,
     6,5,4,4,7,6
   };
@@ -1913,13 +1865,13 @@ b8 initiate_render_system(render_state* state, const char* application_name, pla
 void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vkDeviceWaitIdle(vk_state->logicalDevice);
-  destroy_velora_image(vk_state, &vk_state->depthImage);
-  destroy_velora_image(vk_state, &vk_state->texImage);
+  destroy_vulkan_image(vk_state, &vk_state->depthImage);
+  destroy_vulkan_image(vk_state, &vk_state->texImage);
   vfree(vk_state->descriptorSets, sizeof(VkDescriptorSet)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vkDestroyDescriptorPool(vk_state->logicalDevice, vk_state->descriptorPool, NULL);
   vkDestroyDescriptorSetLayout(vk_state->logicalDevice, vk_state->descriptorSetLayout, NULL);
-  destroy_velora_buffer(vk_state, &vk_state->vertexIndexBuffer);
-  destroy_velora_buffer(vk_state, &vk_state->uniformBuffer);
+  destroy_vulkan_buffer(vk_state, &vk_state->vertexIndexBuffer);
+  destroy_vulkan_buffer(vk_state, &vk_state->uniformBuffer);
   destroy_sync_objects(vk_state);
   vkDestroyCommandPool(vk_state->logicalDevice, vk_state->graphicsCommandPool, NULL);
   vkDestroyCommandPool(vk_state->logicalDevice, vk_state->transferCommandPool, NULL);
@@ -1968,6 +1920,56 @@ void update_uniform_buffer(vulkan_state* state){
   uniformBufferMemory[state->currentFrame].view = viewMatrix;
   uniformBufferMemory[state->currentFrame].proj = projMatrix;
 }
+b8 start_recording_command_buffer(vulkan_state* state, u32 swapchainImageIndex, VkCommandBuffer *outBuffer){
+  VkCommandBuffer buffer = state->commandBuffer[state->currentFrame];
+  vkResetCommandBuffer(buffer, 0);
+  if(swapchainImageIndex >= state->swapchainImageCount){
+    VFATAL("Attempted to record command buffer for swapchain image that doesn't exist");
+    return FALSE;
+  }
+  VkCommandBufferBeginInfo beginInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .flags = 0,
+    .pInheritanceInfo = NULL,
+  };
+  VK_CHECK(vkBeginCommandBuffer(buffer, &beginInfo), "Unable to start recording commander buffer");
+
+  VkClearValue clearColor[2];
+  clearColor[0].color =  (VkClearColorValue){{0.0f,0.0f,0.0f,1.0f}};
+  clearColor[1].depthStencil = (VkClearDepthStencilValue){1.0f, 0};
+  VkRenderPassBeginInfo renderPassInfo = {
+    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+    .renderPass = state->renderPass,
+    .framebuffer = state->frameBuffers[swapchainImageIndex],
+    .renderArea.offset = {0,0},
+    .renderArea.extent = state->swapchainExtent,
+    .clearValueCount = 2,
+    .pClearValues = clearColor,
+  };
+  vkCmdBeginRenderPass(buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+  VkViewport viewport = {
+    .x = 0.0f,
+    .y = 0.0f,
+    .width = (float)state->swapchainExtent.width,
+    .height = (float)state->swapchainExtent.height,
+    .minDepth = 0.0f,
+    .maxDepth = 1.0f,
+  };
+  vkCmdSetViewport(buffer, 0, 1, &viewport);
+  VkRect2D scissor = {
+    .offset = {0,0},
+    .extent = state->swapchainExtent,
+  };
+  vkCmdSetScissor(buffer, 0, 1, &scissor);
+  (*outBuffer) = buffer;
+  return TRUE;
+}
+
+b8 stop_recording_command_buffer(VkCommandBuffer buffer){
+  vkCmdEndRenderPass(buffer);
+  VK_CHECK(vkEndCommandBuffer(buffer), "Unable to end recording of command buffer");
+  return TRUE;
+}
 
 b8 render_preframe(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
@@ -2005,8 +2007,51 @@ b8 render_frame(render_state* state){
     VFATAL("Vulkan Error: %s", string_VkResult(imageErr));
     return FALSE;
   }
-  vkResetCommandBuffer(vk_state->commandBuffer[vk_state->currentFrame], 0);
-  record_command_buffer(vk_state, imageIndex);
+  VkCommandBuffer buffer;
+  if(start_recording_command_buffer(vk_state, imageIndex, &buffer) == FALSE){
+    return FALSE;
+  }
+
+  vec3 position = {{0,0,-5}};
+  vec3 rotation = {{0,30,0}};
+  quat rotationQuat = euler_to_quat(rotation);
+  vec3 scale = {{1,1,1}};
+  mat4x4 modelMatrix = model_matrix(position, rotationQuat, scale);
+  vec3 cameraPosition = {{0,0,0}};
+  vec3 cameraRotation = {{0,0,0}};
+  vec3 cameraScale = {{1,1,1}};
+  mat4x4 cameraModelMatrix = model_matrix(cameraPosition, euler_to_quat(cameraRotation), cameraScale);
+  mat4x4 viewMatrix = {0};
+  matrix4_invert(cameraModelMatrix, &viewMatrix);
+  f32 aspectRatio = (float)vk_state->swapchainExtent.width/(float)vk_state->swapchainExtent.height;
+  mat4x4 projMatrix = perspective_projection_matrix(0.1, 30, 30, aspectRatio);
+  mat4x4 mvpMatrix = matrix4_multiply(viewMatrix, projMatrix);
+  mvpMatrix = matrix4_multiply(modelMatrix, mvpMatrix);
+  push_constant push = {
+    .mvp_matrix = mvpMatrix,
+    .textureIndex = 0,
+  };
+
+  vkCmdPushConstants(buffer, vk_state->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), &push);
+  vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_state->graphicsPipeline);
+  VkBuffer vertexBuffers[] = {vk_state->vertexIndexBuffer.buffer};
+  VkDeviceSize offsets[] = {0};
+  vkCmdBindVertexBuffers(buffer, 0, 1, vertexBuffers, offsets);
+  vkCmdBindIndexBuffer(buffer, vk_state->vertexIndexBuffer.buffer, vk_state->vertexCount*sizeof(vertex), VK_INDEX_TYPE_UINT32);
+  vkCmdBindDescriptorSets(
+    buffer, 
+    VK_PIPELINE_BIND_POINT_GRAPHICS, 
+    vk_state->pipelineLayout,
+    0,
+    1,
+    &vk_state->descriptorSets[vk_state->currentFrame],
+    0,
+    VK_NULL_HANDLE
+  );
+  vkCmdDrawIndexed(buffer, vk_state->indexCount, 1, 0, 0, 0);
+
+
+  stop_recording_command_buffer(buffer);
   
   VkSemaphore waitSemaphores[] = {vk_state->imageAvailable[vk_state->currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};

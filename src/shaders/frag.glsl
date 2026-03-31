@@ -8,6 +8,12 @@ layout(location = 1) in vec2 texCoordOut;
 
 layout(location = 0) out vec4 outColor;
 
+layout( push_constant ) uniform constants
+{
+  uint textureIndex;
+  mat4 mvpMatrix;
+} PushConstants;
+
 void main() {
     outColor = texture(texSampler, texCoordOut);
 }
