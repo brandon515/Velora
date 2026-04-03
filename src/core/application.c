@@ -45,10 +45,10 @@ b8 application_start(application_state *app_state){
 
 #include "utils/vjson.h"
 b8 application_run(application_state* app_state){
-  gltf_object obj = {0};
+  /*gltf_object obj = {0};
   if(import_gltf("Models/CameraTest/scene.gltf", &obj) == TRUE){
     free_gltf(&obj);
-  }
+  }*/
   while(app_state->is_running){
     platform_pump_messages(&app_state->platform);
     pump_events(99.9f);
