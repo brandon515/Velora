@@ -1785,7 +1785,7 @@ b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_stat
     "Unable to create windows surface for vulkan renderer"
   );
   RECT winSize;
-  GetClientRect(window, &winSize);
+  GetClientRect(plat_internal_state->window, &winSize);
   outDim->width = winSize.right;
   outDim->height = winSize.bottom;
   return TRUE;
