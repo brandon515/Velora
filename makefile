@@ -15,10 +15,11 @@ L_LINUX_FLAGS = -lvulkan -L$(VULKAN_SDK)/lib -lX11 -lm -lstdc++
 L_WINDOWS_FLAGS = -L$(VULKAN_SDK)/lib -lvulkan-1 -L"C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\x64" -luser32
 DEFINES = -D_DEBUG -DVULKAN_RENDER -D_CRT_SECURE_NO_WARNINGS
 
+.PHONY: Linux
+Linux: $(SPV) bin/engine
+
 .PHONY: Windows
 Windows: $(SPV) bin/engine.exe
-
-ALL: $(SPV) bin/engine
 
 bin/engine: $(OBJS) 
 	$(CC) -g $^ -o bin/engine $(L_LINUX_FLAGS)
