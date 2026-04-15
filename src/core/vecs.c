@@ -23,6 +23,7 @@ u64 create_new_entity(){
       return i;
     }
   }
+  return U64_MAX;
 }
 
 b8 get_component_list(vcomponent_list *outList, vcomponent_type requestedType){
@@ -82,7 +83,7 @@ b8 attach_component(vcomponent_type compType, u64 entityId, u64 dataSize, void *
   vcomponent *comp;
   while(iterator_next(&it, (void**)&comp)){
     if(comp->entityID == newComp.entityID){
-      free_component(newComp);
+      vfree(newComp.data, newComp.dataSize, MEMORY_TAG_ECS);
       return FALSE;
     }
     if(comp->entityID > newComp.entityID){

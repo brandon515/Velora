@@ -36,7 +36,7 @@ b8 free_entity_component_system();
 
 /**
  * @brief Returns the lowest empty entity ID. If called twice without assigning a component to the entity, the same ID will be returned.
- * @return A u64 that hasn't been used by an entity previously
+ * @return A u64 that hasn't been used by an entity previously or U64_MAX if there are no available entities
  */
 u64 create_new_entity();
 
