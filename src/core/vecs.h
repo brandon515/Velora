@@ -4,6 +4,7 @@
 
 typedef struct _entity_component_system{
   darray *list;
+  u32 entities[VELORA_MAX_OBJECTS];
 }entity_component_system;
 
 typedef enum _vcomponent_type{
@@ -34,7 +35,7 @@ b8 initilize_entity_component_system();
 b8 free_entity_component_system();
 
 /**
- * @brief Returns a unique entity id
+ * @brief Returns the lowest empty entity ID. If called twice without assigning a component to the entity, the same ID will be returned.
  * @return A u64 that hasn't been used by an entity previously
  */
 u64 create_new_entity();
@@ -45,7 +46,7 @@ u64 create_new_entity();
  * @param entityId The ID of the entity to attach the component to
  * @param dataSize The size of the data contained in the data pointer
  * @param data The type of component to register
- * @return FALSE if ECS hasn't been initilized or if a component of this type is already attached to the entity indicted in comp. TRUE otherwise.
+ * @return FALSE if ECS hasn't been initilized, a component of this type is already attached to the entity, or the entityID is beyond VELORA_MAX_OBJECTS. TRUE otherwise.
  */
 b8 attach_component(vcomponent_type compType, u64 entityId, u64 dataSize, void *data);
 
