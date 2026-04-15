@@ -95,3 +95,6 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #else
 #error "Unknown platform!"
 #endif
+
+// Engine specific defines
+#define VELORA_MAX_OBJECTS 256
