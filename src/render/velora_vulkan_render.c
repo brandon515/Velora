@@ -13,6 +13,9 @@
 #include "core/event.h"
 #include "utils/vimage.h"
 #include "components/vrenderable.h"
+#include "components/vcamera.h"
+#include "components/vtransform.h"
+#include "core/vecs.h"
 #ifdef VPLATFORM_WINDOWS
 #include <Windows.h>
 #include <windowsx.h>
@@ -34,9 +37,7 @@
   }}        
 
 typedef struct _ubo{
-  mat4x4 model;
-  mat4x4 view;
-  mat4x4 proj;
+  mat4x4 mvpMat[VELORA_MAX_OBJECTS];
 } ubo;
 
 typedef struct _push_constant{
@@ -1900,7 +1901,7 @@ void shutdown_render_system(render_state* state){
   vfree(state->internal_render_state, sizeof(vulkan_state), MEMORY_TAG_RENDERER);
 }
 
-void update_uniform_buffer(vulkan_state* state){
+/*void update_uniform_buffer(vulkan_state* state){
   vec3 position = {{0,0,-5}};
   vec3 rotation = {{0,30,0}};
   quat rotationQuat = euler_to_quat(rotation);
@@ -1919,7 +1920,8 @@ void update_uniform_buffer(vulkan_state* state){
   uniformBufferMemory[state->currentFrame].model = modelMatrix;
   uniformBufferMemory[state->currentFrame].view = viewMatrix;
   uniformBufferMemory[state->currentFrame].proj = projMatrix;
-}
+}*/
+
 b8 start_recording_command_buffer(vulkan_state* state, u32 swapchainImageIndex, VkCommandBuffer *outBuffer){
   VkCommandBuffer buffer = state->commandBuffer[state->currentFrame];
   vkResetCommandBuffer(buffer, 0);
@@ -1990,6 +1992,31 @@ b8 render_preframe(render_state* state){
 
 b8 render_frame(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+  darray *cameraComps;
+  if(get_components(VELORA_COMPONENT_CAMERA, &cameraComps) == FALSE){
+    VERROR("No cameras in the scene, unable to render");
+    return FALSE;
+  }
+  iterator cameraIt = darray_create_iterator(cameraComps);
+  vcomponent *activeCamera;
+  u64 activeCamID = U64_MAX;
+  while(iterator_next(&cameraIt, (void**)&activeCamera)){
+    vcamera *camData = activeCamera->data;
+    if(camData->active == TRUE){
+      activeCamID = activeCamera->entityID;
+      break;
+    }
+  }
+  if(activeCamID == U64_MAX){
+    VERROR("No active camera in the scene, unable to render");
+    return FALSE;
+  }
+  vtransform *cameraTrans = get_transform_component(activeCamID);
+  if(cameraTrans == NULL){
+    VERROR("Active camera doesn't have a transform component attached");
+    return FALSE;
+  }
+  mat4x4 cameraModelMatrix = transform_get_model_matrix(cameraTrans);
   if(vk_state->windowMinimized){
     return TRUE;
   }
@@ -2017,10 +2044,6 @@ b8 render_frame(render_state* state){
   quat rotationQuat = euler_to_quat(rotation);
   vec3 scale = {{1,1,1}};
   mat4x4 modelMatrix = model_matrix(position, rotationQuat, scale);
-  vec3 cameraPosition = {{0,0,0}};
-  vec3 cameraRotation = {{0,0,0}};
-  vec3 cameraScale = {{1,1,1}};
-  mat4x4 cameraModelMatrix = model_matrix(cameraPosition, euler_to_quat(cameraRotation), cameraScale);
   mat4x4 viewMatrix = {0};
   matrix4_invert(cameraModelMatrix, &viewMatrix);
   f32 aspectRatio = (float)vk_state->swapchainExtent.width/(float)vk_state->swapchainExtent.height;
@@ -2056,7 +2079,6 @@ b8 render_frame(render_state* state){
   VkSemaphore waitSemaphores[] = {vk_state->imageAvailable[vk_state->currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   VkSemaphore signalSemaphores[] = {vk_state->renderFinished[imageIndex]};
-  update_uniform_buffer(vk_state);
   VkSubmitInfo submitInfo = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     .waitSemaphoreCount = 1,
