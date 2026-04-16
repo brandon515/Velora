@@ -1,6 +1,9 @@
 #include "application.h"
 #include "utils/vgltf.h"
 #include "utils/vstring.h"
+#include "core/vecs.h"
+#include "components/vcamera.h"
+#include "components/vtransform.h"
 
 const char *NAME = "Velora";
 const i16 START_POS_X = 0;
@@ -36,6 +39,7 @@ b8 application_start(application_state *app_state){
     return FALSE;
   }
   initiate_input_system(&app_state->input);
+  initilize_entity_component_system();
 
   register_listener(ENGINE_CLOSE_GAME, close_event_handler, app_state);
   register_listener(ENGINE_WINDOW_RESIZE, resize_handler, app_state->render_state);// defined in the renderer code
@@ -47,8 +51,18 @@ b8 application_start(application_state *app_state){
 b8 application_run(application_state* app_state){
   /*gltf_object obj = {0};
   if(import_gltf("Models/CameraTest/scene.gltf", &obj) == TRUE){
-    free_gltf(&obj);
+  free_gltf(&obj);
   }*/
+
+  u64 mainCamera = create_new_entity();
+  if(register_empty_transform(mainCamera) == FALSE){
+    VERROR("Unable to register transform");
+    return FALSE;
+  }
+  if(register_camera(mainCamera, TRUE) == FALSE){
+    VERROR("Unable to register Camera");
+    return FALSE;
+  }
   while(app_state->is_running){
     platform_pump_messages(&app_state->platform);
     pump_events(99.9f);
@@ -61,6 +75,7 @@ b8 application_run(application_state* app_state){
   platform_shutdown(&app_state->platform);
   shutdown_render_system(app_state->render_state);
   shutdown_input_sytem(&app_state->input);
+  shutdown_entity_component_system();
 
   return TRUE;
 }
