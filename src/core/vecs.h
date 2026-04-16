@@ -9,6 +9,7 @@ typedef struct _entity_component_system{
 
 typedef enum _vcomponent_type{
   VELORA_COMPONENT_TRANSFORM,
+  VELORA_COMPONENT_CAMERA,
 }vcomponent_type;
 
 typedef struct _vcomponent_list{
@@ -32,7 +33,7 @@ b8 initilize_entity_component_system();
  * @brief Clears out the ECS and deactivates it
  * @return FALSE if the ECS hasn't been initilized, TRUE otherwise
  */
-b8 free_entity_component_system();
+b8 shutdown_entity_component_system();
 
 /**
  * @brief Returns the lowest empty entity ID. If called twice without assigning a component to the entity, the same ID will be returned.

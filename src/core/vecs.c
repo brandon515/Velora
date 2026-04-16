@@ -111,7 +111,7 @@ void free_component_list(vcomponent_list compList){
   darray_free(compList.data);
 }
 
-b8 free_entity_component_system(){
+b8 shutdown_entity_component_system(){
   if(ECS_INIT == FALSE){
     return FALSE;
   }
