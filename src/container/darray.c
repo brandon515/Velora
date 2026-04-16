@@ -127,7 +127,7 @@ darray* darray_drain(darray* arr, u64 num_of_items){
 }
 
 void* darray_get_pointer(darray* arr, u64 index){
-  if(arr->length >= index){
+  if(index >= arr->length){
     return NULL;
   }
   return arr->data+(index*arr->stride*index);
