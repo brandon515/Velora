@@ -1992,31 +1992,8 @@ b8 render_preframe(render_state* state){
 
 b8 render_frame(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
-  darray *cameraComps;
-  if(get_components(VELORA_COMPONENT_CAMERA, &cameraComps) == FALSE){
-    VERROR("No cameras in the scene, unable to render");
-    return FALSE;
-  }
-  iterator cameraIt = darray_create_iterator(cameraComps);
-  vcomponent *activeCamera;
-  u64 activeCamID = U64_MAX;
-  while(iterator_next(&cameraIt, (void**)&activeCamera)){
-    vcamera *camData = activeCamera->data;
-    if(camData->active == TRUE){
-      activeCamID = activeCamera->entityID;
-      break;
-    }
-  }
-  if(activeCamID == U64_MAX){
-    VERROR("No active camera in the scene, unable to render");
-    return FALSE;
-  }
-  vtransform *cameraTrans = get_transform_component(activeCamID);
-  if(cameraTrans == NULL){
-    VERROR("Active camera doesn't have a transform component attached");
-    return FALSE;
-  }
-  mat4x4 cameraModelMatrix = transform_get_model_matrix(cameraTrans);
+  vcamera *activeCamera = camera_get_active();
+  mat4x4 cameraModelMatrix = transform_get_model_matrix(activeCamera->transform);
   if(vk_state->windowMinimized){
     return TRUE;
   }
