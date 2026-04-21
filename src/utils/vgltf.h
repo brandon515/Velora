@@ -11,8 +11,12 @@
 #define GLTF_U8 5121
 #define GLTF_I16 5122
 #define GLTF_U16 5123
+#define GLTF_I32 5124
 #define GLTF_U32 5125
 #define GLTF_FLOAT 5126
+#define GLTF_FLOAT_VEC2 35671
+#define GLTF_FLOAT_VEC3 35672
+#define GLTF_FLOAT_VEC4 35673
 
 #define GLTF_MODE_POINTS 0
 #define GLTF_MODE_LINES 1
@@ -277,16 +281,42 @@ typedef struct _import_thread_tracking{
   u64 threadCount;
 }import_thread_tracking;
 
+typedef struct _gltf_data_stream{
+  u64 type;
+  u64 count;
+  union {
+    i8* signedByte;
+    u8* unsignedByte;
+    i16* signedWord;
+    u16* unsignedWord;
+    i32* signedDWord;
+    u32* unsignedDWord;
+    f32* shortFloat;
+    vec2* twoDVector;
+    vec3* threeDVector;
+    vec4* fourDVector;
+  };
+}gltf_data_stream;
+
 /**
  * @brief imports the gltf file into a usable file
  * @param uri The filename of the gltf file
  * @param out_gltf A gltf_object variable to be filled with the data pointed at by the URI
  * @return FALSE if the file doesn't exist or the file isn't valid JSON, TRUE otherwise
  */
- b8 import_gltf(const char *uri, gltf_object *out_gltf);
+b8 import_gltf(const char *uri, gltf_object *out_gltf);
 
 /**
  * @brief Frees the memory that the gltf_object uses but not the pointer itself
  * @param out_gltf The gltf_object that's been filled with import_gltf
  */
- void free_gltf(gltf_object* out_gltf);
+void free_gltf(gltf_object* out_gltf);
+
+/**
+ * @brief Obtains the XXX stream using the accessor at the index provided
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outStream The stream being created. The array in the union is heap allocated and needs to be freed.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream);
