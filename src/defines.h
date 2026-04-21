@@ -98,3 +98,5 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 
 // Engine specific defines
 #define VELORA_MAX_OBJECTS 256
+#define VELORA_MAX_MESHES 256
+#define VELORA_MAX_TEXTURES 256
