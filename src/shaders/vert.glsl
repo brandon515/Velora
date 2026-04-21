@@ -13,8 +13,7 @@ layout(binding = 0) uniform UniformBufferObject {
 
 layout( push_constant, std430) uniform constants
 {
-  uint textureIndex;
-  mat4 mvpMatrix;
+  uint uboIndex;
 };
 
 layout(location = 0) in vec3 inPosition;
@@ -25,7 +24,7 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 texCoordOut;
 
 void main() {
-    gl_Position = mvpMatrix * vec4(inPosition, 1.0);
+    gl_Position = ubo[uboIndex].mvpMat * vec4(inPosition, 1.0);
     fragColor = inColor;
     texCoordOut = texCoord;
 }
