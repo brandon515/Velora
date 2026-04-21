@@ -2,22 +2,20 @@
 
 #include "defines.h"
 #include "utils/vmath.h"
+#include "vtransform.h"
+#include "render/vmaterial.h"
 
-typedef struct _vertex {
-  vec3 pos;
-  vec3 color;
-  vec2 texCoord;
-} vertex;
+typedef struct _vrenderable{
+  u64 meshHandle;
+  u64 materialHandle;
+  vtransform *transform;
+}vrenderable;
 
-typedef struct _vmaterial {
-  char *textureUri;
-  void *renderMaterial;
-} vmaterial;
-
-typedef struct _vmesh {
-  vertex *vertices;
-  u64 vertexCount;
-  u32 *indicies;
-  u64 indexCount;
-  void *renderMesh;
-} vmesh;
+/*!
+ * @brief Registers a renderable component to the entity with the ID provided
+ * @param entityID The ID of the entity to attach the renderable component to
+ * @param meshHandle The handle rreturned by registering the mesh to the render system
+ * @param materialHandle The handle returned by registering the material to the render system
+ * @return TRUE if the component was able to be attached, FALSE if there was an existing renderable component or if the entity does not have a transform component
+ */
+b8 register_renderable(u64 entityID, u64 meshHandle, u64 materialHandle);
