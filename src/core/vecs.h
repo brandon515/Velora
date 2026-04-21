@@ -10,6 +10,7 @@ typedef struct _entity_component_system{
 typedef enum _vcomponent_type{
   VELORA_COMPONENT_TRANSFORM,
   VELORA_COMPONENT_CAMERA,
+  VELORA_COMPONENT_RENDERABLE
 }vcomponent_type;
 
 typedef struct _vcomponent_list{
