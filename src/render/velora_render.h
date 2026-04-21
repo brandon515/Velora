@@ -24,3 +24,4 @@ b8 initiate_render_system(render_state* state, const char* application_name, pla
 
 b8 register_mesh(render_state* state, vmesh mesh, u64 *outHandle);
 b8 register_texture(render_state* state, velora_pixels mesh, u64 *outHandle);
+b8 register_material(render_state* state, vmaterial mesh, u64 *outHandle);
