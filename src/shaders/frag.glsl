@@ -1,7 +1,19 @@
 #version 450
 #pragma shader_stage(fragment)
 
-layout(binding = 1) uniform sampler2D texSampler;
+const uint VELORA_MAX_OBJECTS = 256;
+const uint VELORA_MAX_TEXTURES = 256;
+
+
+layout(binding = 0) uniform UniformBufferObject {
+    mat4 mvpMat;
+    uint textureIndex;
+    uint padding1;
+    uint padding2;
+    uint padding3;
+} ubo[VELORA_MAX_OBJECTS];
+
+layout(binding = 1) uniform sampler2D texSampler[VELORA_MAX_TEXTURES];
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 texCoordOut;
@@ -15,5 +27,5 @@ layout( push_constant ) uniform constants
 } PushConstants;
 
 void main() {
-    outColor = texture(texSampler, texCoordOut);
+    outColor = texture(texSampler[ubo.textureIndex], texCoordOut);
 }

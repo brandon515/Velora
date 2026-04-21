@@ -1,9 +1,15 @@
 #version 450
 #pragma shader_stage(vertex)
 
+const uint VELORA_MAX_OBJECTS = 256;
+
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 mvpMat[256];
-} ubo;
+    mat4 mvpMat;
+    uint textureIndex;
+    uint padding1;
+    uint padding2;
+    uint padding3;
+} ubo[VELORA_MAX_OBJECTS];
 
 layout( push_constant, std430) uniform constants
 {
