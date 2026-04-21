@@ -2,10 +2,9 @@
 
 #include "defines.h"
 #include "utils/vimage.h"
-#include "velora_render.h"
 
 typedef struct _vmaterial {
-  u64 baseColorHandle;
+  velora_pixels baseColor;
 } vmaterial;
 
 /*!
@@ -15,4 +14,4 @@ typedef struct _vmaterial {
  * @param outMaterial The material to put the handles into
  * @return TRUE if the material was able to created, FALSE if there is no image at the provided URIs
  */
-b8 vmaterial_from_image(render_state *renderState, const char* baseColorURI, vmaterial *outMaterial);
+b8 vmaterial_from_image(const char* baseColorURI, vmaterial *outMaterial);
