@@ -990,7 +990,7 @@ b8 create_graphics_pipeline(vulkan_state* state){
   vertexStructDesc[1].binding = 0;
   vertexStructDesc[1].location = 1;
   vertexStructDesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-  vertexStructDesc[1].offset = offsetof(vertex, color);
+  vertexStructDesc[1].offset = offsetof(vertex, normal);
 
   vertexStructDesc[2].binding = 0;
   vertexStructDesc[2].location = 2;
