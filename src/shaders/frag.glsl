@@ -17,8 +17,7 @@ layout(binding = 0) uniform UniformBufferObject {
 
 layout(binding = 1) uniform sampler2D texSampler[VELORA_MAX_TEXTURES];
 
-layout(location = 0) in vec3 fragColor;
-layout(location = 1) in vec2 texCoordOut;
+layout(location = 0) in vec2 texCoordOut;
 
 layout(location = 0) out vec4 outColor;
 
