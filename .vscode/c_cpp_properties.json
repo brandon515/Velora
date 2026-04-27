@@ -14,7 +14,7 @@
             ],
             "windowsSdkVersion": "10.0.22621.0",
             "compilerPath": "C:/Program Files/LLVM/bin/clang.exe",
-            "cStandard": "c17",
+            "cStandard": "c23",
             "cppStandard": "c++17",
             "intelliSenseMode": "windows-clang-x64"
         },
@@ -33,7 +33,7 @@
             ],
             "windowsSdkVersion": "10.0.22621.0",
             "compilerPath": "C:/Program Files/LLVM/bin/clang.exe",
-            "cStandard": "c17",
+            "cStandard": "c23",
             "cppStandard": "c++17",
             "intelliSenseMode": "windows-clang-x64"
         },
@@ -50,7 +50,7 @@
                 "VULKAN_RENDER"
             ],
             "compilerPath": "/usr/bin/clang",
-            "cStandard": "c17",
+            "cStandard": "c23",
             "cppStandard": "c++17",
             "intelliSenseMode": "clang-x64"
         }
