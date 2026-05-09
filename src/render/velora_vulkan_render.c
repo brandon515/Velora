@@ -44,9 +44,6 @@
 typedef struct _ubo{
   mat4x4 mvpMat;
   u64 textureIndex;
-  u64 padding1;
-  u64 padding2;
-  u64 padding3;
 } ubo;
 
 typedef struct _push_constant{
@@ -90,6 +87,7 @@ typedef struct _swapchain_support{
 typedef struct _vulkan_state{
   VkInstance instance;
   VkPhysicalDevice physicalDevice;
+  VkPhysicalDeviceProperties physicalDeviceProps;
   VkDevice logicalDevice;
   u32 graphicsQueueIndex;
   u32 presentQueueIndex;
@@ -125,6 +123,7 @@ typedef struct _vulkan_state{
   VkDescriptorSet* descriptorSets;
   vulkan_image depthImage;
   vulkan_image textures[VELORA_MAX_TEXTURES];
+  vulkan_image defaultTexture;
   u64 curTextureIndex;
   vulkan_mesh meshes[VELORA_MAX_MESHES];
   vulkan_material materials[VELORA_MAX_MATERIALS];
@@ -744,6 +743,7 @@ b8 create_logical_device(vulkan_state* state, const char** extensions, u32 exten
   vkGetDeviceQueue(state->logicalDevice, state->graphicsQueueIndex, 0, &state->graphicsQueue);
   vkGetDeviceQueue(state->logicalDevice, state->presentQueueIndex, 0, &state->presentQueue);
   vkGetDeviceQueue(state->logicalDevice, state->transferQueueIndex, 0, &state->transferQueue);
+  vkGetPhysicalDeviceProperties(state->physicalDevice, &state->physicalDeviceProps);
   return TRUE;
 }
 
@@ -1572,15 +1572,15 @@ b8 create_descriptor_set_layout(vulkan_state *state){
   layoutBindings[0] = (VkDescriptorSetLayoutBinding){
     .binding = 0,
     .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    .descriptorCount = 1,
-    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+    .descriptorCount = VELORA_MAX_OBJECTS,
+    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
     .pImmutableSamplers = VK_NULL_HANDLE,
   };
   
   layoutBindings[1] = (VkDescriptorSetLayoutBinding){
     .binding = 1,
     .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-    .descriptorCount = 1,
+    .descriptorCount = VELORA_MAX_TEXTURES,
     .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
     .pImmutableSamplers = VK_NULL_HANDLE,
   };
@@ -1601,105 +1601,16 @@ b8 create_descriptor_set_layout(vulkan_state *state){
 }
 
 b8 create_uniform_buffers(vulkan_state *state){
+  VkDeviceSize minUBOAlignment = state->physicalDeviceProps.limits.minUniformBufferOffsetAlignment;
+  VkDeviceSize uboAlignedSize = sizeof(ubo)+(minUBOAlignment-(sizeof(ubo)%minUBOAlignment));
   VEL_CHECK(create_exclusive_buffer(
     state,
     &state->uniformBuffer,
     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-    sizeof(ubo)*VELORA_MAX_OBJECTS*MAX_FRAMES_IN_FLIGHT,
+    uboAlignedSize*VELORA_MAX_OBJECTS*MAX_FRAMES_IN_FLIGHT,
     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
     VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
   ));
-  return TRUE;
-}
-
-b8 create_descriptor_pool(vulkan_state* state){
-  u32 poolCount = 2;
-  VkDescriptorPoolSize poolSize[poolCount];
-  
-  poolSize[0] = (VkDescriptorPoolSize){
-    .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    .descriptorCount = MAX_FRAMES_IN_FLIGHT,
-  };
-  poolSize[1] = (VkDescriptorPoolSize){
-    .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-    .descriptorCount = MAX_FRAMES_IN_FLIGHT,
-  };
-
-  VkDescriptorPoolCreateInfo createInfo = {
-    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-    .poolSizeCount = poolCount,
-    .pPoolSizes = poolSize,
-    .maxSets = MAX_FRAMES_IN_FLIGHT,
-    .flags = 0,
-  };
-  VK_CHECK(vkCreateDescriptorPool(
-    state->logicalDevice,
-    &createInfo,
-    NULL,
-    &state->descriptorPool
-  ), "Unable to create descriptor pool");
-  return TRUE;
-}
-
-b8 create_descriptor_sets(vulkan_state* state){
-  state->descriptorSets = vallocate(sizeof(VkDescriptorSet)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
-  VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT];
-  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-    vcopy_memory(&layouts[i], &state->descriptorSetLayout, sizeof(VkDescriptorSetLayout));
-  }
-  VkDescriptorSetAllocateInfo allocInfo = {
-    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-    .descriptorPool = state->descriptorPool,
-    .descriptorSetCount = MAX_FRAMES_IN_FLIGHT,
-    .pSetLayouts = layouts,
-  };
-  VK_CHECK(vkAllocateDescriptorSets(
-    state->logicalDevice,
-    &allocInfo,
-    state->descriptorSets
-  ), "Unable to allocate the descriptor sets");
-  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-    VkDeviceSize singleUBOBufferSize = sizeof(ubo)*VELORA_MAX_OBJECTS;
-    VkDescriptorBufferInfo bufferInfo[VELORA_MAX_OBJECTS];
-    for(int j = 0; j < VELORA_MAX_OBJECTS; j++){
-      bufferInfo[j].buffer = state->uniformBuffer.buffer;
-      bufferInfo[j].offset = (singleUBOBufferSize*i)+(sizeof(ubo)*j);
-      bufferInfo[j].range = sizeof(ubo);
-    }
-    VkDescriptorImageInfo imageInfo[VELORA_MAX_TEXTURES] = {0};
-    u32 descCount = 2;
-    VkWriteDescriptorSet descriptorWrite[2];
-    
-    descriptorWrite[0] = (VkWriteDescriptorSet){
-      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-      .dstSet = state->descriptorSets[i],
-      .dstBinding = 0,
-      .dstArrayElement = 0,
-      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-      .descriptorCount = VELORA_MAX_OBJECTS,
-      .pBufferInfo = bufferInfo,
-      .pImageInfo = VK_NULL_HANDLE,
-      .pTexelBufferView = VK_NULL_HANDLE,
-    };
-    descriptorWrite[1] = (VkWriteDescriptorSet){
-      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-      .dstSet = state->descriptorSets[i],
-      .dstBinding = 1,
-      .dstArrayElement = 0,
-      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-      .descriptorCount = VELORA_MAX_TEXTURES,
-      .pBufferInfo = VK_NULL_HANDLE,
-      .pImageInfo = imageInfo,
-      .pTexelBufferView = VK_NULL_HANDLE,
-    };
-    vkUpdateDescriptorSets(
-      state->logicalDevice, 
-      descCount, 
-      descriptorWrite, 
-      0, 
-      VK_NULL_HANDLE
-    );
-  }
   return TRUE;
 }
 
@@ -1849,6 +1760,105 @@ b8 create_texture(vulkan_state* state, const char* filePath, vulkan_image* image
 
   VEL_CHECK(create_sampler(state, image));
 
+  return TRUE;
+}
+
+b8 create_descriptor_pool(vulkan_state* state){
+  u32 poolCount = 2;
+  VkDescriptorPoolSize poolSize[poolCount];
+  
+  poolSize[0] = (VkDescriptorPoolSize){
+    .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    .descriptorCount = MAX_FRAMES_IN_FLIGHT*VELORA_MAX_OBJECTS,
+  };
+  poolSize[1] = (VkDescriptorPoolSize){
+    .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    .descriptorCount = MAX_FRAMES_IN_FLIGHT*VELORA_MAX_TEXTURES,
+  };
+
+  VkDescriptorPoolCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+    .poolSizeCount = poolCount,
+    .pPoolSizes = poolSize,
+    .maxSets = MAX_FRAMES_IN_FLIGHT,
+    .flags = 0,
+  };
+  VK_CHECK(vkCreateDescriptorPool(
+    state->logicalDevice,
+    &createInfo,
+    NULL,
+    &state->descriptorPool
+  ), "Unable to create descriptor pool");
+  return TRUE;
+}
+
+b8 create_descriptor_sets(vulkan_state* state){
+  state->descriptorSets = vallocate(sizeof(VkDescriptorSet)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+  VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT];
+  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+    vcopy_memory(&layouts[i], &state->descriptorSetLayout, sizeof(VkDescriptorSetLayout));
+  }
+  VkDescriptorSetAllocateInfo allocInfo = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+    .descriptorPool = state->descriptorPool,
+    .descriptorSetCount = MAX_FRAMES_IN_FLIGHT,
+    .pSetLayouts = layouts,
+  };
+  VK_CHECK(vkAllocateDescriptorSets(
+    state->logicalDevice,
+    &allocInfo,
+    state->descriptorSets
+  ), "Unable to allocate the descriptor sets");
+  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+    VkDeviceSize minUBOAlignment = state->physicalDeviceProps.limits.minUniformBufferOffsetAlignment;
+    VkDeviceSize uboAlignedSize = sizeof(ubo)+(minUBOAlignment-(sizeof(ubo)%minUBOAlignment));
+    VkDeviceSize singleUBOBufferSize = uboAlignedSize*VELORA_MAX_OBJECTS;
+    VkDescriptorBufferInfo bufferInfo[VELORA_MAX_OBJECTS];
+    for(int j = 0; j < VELORA_MAX_OBJECTS; j++){
+      bufferInfo[j].buffer = state->uniformBuffer.buffer;
+      bufferInfo[j].offset = (singleUBOBufferSize*i)+(uboAlignedSize*j);
+      bufferInfo[j].range = sizeof(ubo);
+    }
+    create_texture(state, "RenderRes/DefaultTexture.jpg", &state->defaultTexture);
+    VkDescriptorImageInfo imageInfo[VELORA_MAX_TEXTURES] = {0};
+    for(int j = 0; j < VELORA_MAX_TEXTURES; j++){
+      imageInfo[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      imageInfo[j].imageView = state->defaultTexture.view;
+      imageInfo[j].sampler = state->defaultTexture.sampler;
+    }
+    u32 descCount = 2;
+    VkWriteDescriptorSet descriptorWrite[2];
+    
+    descriptorWrite[0] = (VkWriteDescriptorSet){
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .dstSet = state->descriptorSets[i],
+      .dstBinding = 0,
+      .dstArrayElement = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+      .descriptorCount = VELORA_MAX_OBJECTS,
+      .pBufferInfo = bufferInfo,
+      .pImageInfo = VK_NULL_HANDLE,
+      .pTexelBufferView = VK_NULL_HANDLE,
+    };
+    descriptorWrite[1] = (VkWriteDescriptorSet){
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .dstSet = state->descriptorSets[i],
+      .dstBinding = 1,
+      .dstArrayElement = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      .descriptorCount = VELORA_MAX_TEXTURES,
+      .pBufferInfo = VK_NULL_HANDLE,
+      .pImageInfo = imageInfo,
+      .pTexelBufferView = VK_NULL_HANDLE,
+    };
+    vkUpdateDescriptorSets(
+      state->logicalDevice, 
+      descCount, 
+      descriptorWrite, 
+      0, 
+      VK_NULL_HANDLE
+    );
+  }
   return TRUE;
 }
 
@@ -2126,23 +2136,24 @@ b8 render_frame(render_state* state){
     VK_NULL_HANDLE
   );
   darray *renderables;
-  get_components(VELORA_COMPONENT_RENDERABLE, &renderables);
-  iterator renIt = darray_create_iterator(renderables);
-  vrenderable *itObj;
-  u64 curObjIndex = 0;
-  while(iterator_next(&renIt, (void**)&itObj)){
-    mat4 modelMatrix = transform_get_model_matrix(itObj->transform);
-    mat4 mvpMatrix = matrix4_multiply(modelMatrix, viewProjMatrix);
-    ubo* uniformBufferMemory = (ubo*)vk_state->uniformBuffer.memory_info.pMappedData;
-    u64 curUBOIndex = (VELORA_MAX_OBJECTS* vk_state->currentFrame)+(curObjIndex);
-    uniformBufferMemory[curUBOIndex].mvpMat = mvpMatrix;
-    uniformBufferMemory[curObjIndex].textureIndex = vk_state->materials[itObj->materialHandle].baseColorTextureIndex;
-    push_constant push = {
-      .uboIndex = curUBOIndex,
-    };
-    vkCmdPushConstants(buffer, vk_state->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), &push);
-    vulkan_mesh curMesh = vk_state->meshes[itObj->meshHandle];
-    vkCmdDrawIndexed(buffer, curMesh.indexCount, 1, curMesh.indexOffset, curMesh.vertexOffset, 0);
+  if(get_components(VELORA_COMPONENT_RENDERABLE, &renderables) == TRUE){
+    iterator renIt = darray_create_iterator(renderables);
+    vrenderable *itObj;
+    u64 curObjIndex = 0;
+    while(iterator_next(&renIt, (void**)&itObj)){
+      mat4 modelMatrix = transform_get_model_matrix(itObj->transform);
+      mat4 mvpMatrix = matrix4_multiply(modelMatrix, viewProjMatrix);
+      ubo* uniformBufferMemory = (ubo*)vk_state->uniformBuffer.memory_info.pMappedData;
+      u64 curUBOIndex = (VELORA_MAX_OBJECTS* vk_state->currentFrame)+(curObjIndex);
+      uniformBufferMemory[curUBOIndex].mvpMat = mvpMatrix;
+      uniformBufferMemory[curObjIndex].textureIndex = vk_state->materials[itObj->materialHandle].baseColorTextureIndex;
+      push_constant push = {
+        .uboIndex = curUBOIndex,
+      };
+      vkCmdPushConstants(buffer, vk_state->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), &push);
+      vulkan_mesh curMesh = vk_state->meshes[itObj->meshHandle];
+      vkCmdDrawIndexed(buffer, curMesh.indexCount, 1, curMesh.indexOffset, curMesh.vertexOffset, 0);
+    }
   }
 
 

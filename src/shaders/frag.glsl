@@ -10,9 +10,6 @@ const uint VELORA_MAX_TEXTURES = VELORA_MAX_MATERIALS * VELORA_TEXURES_PER_MATER
 layout(binding = 0) uniform UniformBufferObject {
     mat4 mvpMat;
     uint textureIndex;
-    uint padding1;
-    uint padding2;
-    uint padding3;
 } ubo[VELORA_MAX_OBJECTS];
 
 layout(binding = 1) uniform sampler2D texSampler[VELORA_MAX_TEXTURES];
