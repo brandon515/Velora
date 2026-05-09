@@ -36,6 +36,18 @@ void* vallocate(u64 size, memory_tag tag){
   return ret_block;
 }
 
+void* vreallocate(void *block, u64 old_size, u64 new_size, memory_tag tag){
+  void *retPoint = platform_reallocate(block, new_size);
+  if(retPoint == NULL){
+    return NULL;
+  }
+  mem_stats.total_allocated -= old_size;
+  mem_stats.tagged_allocations[tag] -= old_size;
+  mem_stats.total_allocated += new_size;
+  mem_stats.tagged_allocations[tag] += new_size;
+  return retPoint;
+}
+
 void vfree(void* block, u64 size, memory_tag tag){
   platform_free(block, FALSE);
   mem_stats.total_allocated -= size;

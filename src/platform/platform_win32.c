@@ -128,6 +128,10 @@ void* platform_set_memory(void* dest, i32 value, u64 size){
   return memset(dest, value, size);
 }
 
+void* platform_reallocate(void* block, u64 size){
+  return realloc(block, size);
+}
+
 b8 enable_virtual_terminal(DWORD output){
   HANDLE console = GetStdHandle(output);
   if (console == INVALID_HANDLE_VALUE){

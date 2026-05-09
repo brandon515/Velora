@@ -41,13 +41,14 @@ static const char* memory_tag_strings[] ={
   FOREACH_MEM_TAG(GENERATE_STRING)
 };
 
- void initialize_memory();
- void shutdown_memory();
+void initialize_memory();
+void shutdown_memory();
 
- void* vallocate(u64 size, memory_tag tag);
- void vfree(void* block, u64 size, memory_tag tag);
- void* vzero_memory(void* block, u64 size);
- void* vcopy_memory(void* dest, const void* src, u64 size);
- void* vset_memory(void* block, i32 value, u64 size);
+void* vallocate(u64 size, memory_tag tag);
+void vfree(void* block, u64 size, memory_tag tag);
+void* vreallocate(void *block, u64 old_size, u64 new_size, memory_tag tag);
+void* vzero_memory(void* block, u64 size);
+void* vcopy_memory(void* dest, const void* src, u64 size);
+void* vset_memory(void* block, i32 value, u64 size);
 
- char* get_memory_usage_str();
+char* get_memory_usage_str();

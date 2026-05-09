@@ -169,6 +169,10 @@ void* platform_set_memory(void* dest, i32 value, u64 size){
   return memset(dest, value, size);
 }
 
+void* platform_reallocate(void* block, u64 size){
+  return realloc(block, size);
+}
+
 void linux_console_write(const char* message, log_level color, FILE* file){
   char buffer[strlen(message)+256];
   static u8 text_colors[6] = {30, 31, 33, 32, 34, 36};
