@@ -125,9 +125,9 @@ typedef struct _gltf_image{
 }gltf_image;
 
 typedef struct _gltf_mesh_primitive_attribute{
-  u64 position;
-  u64 normal;
-  u64 tangent;
+  u64 position;//U64_MAX if not present
+  u64 normal;//U64_MAX if not present
+  u64 tangent;//U64_MAX if not present
   u64 *texCoords;
   u64 texCount;
   u64 *colors;
@@ -281,21 +281,29 @@ typedef struct _import_thread_tracking{
   u64 threadCount;
 }import_thread_tracking;
 
+// Type of accessor, possible types are MAT2, MAT3, MAT4, VEC2, VEC3, VEC4, or SCALAR
+
+typedef enum _gltf_data_type{
+  U8,
+  I8,
+  U16,
+  I16,
+  U32,
+  I32,
+  FLOAT,
+  MAT2D,
+  MAT3D,
+  MAT4D,
+  VECTOR2D,
+  VECTOR3D,
+  VECTOR4D,
+}gltf_data_type;
+
 typedef struct _gltf_data_stream{
-  u64 type;
+  gltf_data_type type;
+  u64 dataSize; //The size, in bytes, of an individual element of the data array
   u64 count;
-  union {
-    i8* signedByte;
-    u8* unsignedByte;
-    i16* signedWord;
-    u16* unsignedWord;
-    i32* signedDWord;
-    u32* unsignedDWord;
-    f32* shortFloat;
-    vec2* twoDVector;
-    vec3* threeDVector;
-    vec4* fourDVector;
-  };
+  u8 *data;
 }gltf_data_stream;
 
 /**
@@ -313,10 +321,72 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf);
 void free_gltf(gltf_object* out_gltf);
 
 /**
- * @brief Obtains the XXX stream using the accessor at the index provided
+ * @brief Frees the memory that the gltf_object uses but not the pointer itself
  * @param gltf The gltf object to pull the stream from
  * @param accIndex The index of the accessor to pull data from
- * @param outStream The stream being created. The array in the union is heap allocated and needs to be freed.
+ * @param outSize A pointer to the u64 where the size of a single element should be inputed, not used if NULL
+ * @param outType A pointer to the gltf_data_type enum, not used if NULL
+ * @return FALSE if the accIndex is out of range of the gltf accessors, TRUE otherwise
+ */
+b8 gltf_accessor_get_element_size_type(gltf_object* gltf, u64 accIndex, u64 *outSize, gltf_data_type *outType);
+
+/**
+ * @brief Frees the memory that the gltf_object uses but not the pointer itself
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outCount A pointer to the u64 where the number of elements should be inputed
+ * @return FALSE if the accIndex is out of range of the gltf accessors, TRUE otherwise
+ */
+b8 gltf_accessor_get_element_count(gltf_object* gltf, u64 accIndex, u64 *outCount);
+
+
+/**
+ * @brief Obtains the gltf stream using the accessor at the index provided
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outStream The stream being created. The data pointer is heap allocated and needs to be freed using free_stream.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream);
+b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream);
+
+/**
+ * @brief Packes the data from the accessor into a u32 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_u32_array(gltf_object* gltf, u64 accIndex, u32 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into a vec2 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_vec2_array(gltf_object* gltf, u64 accIndex, vec2 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into a vec3 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec3 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into a vec4 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray);
+
+/**
+ * @brief Frees the data struct inside the data stream
+ * @param stream The gltf stream to free
+ */
+void gltf_free_stream(gltf_data_stream stream);

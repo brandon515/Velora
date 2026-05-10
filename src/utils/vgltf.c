@@ -1152,3 +1152,214 @@ void free_gltf(gltf_object* out_gltf){
     vfree(out_gltf->scenes, sizeof(gltf_scene)*out_gltf->sceneCount, MEMORY_TAG_GLTF);
   }
 }
+/*vmesh scratchMesh = {0};
+  gltf_mesh mesh = obj->meshes[meshIndex];
+  for(int i = 0; i < mesh.primitiveCount; i++){
+    gltf_mesh_primitive prim = mesh.primitives[i];
+    if(prim.indicies >= obj->accessorCount){
+      return FALSE;
+    }
+    gltf_accessor indexAcc = obj->accessors[prim.indicies];
+    if(indexAcc.bufferViewIndex >= obj->bufferViewCount){
+      return FALSE;
+    }
+    indexAcc.bufferViewIndex;
+  }
+    
+  #define GLTF_I8 5120
+#define GLTF_U8 5121
+#define GLTF_I16 5122
+#define GLTF_U16 5123
+#define GLTF_I32 5124
+#define GLTF_U32 5125
+#define GLTF_FLOAT 5126*/
+
+b8 gltf_accessor_get_element_size(gltf_object* gltf, u64 accIndex, u64 *outSize, gltf_data_type *outType){
+  if(accIndex >= gltf->accessorCount){
+    VERROR("GLTF accessor index %d is out of bounds, max index is %d", accIndex, gltf->accessorCount-1);
+    return FALSE;
+  }
+  gltf_accessor curAcc = gltf->accessors[accIndex];
+  if(vstrcmp(curAcc.type, "SCALAR") == FALSE && curAcc.componentType != GLTF_FLOAT){
+    VERROR("Velora doesn't support GLTF files that have vectors or matricies that aren't floats");
+    return FALSE;
+  }
+  gltf_data_type scratchType = 0;
+  u64 scratchSize = 0;
+  if(vstrcmp(curAcc.type, "MAT2")){
+    scratchType = MAT2D;
+    scratchSize = sizeof(mat2);
+  }else if(vstrcmp(curAcc.type, "MAT3")){
+    scratchType = MAT3D;
+    scratchSize = sizeof(mat3);
+  }else if(vstrcmp(curAcc.type, "MAT4")){
+    scratchType = MAT4D;
+    scratchSize = sizeof(mat4);
+  }else if(vstrcmp(curAcc.type, "VEC2")){
+    scratchType = VECTOR2D;
+    scratchSize = sizeof(vec2);
+  }else if(vstrcmp(curAcc.type, "VEC3")){
+    scratchType = VECTOR3D;
+    scratchSize = sizeof(vec3);
+  }else if(vstrcmp(curAcc.type, "VEC4")){
+    scratchType = VECTOR4D;
+    scratchSize = sizeof(vec4);
+  }else if(vstrcmp(curAcc.type, "SCALAR")){
+    switch (curAcc.componentType){
+      case GLTF_I8:
+        scratchType = I8;
+        scratchSize = sizeof(i8);
+      break;
+      case GLTF_U8:
+        scratchType = U8;
+        scratchSize = sizeof(u8);
+      break;
+      case GLTF_I16:
+        scratchType = I16;
+        scratchSize = sizeof(i16);
+      break;
+      case GLTF_U16:
+        scratchType = U16;
+        scratchSize = sizeof(u16);
+      break;
+      case GLTF_I32:
+        scratchType = I32;
+        scratchSize = sizeof(i32);
+      break;
+      case GLTF_U32:
+        scratchType = U32;
+        scratchSize = sizeof(u32);
+      break;
+      case GLTF_FLOAT:
+        scratchType = FLOAT;
+        scratchSize = sizeof(f32);
+      break;
+      default:
+        VERROR("GLTF accessor %d has invalid component type", accIndex);
+        return FALSE;
+      break;
+    }
+  }
+  if(outSize != NULL){
+    (*outSize) = scratchSize;
+  }
+  if(outType != NULL){
+    (*outType) = scratchType;
+  }
+  return TRUE;
+}
+
+b8 gltf_accessor_get_element_count(gltf_object* gltf, u64 accIndex, u64 *outCount){
+  if(accIndex >= gltf->accessorCount){
+    VERROR("GLTF accessor index %d is out of bounds, max index is %d", accIndex, gltf->accessorCount-1);
+    return FALSE;
+  }
+  (*outCount) = gltf->accessors[accIndex].count;
+  return TRUE;
+}
+
+b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream){
+  if(accIndex >= gltf->accessorCount){
+    VERROR("GLTF accessor index %d is out of bounds, max index is %d", accIndex, gltf->accessorCount-1);
+    return FALSE;
+  }
+  gltf_accessor curAcc = gltf->accessors[accIndex];
+  if(curAcc.bufferViewIndex >= gltf->bufferViewCount){
+    VERROR("GLTF buffer view index %d is out of bounds, max index is %d", curAcc.bufferViewIndex, gltf->bufferViewCount-1);
+    return FALSE;
+  }
+  gltf_buffer_view curView = gltf->bufferViews[curAcc.bufferViewIndex];
+  if(curView.bufferIndex >= gltf->bufferCount){
+    VERROR("GLTF buffer index %d is out of bounds, max index is %d", curView.bufferIndex, gltf->bufferCount-1);
+    return FALSE;
+  }
+  gltf_data_stream scratchStream = {0};
+  gltf_buffer curBuf = gltf->buffers[curView.bufferIndex];
+  scratchStream.count = curAcc.count;
+  VEL_CHECK(gltf_accessor_get_element_size(gltf, accIndex, &scratchStream.dataSize, &scratchStream.type));
+  scratchStream.data = vallocate(scratchStream.dataSize*scratchStream.count, MEMORY_TAG_GLTF);
+  u8 *buffer = curBuf.buffer + curView.offset;
+  u64 dataStride = scratchStream.dataSize;
+  if(curView.stride != 0){
+    dataStride = curView.stride;
+  }
+  for(int i = 0; i < curAcc.count; i++){
+    if(curView.offset+(dataStride*i)+scratchStream.dataSize >= curBuf.size){
+      VERROR("GLTF Accessor went beyond the bounds of the buffer. Buffer size %d, attempted access at %d", curBuf.size, curView.offset+(dataStride*i)+scratchStream.dataSize);
+      gltf_free_stream(scratchStream);
+      return FALSE;
+    }
+    vcopy_memory(scratchStream.data+(scratchStream.dataSize*i), buffer+(dataStride*i), scratchStream.dataSize);
+  }
+  vcopy_memory(outStream, &scratchStream, sizeof(scratchStream));
+  return TRUE;
+}
+
+b8 gltf_accessor_get_u32_array(gltf_object* gltf, u64 accIndex, u32 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == U8){
+    for(int i = 0; i < scratchStream.count; i++){
+      outArray[i] = scratchStream.data[i];
+    }
+  }else if(scratchStream.type == U16){
+    u16 *arr = (u16*)scratchStream.data;
+    for(int i = 0; i < scratchStream.count; i++){
+      outArray[i] = arr[i];
+    }
+  }else if(scratchStream.type == U32){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not able to be put in a u32 array", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_vec2_array(gltf_object* gltf, u64 accIndex, vec2 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == VECTOR2D){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not pointing to a 2D Vector type", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec3 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == VECTOR3D){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not pointing to a 3D Vector type", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == VECTOR4D){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not pointing to a 4D Vector type", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+void gltf_free_stream(gltf_data_stream stream){
+  vfree(stream.data, stream.dataSize*stream.count, MEMORY_TAG_GLTF);
+}
