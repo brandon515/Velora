@@ -2,6 +2,7 @@
 
 #include "defines.h"
 #include "utils/vimage.h"
+#include "utils/vgltf.h"
 
 typedef struct _vmaterial {
   velora_pixels baseColor;
@@ -15,3 +16,7 @@ typedef struct _vmaterial {
  * @return TRUE if the material was able to created, FALSE if there is no image at the provided URIs
  */
 b8 vmaterial_from_image(const char* baseColorURI, vmaterial *outMaterial);
+
+b8 vmaterial_from_gltf(gltf_object *gltf, u64 matIndex, vmaterial *outMaterial);
+
+void free_vmaterial(vmaterial* material);

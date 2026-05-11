@@ -6,7 +6,7 @@
 #include "core/vmemory.h"
 #include <vulkan/vulkan.h>
 #include "utils/vstring.h"
-#include "vk_mem_alloc.h"
+#include <vk_mem_alloc.h>
 #include "utils/vmath.h"
 #include "utils/vfile.h"
 #include <vulkan/vk_enum_string_helper.h>
@@ -947,8 +947,8 @@ b8 create_render_pass(vulkan_state* state){
 }
 
 b8 create_graphics_pipeline(vulkan_state* state){
-  VkShaderModule vertMod = get_shader_module(state, "vert.spv");
-  VkShaderModule fragMod = get_shader_module(state, "frag.spv");
+  VkShaderModule vertMod = get_shader_module(state, "vert.glsl.spv");
+  VkShaderModule fragMod = get_shader_module(state, "frag.glsl.spv");
   VkPipelineShaderStageCreateInfo vertexCreateInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
     .stage = VK_SHADER_STAGE_VERTEX_BIT,
@@ -1819,7 +1819,7 @@ b8 create_descriptor_sets(vulkan_state* state){
       bufferInfo[j].offset = (singleUBOBufferSize*i)+(uboAlignedSize*j);
       bufferInfo[j].range = sizeof(ubo);
     }
-    create_texture(state, "RenderRes/DefaultTexture.jpg", &state->defaultTexture);
+    create_texture(state, "DefaultTexture.png", &state->defaultTexture);
     VkDescriptorImageInfo imageInfo[VELORA_MAX_TEXTURES] = {0};
     for(int j = 0; j < VELORA_MAX_TEXTURES; j++){
       imageInfo[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

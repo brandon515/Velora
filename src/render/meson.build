@@ -1,0 +1,1 @@
+out_render_files = files('vmaterial.c', 'vmesh.c', 'velora_vulkan_render.c', 'vma_usage.cpp')

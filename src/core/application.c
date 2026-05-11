@@ -18,7 +18,7 @@ b8 close_event_handler(event* event, void* state){
 }
 
 b8 application_start(application_state *app_state){
-  app_state->render_state = platform_allocate(sizeof(render_state), FALSE);
+  app_state->render_state = vallocate(sizeof(render_state), MEMORY_TAG_RENDERER);
   app_state->is_running = TRUE;
   app_state->is_suspended = FALSE;
   app_state->width = START_WIDTH;

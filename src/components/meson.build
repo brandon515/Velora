@@ -1,0 +1,1 @@
+out_component_files = files('vcamera.c', 'vrenderable.c', 'vtransform.c')

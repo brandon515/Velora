@@ -1,0 +1,1 @@
+out_utils_files = files('vfile.c', 'vgltf.c', 'vjson.c', 'vstring.c', 'vimage.c', 'vmath.c')
