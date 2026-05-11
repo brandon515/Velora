@@ -9,6 +9,9 @@ void *stb_vallocate(u64 size){
 }
 
 void *stb_vreallocate(void *block, u64 new_size){
+  if(block == NULL){
+    return stb_vallocate(new_size);
+  }
   u64 *u64_block = ((u64*)block)-1;
   u64 old_size = u64_block[0];
   void* new_ptr = vreallocate(block, old_size, new_size+sizeof(u64), MEMORY_TAG_IMAGE);
@@ -21,6 +24,9 @@ void *stb_vreallocate(void *block, u64 new_size){
 }
 
 void stb_vfree(void *block){
+  if(block == NULL){
+    return;
+  }
   u64 *u64_block = ((u64*)block)-1;
   u64 size = u64_block[0];
   return vfree(u64_block, size, MEMORY_TAG_IMAGE);
