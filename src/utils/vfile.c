@@ -38,7 +38,7 @@ char* get_file_path(const char* uri){
   if(index == U64_MAX){
     index = vrfind(uri, '\\');
     if(index == U64_MAX){
-      return NULL;
+      return "./";
     }
   }
   return vsubstr(uri, 0, index+1);
