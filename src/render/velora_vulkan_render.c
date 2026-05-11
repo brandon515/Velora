@@ -1819,7 +1819,6 @@ b8 create_descriptor_sets(vulkan_state* state){
       bufferInfo[j].offset = (singleUBOBufferSize*i)+(uboAlignedSize*j);
       bufferInfo[j].range = sizeof(ubo);
     }
-    create_texture(state, "DefaultTexture.png", &state->defaultTexture);
     VkDescriptorImageInfo imageInfo[VELORA_MAX_TEXTURES] = {0};
     for(int j = 0; j < VELORA_MAX_TEXTURES; j++){
       imageInfo[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1955,7 +1954,7 @@ b8 initiate_render_system(render_state* state, const char* application_name, pla
   VEL_CHECK(create_frame_buffers(vk_state));
   VEL_CHECK(create_sync_objects(vk_state));
   VEL_CHECK(create_vertex_index_buffer(vk_state));
-  //VEL_CHECK(create_texture(vk_state, "texture.jpg", &vk_state->texImage));
+  VEL_CHECK(create_texture(vk_state, "DefaultTexture.png", &vk_state->defaultTexture))
   VEL_CHECK(create_uniform_buffers(vk_state));
   VEL_CHECK(create_descriptor_pool(vk_state));
   VEL_CHECK(create_descriptor_sets(vk_state));
