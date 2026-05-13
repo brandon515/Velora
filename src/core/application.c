@@ -1,9 +1,12 @@
 #include "application.h"
+#include "defines.h"
+#include "render/velora_render.h"
+#include "render/vmesh.h"
 #include "utils/vgltf.h"
-#include "utils/vstring.h"
 #include "core/vecs.h"
 #include "components/vcamera.h"
 #include "components/vtransform.h"
+#include "components/vrenderable.h"
 
 const char *NAME = "Velora";
 const i16 START_POS_X = 0;
@@ -47,22 +50,21 @@ b8 application_start(application_state *app_state){
   return TRUE;
 }
 
-#include "utils/vjson.h"
 b8 application_run(application_state* app_state){
-  /*gltf_object obj = {0};
-  if(import_gltf("Models/CameraTest/scene.gltf", &obj) == TRUE){
+  gltf_object obj = {0};
+  VEL_CHECK(import_gltf("Cube.gltf", &obj))
+  vmesh cube;
+  VEL_CHECK(vmesh_from_gltf(&obj, 0, &cube));
+  u64 renderableMeshHandle;
+  VEL_CHECK(register_mesh(app_state->render_state, cube, &renderableMeshHandle));
   free_gltf(&obj);
-  }*/
 
   u64 mainCamera = create_new_entity();
-  if(register_empty_transform(mainCamera) == FALSE){
-    VERROR("Unable to register transform");
-    return FALSE;
-  }
-  if(register_camera(mainCamera, TRUE) == FALSE){
-    VERROR("Unable to register Camera");
-    return FALSE;
-  }
+  VEL_CHECK_MSG(register_empty_transform(mainCamera), "Unable to register transform for main camera");
+  VEL_CHECK_MSG(register_camera(mainCamera, TRUE), "Unable to register Camera");
+  u64 firstRenderable = create_new_entity();
+  VEL_CHECK_MSG(register_transform(firstRenderable, 0, 0, -5, 0, 0, 0, 1, 1, 1), "Unable to register transform for first renderable");
+  VEL_CHECK_MSG(register_renderable(firstRenderable, renderableMeshHandle, 0), "Unable to register renderable");
   while(app_state->is_running){
     platform_pump_messages(&app_state->platform);
     pump_events(99.9f);

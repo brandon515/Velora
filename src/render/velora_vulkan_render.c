@@ -1,4 +1,5 @@
 #include "defines.h"
+#include "vulkan/vulkan_core.h"
 
 #ifdef VULKAN_RENDER
 #include "velora_render.h"
@@ -32,6 +33,8 @@
 #define VERTEX_BUFFER_SIZE (sizeof(vertex)*100000)
 //Current can hold 1,000,000 indices
 #define INDEX_BUFFER_SIZE (sizeof(u32)*1000000)
+
+#define UNIFORM_BUFFER_COUNT VELORA_MAX_OBJECTS
 
 #define VK_CHECK(expr, msg)                           \
   {VkResult err = expr;                               \
@@ -70,6 +73,7 @@ typedef struct _vulkan_mesh{
   u64 vertexOffset;
   u64 indexOffset;
   u64 indexCount;
+  u64 baseColorIndex;
 }vulkan_mesh;
 
 typedef struct _vulkan_material{
@@ -123,13 +127,11 @@ typedef struct _vulkan_state{
   VkDescriptorSet* descriptorSets;
   vulkan_image depthImage;
   vulkan_image textures[VELORA_MAX_TEXTURES];
-  vulkan_image defaultTexture;
   u64 curTextureIndex;
   vulkan_mesh meshes[VELORA_MAX_MESHES];
   vulkan_material materials[VELORA_MAX_MATERIALS];
   u64 curMeshIndex;
-  u64 vertexBufferUsedSize;
-  u64 indexBufferUsedSize;
+  u64 vertexIndexBufferUsedSize;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -219,6 +221,20 @@ b8 check_layer_support(const char** validation_layers, u32 num_of_layers){
 void enable_optional_feature(const char** enabled_layers, u32* current_count, const char* new_layer){
   enabled_layers[(*current_count)] = new_layer;
   (*current_count)++;
+}
+
+u64 get_UBO_aligned_size(VkPhysicalDevice physicalDevice){
+  VkPhysicalDeviceProperties physicalDeviceProps;
+  vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProps);
+  VkDeviceSize minUBOAlignment = physicalDeviceProps.limits.minUniformBufferOffsetAlignment;
+  VkDeviceSize uboAlignedSize = sizeof(ubo)+(minUBOAlignment-(sizeof(ubo)%minUBOAlignment));
+  return uboAlignedSize;
+}
+
+ubo *get_UBO_ptr(VkPhysicalDevice physicalDevice, u64 index, void* uboMemory){
+  u8* uboBytes = (u8*)uboMemory;
+  u64 uboAlignedSize = get_UBO_aligned_size(physicalDevice);
+  return (ubo*)(uboBytes+(uboAlignedSize*index));
 }
 
 b8 create_vulkan_instance(vulkan_state* state, const char* app_name){
@@ -743,7 +759,6 @@ b8 create_logical_device(vulkan_state* state, const char** extensions, u32 exten
   vkGetDeviceQueue(state->logicalDevice, state->graphicsQueueIndex, 0, &state->graphicsQueue);
   vkGetDeviceQueue(state->logicalDevice, state->presentQueueIndex, 0, &state->presentQueue);
   vkGetDeviceQueue(state->logicalDevice, state->transferQueueIndex, 0, &state->transferQueue);
-  vkGetPhysicalDeviceProperties(state->physicalDevice, &state->physicalDeviceProps);
   return TRUE;
 }
 
@@ -1037,7 +1052,7 @@ b8 create_graphics_pipeline(vulkan_state* state){
     .polygonMode = VK_POLYGON_MODE_FILL, // The other modes are good for wireframes and vertex points but requires enabling a GPU feature in the logical device
     .lineWidth = 1.0f,
     .cullMode = VK_CULL_MODE_BACK_BIT,
-    .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+    .frontFace = VK_FRONT_FACE_CLOCKWISE,
     .depthBiasEnable = VK_FALSE,
     .depthBiasConstantFactor = 0.0f, //Optional when depthBias is set to false
     .depthBiasClamp = 0.0f, //Optional when depthBias is set to false
@@ -1499,81 +1514,14 @@ b8 create_vertex_index_buffer(vulkan_state *state){
   return TRUE;
 }
 
-b8 register_mesh(render_state* state, vmesh mesh, u64 *outHandle){
-  vulkan_state *vk_state = (vulkan_state*)state->internal_render_state;
-  VkDeviceSize vertexSize = mesh.vertexCount*sizeof(vertex);
-  VkDeviceSize indexSize = mesh.indexCount*sizeof(u32);
-  vulkan_buffer vertexStagingBuffer = {0};
-  VEL_CHECK(create_exclusive_buffer(
-    vk_state,
-    &vertexStagingBuffer,
-    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    vertexSize,
-    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
-  ));
-
-  VK_CHECK(vmaCopyMemoryToAllocation(
-    vk_state->allocator,
-    mesh.vertices,
-    vertexStagingBuffer.memory,
-    0,
-    vertexSize
-  ), "Unable to fill vertex staging buffer with vertex data");
-  vulkan_buffer indexStagingBuffer = {0};
-  VEL_CHECK(create_exclusive_buffer(
-    vk_state,
-    &indexStagingBuffer,
-    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    indexSize,
-    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
-  ));
-
-  VK_CHECK(vmaCopyMemoryToAllocation(
-    vk_state->allocator,
-    mesh.indicies,
-    indexStagingBuffer.memory,
-    0,
-    indexSize
-  ), "Unable to fill index staging buffer with index data");
-
-  VEL_CHECK(copy_buffer(
-    vk_state, 
-    &vk_state->vertexIndexBuffer, 
-    &vertexStagingBuffer,
-    vertexSize,
-    0,
-    vk_state->vertexBufferUsedSize
-  ));
-  VEL_CHECK(copy_buffer(
-    vk_state, 
-    &vk_state->vertexIndexBuffer, 
-    &indexStagingBuffer,
-    indexSize,
-    0,
-    vk_state->indexBufferUsedSize
-  ));
-  vk_state->meshes[vk_state->curMeshIndex].indexCount = mesh.indexCount;
-  vk_state->meshes[vk_state->curMeshIndex].indexOffset = vk_state->indexBufferUsedSize;
-  vk_state->meshes[vk_state->curMeshIndex].vertexOffset = vk_state->vertexBufferUsedSize;
-  (*outHandle) = vk_state->curMeshIndex;
-  vk_state->curMeshIndex++;
-  vk_state->vertexBufferUsedSize += vertexSize;
-  vk_state->indexBufferUsedSize += indexSize;
-  destroy_vulkan_buffer(vk_state, &vertexStagingBuffer);
-  destroy_vulkan_buffer(vk_state, &indexStagingBuffer);
-  return TRUE;
-}
-
 b8 create_descriptor_set_layout(vulkan_state *state){
   u32 descriptorCount = 2;
   VkDescriptorSetLayoutBinding layoutBindings[descriptorCount];
   layoutBindings[0] = (VkDescriptorSetLayoutBinding){
     .binding = 0,
     .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    .descriptorCount = VELORA_MAX_OBJECTS,
-    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+    .descriptorCount = UNIFORM_BUFFER_COUNT,
+    .stageFlags = VK_SHADER_STAGE_ALL,
     .pImmutableSamplers = VK_NULL_HANDLE,
   };
   
@@ -1601,13 +1549,12 @@ b8 create_descriptor_set_layout(vulkan_state *state){
 }
 
 b8 create_uniform_buffers(vulkan_state *state){
-  VkDeviceSize minUBOAlignment = state->physicalDeviceProps.limits.minUniformBufferOffsetAlignment;
-  VkDeviceSize uboAlignedSize = sizeof(ubo)+(minUBOAlignment-(sizeof(ubo)%minUBOAlignment));
+  VkDeviceSize uboAlignedSize = get_UBO_aligned_size(state->physicalDevice);
   VEL_CHECK(create_exclusive_buffer(
     state,
     &state->uniformBuffer,
     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-    uboAlignedSize*VELORA_MAX_OBJECTS*MAX_FRAMES_IN_FLIGHT,
+    uboAlignedSize*UNIFORM_BUFFER_COUNT*MAX_FRAMES_IN_FLIGHT,
     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
     VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
   ));
@@ -1684,9 +1631,7 @@ b8 create_sampler(vulkan_state* state, vulkan_image* image){
   return TRUE;
 }
 
-b8 create_texture(vulkan_state* state, const char* filePath, vulkan_image* image){
-  velora_pixels imageData = {0};
-  import_pixels(filePath, &imageData);
+b8 create_texture(vulkan_state* state, velora_pixels imageData, vulkan_image* image){
   vulkan_buffer stagingBuffer;
   create_exclusive_buffer(
     state,
@@ -1754,12 +1699,134 @@ b8 create_texture(vulkan_state* state, const char* filePath, vulkan_image* image
   ));
 
   destroy_vulkan_buffer(state, &stagingBuffer);
-  free_pixels(&imageData);
   
   VEL_CHECK(create_image_view(state, image->image, VK_FORMAT_R8G8B8A8_SRGB, &image->view, VK_IMAGE_ASPECT_COLOR_BIT));
 
   VEL_CHECK(create_sampler(state, image));
 
+  return TRUE;
+}
+
+b8 update_descriptor_sets(vulkan_state* state){
+  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+    VkDeviceSize uboAlignedSize = get_UBO_aligned_size(state->physicalDevice);
+    VkDeviceSize singleUBOBufferSize = uboAlignedSize*UNIFORM_BUFFER_COUNT;
+    VkDescriptorBufferInfo bufferInfo[UNIFORM_BUFFER_COUNT];
+    for(int j = 0; j < UNIFORM_BUFFER_COUNT; j++){
+      bufferInfo[j].buffer = state->uniformBuffer.buffer;
+      bufferInfo[j].offset = (singleUBOBufferSize*i)+(uboAlignedSize*j);
+      bufferInfo[j].range = sizeof(ubo);
+    }
+    VkDescriptorImageInfo imageInfo[VELORA_MAX_TEXTURES] = {0};
+    for(int j = 0; j < VELORA_MAX_TEXTURES; j++){
+      imageInfo[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      imageInfo[j].imageView = state->textures[j].view;
+      imageInfo[j].sampler = state->textures[j].sampler;
+    }
+    u32 descCount = 2;
+    VkWriteDescriptorSet descriptorWrite[2];
+    
+    descriptorWrite[0] = (VkWriteDescriptorSet){
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .dstSet = state->descriptorSets[i],
+      .dstBinding = 0,
+      .dstArrayElement = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+      .descriptorCount = UNIFORM_BUFFER_COUNT,
+      .pBufferInfo = bufferInfo,
+      .pImageInfo = VK_NULL_HANDLE,
+      .pTexelBufferView = VK_NULL_HANDLE,
+    };
+    descriptorWrite[1] = (VkWriteDescriptorSet){
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .dstSet = state->descriptorSets[i],
+      .dstBinding = 1,
+      .dstArrayElement = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      .descriptorCount = VELORA_MAX_TEXTURES,
+      .pBufferInfo = VK_NULL_HANDLE,
+      .pImageInfo = imageInfo,
+      .pTexelBufferView = VK_NULL_HANDLE,
+    };
+    vkUpdateDescriptorSets(
+      state->logicalDevice, 
+      descCount, 
+      descriptorWrite, 
+      0, 
+      VK_NULL_HANDLE
+    );
+  }
+  return TRUE;
+}
+
+b8 register_mesh(render_state* state, vmesh mesh, u64 *outHandle){
+  vulkan_state *vk_state = (vulkan_state*)state->internal_render_state;
+  VkDeviceSize vertexSize = mesh.vertexCount*sizeof(vertex);
+  VkDeviceSize indexSize = mesh.indexCount*sizeof(u32);
+  vulkan_buffer vertexStagingBuffer = {0};
+  VEL_CHECK(create_exclusive_buffer(
+    vk_state,
+    &vertexStagingBuffer,
+    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    vertexSize,
+    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+  ));
+
+  VK_CHECK(vmaCopyMemoryToAllocation(
+    vk_state->allocator,
+    mesh.vertices,
+    vertexStagingBuffer.memory,
+    0,
+    vertexSize
+  ), "Unable to fill vertex staging buffer with vertex data");
+  vulkan_buffer indexStagingBuffer = {0};
+  VEL_CHECK(create_exclusive_buffer(
+    vk_state,
+    &indexStagingBuffer,
+    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    indexSize,
+    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+  ));
+
+  VK_CHECK(vmaCopyMemoryToAllocation(
+    vk_state->allocator,
+    mesh.indicies,
+    indexStagingBuffer.memory,
+    0,
+    indexSize
+  ), "Unable to fill index staging buffer with index data");
+
+  VEL_CHECK(copy_buffer(
+    vk_state, 
+    &vk_state->vertexIndexBuffer, 
+    &vertexStagingBuffer,
+    vertexSize,
+    0,
+    vk_state->vertexIndexBufferUsedSize
+  ));
+  vk_state->meshes[vk_state->curMeshIndex].vertexOffset = vk_state->vertexIndexBufferUsedSize;
+  vk_state->vertexIndexBufferUsedSize += vertexSize;
+  destroy_vulkan_buffer(vk_state, &vertexStagingBuffer);
+  VEL_CHECK(copy_buffer(
+    vk_state, 
+    &vk_state->vertexIndexBuffer, 
+    &indexStagingBuffer,
+    indexSize,
+    0,
+    vk_state->vertexIndexBufferUsedSize
+  ));
+  vk_state->meshes[vk_state->curMeshIndex].indexOffset = vk_state->vertexIndexBufferUsedSize;
+  vk_state->vertexIndexBufferUsedSize += indexSize;
+  destroy_vulkan_buffer(vk_state, &indexStagingBuffer);
+  vk_state->meshes[vk_state->curMeshIndex].indexCount = mesh.indexCount;
+  VEL_CHECK(create_texture(vk_state, mesh.material.baseColor, &vk_state->textures[vk_state->curTextureIndex]));
+  vk_state->meshes[vk_state->curMeshIndex].baseColorIndex = vk_state->curTextureIndex;
+  VEL_CHECK(update_descriptor_sets(vk_state));
+  (*outHandle) = vk_state->curMeshIndex;
+  vk_state->curMeshIndex++;
+  vk_state->curTextureIndex++;
   return TRUE;
 }
 
@@ -1769,7 +1836,7 @@ b8 create_descriptor_pool(vulkan_state* state){
   
   poolSize[0] = (VkDescriptorPoolSize){
     .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    .descriptorCount = MAX_FRAMES_IN_FLIGHT*VELORA_MAX_OBJECTS,
+    .descriptorCount = MAX_FRAMES_IN_FLIGHT*UNIFORM_BUFFER_COUNT,
   };
   poolSize[1] = (VkDescriptorPoolSize){
     .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -1809,56 +1876,7 @@ b8 create_descriptor_sets(vulkan_state* state){
     &allocInfo,
     state->descriptorSets
   ), "Unable to allocate the descriptor sets");
-  for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-    VkDeviceSize minUBOAlignment = state->physicalDeviceProps.limits.minUniformBufferOffsetAlignment;
-    VkDeviceSize uboAlignedSize = sizeof(ubo)+(minUBOAlignment-(sizeof(ubo)%minUBOAlignment));
-    VkDeviceSize singleUBOBufferSize = uboAlignedSize*VELORA_MAX_OBJECTS;
-    VkDescriptorBufferInfo bufferInfo[VELORA_MAX_OBJECTS];
-    for(int j = 0; j < VELORA_MAX_OBJECTS; j++){
-      bufferInfo[j].buffer = state->uniformBuffer.buffer;
-      bufferInfo[j].offset = (singleUBOBufferSize*i)+(uboAlignedSize*j);
-      bufferInfo[j].range = sizeof(ubo);
-    }
-    VkDescriptorImageInfo imageInfo[VELORA_MAX_TEXTURES] = {0};
-    for(int j = 0; j < VELORA_MAX_TEXTURES; j++){
-      imageInfo[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-      imageInfo[j].imageView = state->defaultTexture.view;
-      imageInfo[j].sampler = state->defaultTexture.sampler;
-    }
-    u32 descCount = 2;
-    VkWriteDescriptorSet descriptorWrite[2];
-    
-    descriptorWrite[0] = (VkWriteDescriptorSet){
-      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-      .dstSet = state->descriptorSets[i],
-      .dstBinding = 0,
-      .dstArrayElement = 0,
-      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-      .descriptorCount = VELORA_MAX_OBJECTS,
-      .pBufferInfo = bufferInfo,
-      .pImageInfo = VK_NULL_HANDLE,
-      .pTexelBufferView = VK_NULL_HANDLE,
-    };
-    descriptorWrite[1] = (VkWriteDescriptorSet){
-      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-      .dstSet = state->descriptorSets[i],
-      .dstBinding = 1,
-      .dstArrayElement = 0,
-      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-      .descriptorCount = VELORA_MAX_TEXTURES,
-      .pBufferInfo = VK_NULL_HANDLE,
-      .pImageInfo = imageInfo,
-      .pTexelBufferView = VK_NULL_HANDLE,
-    };
-    vkUpdateDescriptorSets(
-      state->logicalDevice, 
-      descCount, 
-      descriptorWrite, 
-      0, 
-      VK_NULL_HANDLE
-    );
-  }
-  return TRUE;
+  return update_descriptor_sets(state);
 }
 
 
@@ -1910,8 +1928,7 @@ b8 initiate_render_system(render_state* state, const char* application_name, pla
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
 
   vk_state->curMeshIndex = 0;
-  vk_state->vertexBufferUsedSize = 0;
-  vk_state->indexBufferUsedSize = 0;
+  vk_state->vertexIndexBufferUsedSize = 0;
   vk_state->currentFrame = 0;
   //TODO: This is horrendous, delete it entirely when we load objects from HDD
   /*vertex vertices[] = {
@@ -1954,7 +1971,13 @@ b8 initiate_render_system(render_state* state, const char* application_name, pla
   VEL_CHECK(create_frame_buffers(vk_state));
   VEL_CHECK(create_sync_objects(vk_state));
   VEL_CHECK(create_vertex_index_buffer(vk_state));
-  VEL_CHECK(create_texture(vk_state, "DefaultTexture.png", &vk_state->defaultTexture))
+  velora_pixels imageData = {0};
+  VEL_CHECK(import_pixels("DefaultTexture.png", &imageData));
+  vulkan_image defaultTexture;
+  VEL_CHECK(create_texture(vk_state, imageData, &defaultTexture));
+  for(int i = 0; i < VELORA_MAX_TEXTURES; i++){
+    vcopy_memory(&vk_state->textures[i], &defaultTexture, sizeof(defaultTexture));
+  }
   VEL_CHECK(create_uniform_buffers(vk_state));
   VEL_CHECK(create_descriptor_pool(vk_state));
   VEL_CHECK(create_descriptor_sets(vk_state));
@@ -1965,7 +1988,9 @@ void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vkDeviceWaitIdle(vk_state->logicalDevice);
   destroy_vulkan_image(vk_state, &vk_state->depthImage);
-  //destroy_vulkan_image(vk_state, &vk_state->texImage);
+  for(int i = 0; i < VELORA_MAX_TEXTURES; i++){
+    destroy_vulkan_image(vk_state, &vk_state->textures[i]);
+  }
   vfree(vk_state->descriptorSets, sizeof(VkDescriptorSet)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vkDestroyDescriptorPool(vk_state->logicalDevice, vk_state->descriptorPool, NULL);
   vkDestroyDescriptorSetLayout(vk_state->logicalDevice, vk_state->descriptorSetLayout, NULL);
@@ -2123,7 +2148,6 @@ b8 render_frame(render_state* state){
   VkBuffer vertexBuffers[] = {vk_state->vertexIndexBuffer.buffer};
   VkDeviceSize offsets[] = {0};
   vkCmdBindVertexBuffers(buffer, 0, 1, vertexBuffers, offsets);
-  vkCmdBindIndexBuffer(buffer, vk_state->vertexIndexBuffer.buffer, VERTEX_BUFFER_SIZE, VK_INDEX_TYPE_UINT32);
   vkCmdBindDescriptorSets(
     buffer, 
     VK_PIPELINE_BIND_POINT_GRAPHICS, 
@@ -2137,21 +2161,38 @@ b8 render_frame(render_state* state){
   darray *renderables;
   if(get_components(VELORA_COMPONENT_RENDERABLE, &renderables) == TRUE){
     iterator renIt = darray_create_iterator(renderables);
-    vrenderable *itObj;
+    vcomponent *itObj;
     u64 curObjIndex = 0;
     while(iterator_next(&renIt, (void**)&itObj)){
-      mat4 modelMatrix = transform_get_model_matrix(itObj->transform);
+      vrenderable *curRenderable = (vrenderable*)itObj->data;
+      vulkan_mesh curMesh = vk_state->meshes[curRenderable->meshHandle];
+      mat4 modelMatrix = transform_get_model_matrix(curRenderable->transform);
       mat4 mvpMatrix = matrix4_multiply(modelMatrix, viewProjMatrix);
-      ubo* uniformBufferMemory = (ubo*)vk_state->uniformBuffer.memory_info.pMappedData;
-      u64 curUBOIndex = (VELORA_MAX_OBJECTS* vk_state->currentFrame)+(curObjIndex);
+      ubo* uniformBufferMemory = get_UBO_ptr(vk_state->physicalDevice, (vk_state->currentFrame*UNIFORM_BUFFER_COUNT)+curObjIndex, vk_state->uniformBuffer.memory_info.pMappedData);
+      u64 curUBOIndex = curObjIndex;
       uniformBufferMemory[curUBOIndex].mvpMat = mvpMatrix;
-      uniformBufferMemory[curObjIndex].textureIndex = vk_state->materials[itObj->materialHandle].baseColorTextureIndex;
+      uniformBufferMemory[curUBOIndex].textureIndex = curMesh.baseColorIndex;
       push_constant push = {
         .uboIndex = curUBOIndex,
       };
-      vkCmdPushConstants(buffer, vk_state->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), &push);
-      vulkan_mesh curMesh = vk_state->meshes[itObj->meshHandle];
-      vkCmdDrawIndexed(buffer, curMesh.indexCount, 1, curMesh.indexOffset, curMesh.vertexOffset, 0);
+      curObjIndex++;
+      vkCmdBindIndexBuffer(buffer, vk_state->vertexIndexBuffer.buffer, curMesh.indexOffset, VK_INDEX_TYPE_UINT32);
+      vkCmdPushConstants(
+        buffer, 
+        vk_state->pipelineLayout, 
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+        0, 
+        sizeof(push), 
+        &push
+      );
+      vkCmdDrawIndexed(
+        buffer, 
+        curMesh.indexCount, 
+        1, 
+        0, 
+        curMesh.vertexOffset, 
+        0
+      );
     }
   }
 

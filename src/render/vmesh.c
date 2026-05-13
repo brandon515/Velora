@@ -32,9 +32,12 @@ b8 vmesh_from_gltf(gltf_object *obj, u64 meshIndex, vmesh *outMesh){
       gltf_accessor_get_vec2_array(obj, prim.attributes.texCoords[0], texCoords);
     }
     for(int i = 0; i < scratchMesh.vertexCount; i++){
-      scratchMesh.vertices[i].pos = positions[i];
-      scratchMesh.vertices[i].normal = normals[i];
-      scratchMesh.vertices[i].texCoord = texCoords[i];
+      vec3 position = positions[i];
+      vec3 normal = normals[i];
+      vec2 texCoord = texCoords[i];
+      scratchMesh.vertices[i].pos = position;
+      scratchMesh.vertices[i].normal = normal;
+      scratchMesh.vertices[i].texCoord = texCoord;
     }
     VEL_CHECK(gltf_accessor_get_element_count(obj, prim.indicies, &scratchMesh.indexCount));
     scratchMesh.indicies = vallocate(scratchMesh.indexCount*sizeof(u32), MEMORY_TAG_RENDERER);
@@ -43,7 +46,7 @@ b8 vmesh_from_gltf(gltf_object *obj, u64 meshIndex, vmesh *outMesh){
       return FALSE;
     }
     vmaterial_from_gltf(obj, prim.material, &scratchMesh.material);
-    (*outMesh) = scratchMesh;
+    vcopy_memory(outMesh, &scratchMesh, sizeof(vmesh));
   }
   return TRUE;
 }

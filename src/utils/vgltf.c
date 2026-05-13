@@ -752,7 +752,10 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     (void**)&out_gltf->buffers, 
     "buffers", 
     extract_gltf_buffer,
-    &gltfJson,uriPath,threadIds,&threadCount
+    &gltfJson,
+    uriPath,
+    threadIds,
+    &threadCount
   );
 
   start_import_thread(
@@ -779,7 +782,10 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     (void**)&out_gltf->images, 
     "images", 
     extract_gltf_image, 
-    &gltfJson,uriPath,threadIds,&threadCount
+    &gltfJson,
+    uriPath,
+    threadIds,
+    &threadCount
   );
 
   start_import_thread(
@@ -1284,7 +1290,7 @@ b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream)
     dataStride = curView.stride;
   }
   for(int i = 0; i < curAcc.count; i++){
-    if(curView.offset+(dataStride*i)+scratchStream.dataSize >= curBuf.size){
+    if(curView.offset+(dataStride*i)+scratchStream.dataSize > curBuf.size){
       VERROR("GLTF Accessor went beyond the bounds of the buffer. Buffer size %d, attempted access at %d", curBuf.size, curView.offset+(dataStride*i)+scratchStream.dataSize);
       gltf_free_stream(scratchStream);
       return FALSE;
