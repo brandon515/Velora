@@ -2,7 +2,7 @@
 
 #include "defines.h"
 #include "core/event.h"
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 #include "render/vmesh.h"
 #include "render/vmaterial.h"
 

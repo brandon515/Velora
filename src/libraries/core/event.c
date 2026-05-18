@@ -2,7 +2,7 @@
 #include "core/container/darray.h"
 #include "core/vmemory.h"
 #include "core/logger.h"
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 
 // typedef b8 (*event_listener)(event* event);
 

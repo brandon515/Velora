@@ -1,5 +1,7 @@
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 #include "defines.h"
+#include "core/event.h"
+#include "core/logger.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -66,10 +68,9 @@ VEXPORT void platform_shutdown(platform_state* state){
 }
 
 VEXPORT b8 platform_pump_messages(platform_state* state){
-  /*linux_state* lState = (linux_state*)state->internal_state;
   XEvent newXEvent;
-  while(XPending(lState->dis)){
-    XNextEvent(lState->dis, &newXEvent);
+  while(XPending(state->dis)){
+    XNextEvent(state->dis, &newXEvent);
     switch (newXEvent.type)
     {
     case DestroyNotify:
@@ -118,8 +119,8 @@ VEXPORT b8 platform_pump_messages(platform_state* state){
       }
       mouse_button_data dat = {
         .pressed = (newXEvent.type == ButtonPress),
-        .x = lState->mouseX,
-        .y = lState->mouseY,
+        .x = state->mouseX,
+        .y = state->mouseY,
       };
       if(eventDat.button == Button1){
         dat.button_code = MOUSE_L_BUTTON;
@@ -140,8 +141,8 @@ VEXPORT b8 platform_pump_messages(platform_state* state){
     }break;
     case MotionNotify:{
       XPointerMovedEvent eventDat = newXEvent.xmotion;
-      lState->mouseX = eventDat.x;
-      lState->mouseY = eventDat.y;
+      state->mouseX = eventDat.x;
+      state->mouseY = eventDat.y;
       mouse_position_data dat = {
         .x = eventDat.x,
         .y = eventDat.y,
@@ -151,7 +152,7 @@ VEXPORT b8 platform_pump_messages(platform_state* state){
     default:
       break;
     }
-  }*/
+  }
   return TRUE;
 }
 

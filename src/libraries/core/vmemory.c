@@ -1,7 +1,7 @@
 #include "core/vmemory.h"
 
 #include "core/logger.h"
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 
 #include <stdio.h>
 #include <string.h>

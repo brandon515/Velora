@@ -1,8 +1,10 @@
 out_core_files = files('event.c', 'input.c', 'logger.c', 'vmemory.c', 'stb_image.c')
 subdir('utils')
 subdir('container')
+subdir('platform')
 out_core_files += out_utils_files
 out_core_files += out_containers_files
+out_core_files += out_platform_files
 
 if host_machine.system() == 'linux'
   cc = meson.get_compiler('c')
@@ -11,8 +13,7 @@ endif
 
 out_core_lib = library('velora_core',
   out_core_files,
-  link_with: out_platform_lib,
-  dependencies: m_dep,
+  dependencies: [m_dep, platform_deps],
   include_directories: inc,
   pic: true,
   link_language: 'c',

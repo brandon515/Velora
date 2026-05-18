@@ -1,7 +1,7 @@
 #pragma once
 
 #include "defines.h"
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 #include "render/velora_render.h"
 #include "core/input.h"
 
