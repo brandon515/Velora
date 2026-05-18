@@ -1,0 +1,100 @@
+#include "core/vmemory.h"
+
+#include "core/logger.h"
+#include "platform/platform.h"
+
+#include <stdio.h>
+#include <string.h>
+
+typedef struct _mem_stats{
+  u64 total_allocated;
+  u64 tagged_allocations[MEMORY_TAG_END_TAG];
+} memory_stats;
+
+static memory_stats mem_stats;
+
+void initialize_memory(){
+  mem_stats.total_allocated = 0;
+  for(int i = 0; i < MEMORY_TAG_END_TAG; i++){
+    mem_stats.tagged_allocations[i] = 0;
+  }
+}
+
+void shutdown_memory(){
+
+}
+
+void* vallocate(u64 size, memory_tag tag){
+  if(tag == MEMORY_TAG_UNKNOWN){
+    VWARN("Memory tag unknown was used, reclassify soon");
+  }
+  void* ret_block = platform_allocate(size, FALSE);
+  platform_zero_memory(ret_block, size);
+
+  mem_stats.total_allocated += size;
+  mem_stats.tagged_allocations[tag] += size;
+  return ret_block;
+}
+
+void* vreallocate(void *block, u64 old_size, u64 new_size, memory_tag tag){
+  void *retPoint = platform_reallocate(block, new_size);
+  if(retPoint == NULL){
+    return NULL;
+  }
+  mem_stats.total_allocated -= old_size;
+  mem_stats.tagged_allocations[tag] -= old_size;
+  mem_stats.total_allocated += new_size;
+  mem_stats.tagged_allocations[tag] += new_size;
+  return retPoint;
+}
+
+void vfree(void* block, u64 size, memory_tag tag){
+  platform_free(block, FALSE);
+  mem_stats.total_allocated -= size;
+  mem_stats.tagged_allocations[tag] -= size;
+}
+
+void* vzero_memory(void* block, u64 size){
+  platform_zero_memory(block, size);
+  return block;
+}
+
+void* vcopy_memory(void* dest, const void* src, u64 size){
+  platform_copy_memory(dest, src, size);
+  return dest;
+}
+
+void* vset_memory(void* block, i32 value, u64 size){
+  platform_set_memory(block, value, size);
+  return block;
+}
+
+char* get_memory_usage_str(){
+  const u64 kib = 1024;
+  const u64 mib = kib * 1024;
+  const u64 gib = mib * 1024;
+
+  char* buffer = platform_allocate(16384, FALSE);
+  sprintf(buffer, "%s", "System memory use (tagged):\n");
+  u64 offset = strlen(buffer);
+  for(int i = 0; i < MEMORY_TAG_END_TAG; i++){
+    char size_desc[4] = "Xib";
+    float amount = mem_stats.tagged_allocations[i];
+    if(mem_stats.tagged_allocations[i] > gib){
+      size_desc[0] = 'g';
+      amount /= gib;
+    }else if(mem_stats.tagged_allocations[i] > mib){
+      size_desc[0] = 'm';
+      amount /= mib;
+    }else if(mem_stats.tagged_allocations[i] > kib){
+      size_desc[0] = 'k';
+      amount /= kib;
+    }else{
+      size_desc[0] = 'b';
+      size_desc[1] = 0;
+    }
+    i32 length = snprintf(buffer+offset, 16384, "%s: %.2f %s\n", memory_tag_strings[i], amount, size_desc);
+    offset += length;
+  }
+  return buffer;
+}

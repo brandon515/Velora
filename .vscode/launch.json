@@ -4,14 +4,30 @@
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
-
     {
       "name": "Launch",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceRoot}/bin/engine",
+      "program": "${workspaceRoot}/bin/lib_test",
       "args": [],
-      "cwd": "${workspaceRoot}/bin/"
+      "cwd": "${workspaceRoot}/bin/",
+      "additionalSOLibSearchPath": "/home/theman515/Projects/Velora/builddir/src/libraries/platform/libvelora_platform.so.p/libvelora_platform.so.symbols",
+    },
+    {
+      "name": "lib_test",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/lib_test",
+      "args": [],
+      "cwd": "${workspaceFolder}/bin",
+      "environment": [],
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "setupCommands": [
+          {
+              "text": "-enable-pretty-printing",
+          }
+      ],
     }
   ]
 }

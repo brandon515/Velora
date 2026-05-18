@@ -1,1 +1,0 @@
-out_platform_files = files('platform_win32.c', 'platform_linux.c')

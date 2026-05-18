@@ -1,1 +1,0 @@
-out_core_files = files('application.c', 'event.c', 'input.c', 'logger.c', 'vecs.c', 'vmemory.c', 'stb_image.c')
