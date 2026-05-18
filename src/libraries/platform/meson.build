@@ -13,6 +13,7 @@ out_platform_lib = library('velora_platform',
   pic: true,
   link_language: 'c',
   c_args: ['-g', '-Wvarargs', '-Wall', '-Werror'],
+  link_args: ['-g'],
   install: true,
   install_dir: meson.project_source_root() / 'bin' / 'plugins'
 )

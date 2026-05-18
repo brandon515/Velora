@@ -15,6 +15,7 @@ out_vulkan_lib = library('vulkan_render',
   link_language: 'c',
   c_args: ['-g', '-Wvarargs', '-Wall', '-Werror'],
   cpp_args: ['-Wno-nullability-completeness', '-g', '-std=c++23'],
+  link_args: ['-g'],
   install: true,
   install_dir: meson.project_source_root() / 'bin' / 'plugins'
 )
