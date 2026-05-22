@@ -1,4 +1,5 @@
 #include "defines.h"
+#include "vulkan/vulkan_core.h"
 
 #ifdef VULKAN_RENDER
 #include "render/velora_render.h"
@@ -34,6 +35,7 @@
 #define INDEX_BUFFER_SIZE (sizeof(u32)*1000000)
 
 #define UNIFORM_BUFFER_COUNT VELORA_MAX_OBJECTS
+#define SKIN_BUFFER_COUNT (VELORA_MAX_OBJECTS*VELORA_MAX_JOINTS)
 
 #define VK_CHECK(expr, msg)                           \
   {VkResult err = expr;                               \
@@ -46,12 +48,17 @@
 typedef struct _ubo{
   mat4x4 mvpMat;
   u64 textureIndex;
+  u64 skinOffset;
 } ubo;
+
+typedef struct _skinUBO{
+  mat4 jointMat;
+} skinUBO;
 
 typedef struct _push_constant{
   u32 uboIndex;
-  u32 padding;
-  u64 padding2;
+  u64 padding;
+  u32 padding2;
 } push_constant;
 
 typedef struct _vulkan_buffer{
@@ -70,6 +77,7 @@ typedef struct _vulkan_image{
 
 typedef struct _vulkan_mesh{
   u64 vertexOffset;
+  u64 skinOffset;
   u64 indexOffset;
   u64 indexCount;
   u64 baseColorIndex;
@@ -122,6 +130,7 @@ typedef struct _vulkan_state{
   u32 newWidth, newHeight;
   vulkan_buffer vertexIndexBuffer;
   vulkan_buffer uniformBuffer;
+  vulkan_buffer skinBuffer;
   VkDescriptorPool descriptorPool;
   VkDescriptorSet* descriptorSets;
   vulkan_image depthImage;
@@ -222,17 +231,17 @@ void enable_optional_feature(const char** enabled_layers, u32* current_count, co
   (*current_count)++;
 }
 
-u64 get_UBO_aligned_size(VkPhysicalDevice physicalDevice){
+u64 get_UBO_aligned_size(VkPhysicalDevice physicalDevice, u64 uboSize){
   VkPhysicalDeviceProperties physicalDeviceProps;
   vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProps);
   VkDeviceSize minUBOAlignment = physicalDeviceProps.limits.minUniformBufferOffsetAlignment;
-  VkDeviceSize uboAlignedSize = sizeof(ubo)+(minUBOAlignment-(sizeof(ubo)%minUBOAlignment));
+  VkDeviceSize uboAlignedSize = uboSize+(minUBOAlignment-(uboSize%minUBOAlignment));
   return uboAlignedSize;
 }
 
-ubo *get_UBO_ptr(VkPhysicalDevice physicalDevice, u64 index, void* uboMemory){
+void *get_UBO_ptr(VkPhysicalDevice physicalDevice, u64 uboSize, u64 index, void* uboMemory){
   u8* uboBytes = (u8*)uboMemory;
-  u64 uboAlignedSize = get_UBO_aligned_size(physicalDevice);
+  u64 uboAlignedSize = get_UBO_aligned_size(physicalDevice, uboSize);
   return (ubo*)(uboBytes+(uboAlignedSize*index));
 }
 
@@ -993,7 +1002,7 @@ b8 create_graphics_pipeline(vulkan_state* state){
     .stride = sizeof(vertex),
     .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
   };
-  const u8 numOfVertexStructMembers = 3;
+  const u8 numOfVertexStructMembers = 5;
   VkVertexInputAttributeDescription vertexStructDesc[numOfVertexStructMembers];
 
   vertexStructDesc[0].binding = 0;
@@ -1010,6 +1019,16 @@ b8 create_graphics_pipeline(vulkan_state* state){
   vertexStructDesc[2].location = 2;
   vertexStructDesc[2].format = VK_FORMAT_R32G32_SFLOAT;
   vertexStructDesc[2].offset = offsetof(vertex, texCoord);
+
+  vertexStructDesc[2].binding = 0;
+  vertexStructDesc[2].location = 3;
+  vertexStructDesc[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+  vertexStructDesc[2].offset = offsetof(vertex, weights);
+
+  vertexStructDesc[2].binding = 0;
+  vertexStructDesc[2].location = 4;
+  vertexStructDesc[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+  vertexStructDesc[2].offset = offsetof(vertex, joints);
   VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
     .vertexBindingDescriptionCount = 1,
@@ -1111,7 +1130,7 @@ b8 create_graphics_pipeline(vulkan_state* state){
   VkPushConstantRange pushRange = {
     .offset = 0,
     .size = sizeof(push_constant),
-    .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT,
+    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
   };
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -1514,13 +1533,13 @@ b8 create_vertex_index_buffer(vulkan_state *state){
 }
 
 b8 create_descriptor_set_layout(vulkan_state *state){
-  u32 descriptorCount = 2;
+  u32 descriptorCount = 3;
   VkDescriptorSetLayoutBinding layoutBindings[descriptorCount];
   layoutBindings[0] = (VkDescriptorSetLayoutBinding){
     .binding = 0,
     .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
     .descriptorCount = UNIFORM_BUFFER_COUNT,
-    .stageFlags = VK_SHADER_STAGE_ALL,
+    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
     .pImmutableSamplers = VK_NULL_HANDLE,
   };
   
@@ -1529,6 +1548,14 @@ b8 create_descriptor_set_layout(vulkan_state *state){
     .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
     .descriptorCount = VELORA_MAX_TEXTURES,
     .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+    .pImmutableSamplers = VK_NULL_HANDLE,
+  };
+  
+  layoutBindings[2] = (VkDescriptorSetLayoutBinding){
+    .binding = 2,
+    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    .descriptorCount = SKIN_BUFFER_COUNT,
+    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
     .pImmutableSamplers = VK_NULL_HANDLE,
   };
   VkDescriptorSetLayoutCreateInfo createInfo = {
@@ -1548,12 +1575,21 @@ b8 create_descriptor_set_layout(vulkan_state *state){
 }
 
 b8 create_uniform_buffers(vulkan_state *state){
-  VkDeviceSize uboAlignedSize = get_UBO_aligned_size(state->physicalDevice);
+  VkDeviceSize uboAlignedSize = get_UBO_aligned_size(state->physicalDevice, sizeof(ubo));
   VEL_CHECK(create_exclusive_buffer(
     state,
     &state->uniformBuffer,
     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
     uboAlignedSize*UNIFORM_BUFFER_COUNT*MAX_FRAMES_IN_FLIGHT,
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+  ));
+  VkDeviceSize skinBufferSize = get_UBO_aligned_size(state->physicalDevice, sizeof(skinUBO));
+  VEL_CHECK(create_exclusive_buffer(
+    state,
+    &state->uniformBuffer,
+    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+    skinBufferSize*SKIN_BUFFER_COUNT*MAX_FRAMES_IN_FLIGHT,
     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
     VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
   ));
@@ -1708,7 +1744,7 @@ b8 create_texture(vulkan_state* state, velora_pixels imageData, vulkan_image* im
 
 b8 update_descriptor_sets(vulkan_state* state){
   for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-    VkDeviceSize uboAlignedSize = get_UBO_aligned_size(state->physicalDevice);
+    VkDeviceSize uboAlignedSize = get_UBO_aligned_size(state->physicalDevice, sizeof(ubo));
     VkDeviceSize singleUBOBufferSize = uboAlignedSize*UNIFORM_BUFFER_COUNT;
     VkDescriptorBufferInfo bufferInfo[UNIFORM_BUFFER_COUNT];
     for(int j = 0; j < UNIFORM_BUFFER_COUNT; j++){
@@ -1722,8 +1758,16 @@ b8 update_descriptor_sets(vulkan_state* state){
       imageInfo[j].imageView = state->textures[j].view;
       imageInfo[j].sampler = state->textures[j].sampler;
     }
-    u32 descCount = 2;
-    VkWriteDescriptorSet descriptorWrite[2];
+    VkDeviceSize skinBufferAlignedSize = get_UBO_aligned_size(state->physicalDevice, sizeof(skinUBO));
+    VkDeviceSize singleSkinBufferSize = skinBufferAlignedSize*SKIN_BUFFER_COUNT;
+    VkDescriptorBufferInfo skinBufferInfo[SKIN_BUFFER_COUNT];
+    for(int j = 0; j < SKIN_BUFFER_COUNT; j++){
+      skinBufferInfo[j].buffer = state->skinBuffer.buffer;
+      skinBufferInfo[j].offset = (singleSkinBufferSize*i)+(skinBufferAlignedSize*j);
+      skinBufferInfo[j].range = sizeof(skinUBO);
+    }
+    const u32 descCount = 3;
+    VkWriteDescriptorSet descriptorWrite[descCount];
     
     descriptorWrite[0] = (VkWriteDescriptorSet){
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -1745,6 +1789,17 @@ b8 update_descriptor_sets(vulkan_state* state){
       .descriptorCount = VELORA_MAX_TEXTURES,
       .pBufferInfo = VK_NULL_HANDLE,
       .pImageInfo = imageInfo,
+      .pTexelBufferView = VK_NULL_HANDLE,
+    };
+    descriptorWrite[2] = (VkWriteDescriptorSet){
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .dstSet = state->descriptorSets[i],
+      .dstBinding = 2,
+      .dstArrayElement = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+      .descriptorCount = SKIN_BUFFER_COUNT,
+      .pBufferInfo = skinBufferInfo,
+      .pImageInfo = VK_NULL_HANDLE,
       .pTexelBufferView = VK_NULL_HANDLE,
     };
     vkUpdateDescriptorSets(
@@ -1830,7 +1885,7 @@ b8 register_mesh(render_state* state, vmesh mesh, u64 *outHandle){
 }
 
 b8 create_descriptor_pool(vulkan_state* state){
-  u32 poolCount = 2;
+  u32 poolCount = 3;
   VkDescriptorPoolSize poolSize[poolCount];
   
   poolSize[0] = (VkDescriptorPoolSize){
@@ -1840,6 +1895,10 @@ b8 create_descriptor_pool(vulkan_state* state){
   poolSize[1] = (VkDescriptorPoolSize){
     .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
     .descriptorCount = MAX_FRAMES_IN_FLIGHT*VELORA_MAX_TEXTURES,
+  };
+  poolSize[2] = (VkDescriptorPoolSize){
+    .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    .descriptorCount = MAX_FRAMES_IN_FLIGHT*SKIN_BUFFER_COUNT,
   };
 
   VkDescriptorPoolCreateInfo createInfo = {
@@ -2167,7 +2226,12 @@ b8 render_frame(render_state* state){
       vulkan_mesh curMesh = vk_state->meshes[curRenderable->meshHandle];
       mat4 modelMatrix = transform_get_model_matrix(curRenderable->transform);
       mat4 mvpMatrix = matrix4_multiply(modelMatrix, viewProjMatrix);
-      ubo* uniformBufferMemory = get_UBO_ptr(vk_state->physicalDevice, (vk_state->currentFrame*UNIFORM_BUFFER_COUNT)+curObjIndex, vk_state->uniformBuffer.memory_info.pMappedData);
+      ubo* uniformBufferMemory = (ubo*)get_UBO_ptr(
+        vk_state->physicalDevice, 
+        sizeof(ubo), 
+        (vk_state->currentFrame*UNIFORM_BUFFER_COUNT)+curObjIndex, 
+        vk_state->uniformBuffer.memory_info.pMappedData
+      );
       u64 curUBOIndex = curObjIndex;
       uniformBufferMemory[curUBOIndex].mvpMat = mvpMatrix;
       uniformBufferMemory[curUBOIndex].textureIndex = curMesh.baseColorIndex;
@@ -2179,7 +2243,7 @@ b8 render_frame(render_state* state){
       vkCmdPushConstants(
         buffer, 
         vk_state->pipelineLayout, 
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+        VK_SHADER_STAGE_VERTEX_BIT, 
         0, 
         sizeof(push), 
         &push
