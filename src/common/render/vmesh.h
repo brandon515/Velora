@@ -9,6 +9,8 @@ typedef struct _vertex {
   vec3 pos;
   vec3 normal;
   vec2 texCoord;
+  vec4 weights;
+  vec4 joints;
 } vertex;
 
 typedef struct _vmesh {
