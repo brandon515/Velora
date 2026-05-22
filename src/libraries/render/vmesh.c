@@ -42,6 +42,7 @@ b8 vmesh_from_gltf(gltf_object *obj, u64 meshIndex, vmesh *outMesh){
     VEL_CHECK(gltf_accessor_get_element_count(obj, prim.indicies, &scratchMesh.indexCount));
     scratchMesh.indicies = vallocate(scratchMesh.indexCount*sizeof(u32), MEMORY_TAG_RENDERER);
     if(gltf_accessor_get_u32_array(obj, prim.indicies, scratchMesh.indicies) == FALSE){
+      vfree(scratchMesh.vertices, scratchMesh.vertexCount*sizeof(vertex), MEMORY_TAG_RENDERER);
       vfree(scratchMesh.indicies, scratchMesh.indexCount*sizeof(u32), MEMORY_TAG_RENDERER);
       return FALSE;
     }
