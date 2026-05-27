@@ -6,23 +6,41 @@ vtransform* get_transform_component(u64 entityID){
   return get_component_data(entityID, VELORA_COMPONENT_TRANSFORM);
 }
 
-b8 register_empty_transform(u64 entityID){
-  return register_transform(entityID,
+vtransform create_transform(f32 posX, f32 posY, f32 posZ,
+                            f32 rotX, f32 rotY, f32 rotZ,
+                            f32 scaX, f32 scaY, f32 scaZ,
+                            vtransform* parent){
+  vtransform newTrans = {
+    .position = {{posX, posY, posZ}},
+    .rotation = {{rotX, rotY, rotZ}},
+    .scale = {{scaX, scaY, scaZ}},
+    parent
+  };
+  return newTrans;
+}
+
+b8 register_existing_transform(u64 entityID, vtransform trans){
+  return attach_component(VELORA_COMPONENT_TRANSFORM, entityID, sizeof(trans), &trans);
+}
+
+b8 register_empty_transform(u64 entityID, vtransform* parent){
+  return register_existing_transform(entityID, 
+          create_transform( 0.0f, 0.0f, 0.0f,
                             0.0f, 0.0f, 0.0f,
-                            0.0f, 0.0f, 0.0f,
-                            1.0f, 1.0f, 1.0f);
+                            1.0f, 1.0f, 1.0f,
+                            parent));
 }
 
 b8 register_transform(u64 entityID, 
                       f32 posX, f32 posY, f32 posZ,
                       f32 rotX, f32 rotY, f32 rotZ,
-                      f32 scaX, f32 scaY, f32 scaZ){
-  vtransform newTrans = {
-    .position = {{posX, posY, posZ}},
-    .rotation = {{rotX, rotY, rotZ}},
-    .scale = {{scaX, scaY, scaZ}}
-  };
-  return attach_component(VELORA_COMPONENT_TRANSFORM, entityID, sizeof(newTrans), &newTrans);
+                      f32 scaX, f32 scaY, f32 scaZ,
+                      vtransform* parent){
+  vtransform newTrans = create_transform( posX, posY, posZ,
+                                          rotX, rotY, rotZ,
+                                          scaX, scaY, scaZ,
+                                          parent);
+  return register_existing_transform(entityID, newTrans);
 }
 
 void transform_set_position(vtransform *transformComp, f32 posX, f32 posY, f32 posZ){

@@ -18,11 +18,39 @@ typedef struct _vtransform{
 vtransform* get_transform_component(u64 entityID);
 
 /*!
- * @brief Registers a transform that places the object at the origin, facing forward, scaled to 1.0
+ * @brief Creates a transform that is filled with the provided parameters independent of the ecs system
+ * @param posX The X component of the object's position
+ * @param posY The Y component of the object's position
+ * @param posZ The Z component of the object's position
+ * @param rotX The rotation in degrees around the x axis
+ * @param rotY The rotation in degrees around the y axis
+ * @param rotZ The rotation in degrees around the z axis
+ * @param scaX The amount of scaling in the x axis
+ * @param scaY The amount of scaling in the y axis
+ * @param scaZ The amount of scaling in the z axis
+ * @param parent A pointer to the parent transform
+ * @return A pass by reference vtransform
+ */
+vtransform create_transform(f32 posX, f32 posY, f32 posZ,
+                            f32 rotX, f32 rotY, f32 rotZ,
+                            f32 scaX, f32 scaY, f32 scaZ,
+                            vtransform* parent);
+
+/*!
+ * @brief Registers a transform that already is created outside the ECS
  * @param entityID The ID of the entity to attach the empty transform to
+ * @param trans A pass by reference transform, the data is copied to the ECS
  * @return TRUE if the component was able to be attached, FALSE if there was an existing transform component
  */
-b8 register_empty_transform(u64 entityID);
+b8 register_existing_transform(u64 entityID, vtransform trans);
+
+/*!
+ * @brief Registers a transform that places the object at the origin, facing forward, scaled to 1.0
+ * @param entityID The ID of the entity to attach the empty transform to
+ * @param parent A pointer to the parent transform
+ * @return TRUE if the component was able to be attached, FALSE if there was an existing transform component
+ */
+b8 register_empty_transform(u64 entityID, vtransform* parent);
 
 /*!
  * @brief Registers a transform that is filled with the provided parameters
@@ -36,12 +64,14 @@ b8 register_empty_transform(u64 entityID);
  * @param scaX The amount of scaling in the x axis
  * @param scaY The amount of scaling in the y axis
  * @param scaZ The amount of scaling in the z axis
+ * @param parent A pointer to the parent transform
  * @return TRUE if the component was able to be attached, FALSE if there was an existing transform component
  */
 b8 register_transform(u64 entityID, 
                       f32 posX, f32 posY, f32 posZ,
                       f32 rotX, f32 rotY, f32 rotZ,
-                      f32 scaX, f32 scaY, f32 scaZ);
+                      f32 scaX, f32 scaY, f32 scaZ,
+                      vtransform* parent);
 
 /*!
  * @brief Sets the position of the provided transform component
