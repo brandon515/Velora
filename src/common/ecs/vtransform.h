@@ -7,6 +7,7 @@ typedef struct _vtransform{
     vec3 position;
     vec3 rotation;
     vec3 scale;
+    struct _vtransform *parent;
 }vtransform;
 
 /*!

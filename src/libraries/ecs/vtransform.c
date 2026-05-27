@@ -1,4 +1,5 @@
 #include "ecs/vtransform.h"
+#include "core/utils/vmath.h"
 #include "ecs/vecs.h"
 
 vtransform* get_transform_component(u64 entityID){
@@ -55,5 +56,10 @@ void transform_rotate(vtransform *transformComp, vec3 axis, f32 rotationDegrees)
 }
 
 mat4 transform_get_model_matrix(vtransform *transformComp){
-  return model_matrix(transformComp->position, euler_to_quat(transformComp->rotation), transformComp->scale);
+  mat4 localTransform = model_matrix(transformComp->position, euler_to_quat(transformComp->rotation), transformComp->scale);
+  if(transformComp->parent == NULL){
+    return localTransform;
+  }
+  mat4 parentTransform = transform_get_model_matrix(transformComp->parent);
+  return matrix4_multiply(parentTransform, localTransform);
 }
