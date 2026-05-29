@@ -1366,6 +1366,151 @@ b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray)
   return TRUE;
 }
 
+b8 gltf_accessor_get_mat4_array(gltf_object* gltf, u64 accIndex, mat4 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == MAT4D){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not pointing to a 4x4 matrix type", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_u8_array(gltf_object* gltf, u64 accIndex, u8 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == U8){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not pointing to an unsigned 8 bit integer type", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_i8_array(gltf_object* gltf, u64 accIndex, i8 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == I8){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not pointing to a signed 8 bit integer type", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_u16_array(gltf_object* gltf, u64 accIndex, u16 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == U8){
+    for(int i = 0; i < scratchStream.count; i++){
+      outArray[i] = scratchStream.data[i];
+    }
+  }else if(scratchStream.type == U16){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not able to be put in a u16 array", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_i16_array(gltf_object* gltf, u64 accIndex, i16 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == I8){
+    i8 *arr = (i8*)scratchStream.data;
+    for(int i = 0; i < scratchStream.count; i++){
+      outArray[i] = arr[i];
+    }
+  }else if(scratchStream.type == I16){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not able to be put in an i16 array", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_i32_array(gltf_object* gltf, u64 accIndex, i32 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == I8){
+    i8 *arr = (i8*)scratchStream.data;
+    for(int i = 0; i < scratchStream.count; i++){
+      outArray[i] = arr[i];
+    }
+  }else if(scratchStream.type == I16){
+    i16 *arr = (i16*)scratchStream.data;
+    for(int i = 0; i < scratchStream.count; i++){
+      outArray[i] = arr[i];
+    }
+  }else if(scratchStream.type == I32){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not able to be put in an i32 array", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_f32_array(gltf_object* gltf, u64 accIndex, f32 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == FLOAT){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not pointing to a floating point type", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_mat2_array(gltf_object* gltf, u64 accIndex, mat2 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == MAT2D){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not pointing to a 2x2 matrix type", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
+b8 gltf_accessor_get_mat3_array(gltf_object* gltf, u64 accIndex, mat3 *outArray){
+  gltf_data_stream scratchStream = {0};
+  VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
+  if(scratchStream.type == MAT3D){
+    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+  }else{
+    VERROR("Accessor %d is not pointing to a 3x3 matrix type", accIndex);
+    gltf_free_stream(scratchStream);
+    return FALSE;
+  }
+  gltf_free_stream(scratchStream);
+  return TRUE;
+}
+
 void gltf_free_stream(gltf_data_stream stream){
   vfree(stream.data, stream.dataSize*stream.count, MEMORY_TAG_GLTF);
 }

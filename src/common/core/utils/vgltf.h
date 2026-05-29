@@ -386,6 +386,87 @@ b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec3 *outArray)
 b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray);
 
 /**
+ * @brief Packes the data from the accessor into a mat4 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_mat4_array(gltf_object* gltf, u64 accIndex, mat4 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into a u8 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_u8_array(gltf_object* gltf, u64 accIndex, u8 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into an i8 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_i8_array(gltf_object* gltf, u64 accIndex, i8 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into a u16 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_u16_array(gltf_object* gltf, u64 accIndex, u16 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into an i16 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_i16_array(gltf_object* gltf, u64 accIndex, i16 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into an i32 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_i32_array(gltf_object* gltf, u64 accIndex, i32 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into an f32 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_f32_array(gltf_object* gltf, u64 accIndex, f32 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into a mat2 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_mat2_array(gltf_object* gltf, u64 accIndex, mat2 *outArray);
+
+/**
+ * @brief Packes the data from the accessor into a mat3 array
+ * @param gltf The gltf object to pull the stream from
+ * @param accIndex The index of the accessor to pull data from
+ * @param outArray The stream being created. The data pointer is allocated outside the function.
+ * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
+ */
+b8 gltf_accessor_get_mat3_array(gltf_object* gltf, u64 accIndex, mat3 *outArray);
+
+/**
  * @brief Frees the data struct inside the data stream
  * @param stream The gltf stream to free
  */
