@@ -351,6 +351,13 @@ void decompose_model_matrix(mat4 matrix, vec3* out_translation, quat* out_quat, 
  */
 quat euler_to_quat(vec3 eulerDegreeAngles);
 
+/**
+ * @brief Turns a rotation quaternion into the rotation in degrees around each axis
+ * @param quaternion The quaternion to decompose into euler angles
+ * @return A pass by reference vec3 containing the rotation in degrees around the x, y, and z axies
+ */
+vec3 quat_to_euler(quat quaternion);
+
 /*! 
  * @brief Clamps the value between the minimum and maximum
  * @param value An interger to be contained

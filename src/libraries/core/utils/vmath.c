@@ -136,6 +136,33 @@ quat euler_to_quat(vec3 eulerDegreeAngles){
   return ret_quat;
 }
 
+vec3 quat_to_euler(quat quaternion){
+  vec3 euler = {0};
+
+  f32 sinRollCosPitch = 2 * (quaternion.w * quaternion.x + quaternion.y * quaternion.z);
+  f32 cosRollCosPitch = 1 - 2 * (quaternion.x * quaternion.x + quaternion.y * quaternion.y);
+  f32 roll = atan2(sinRollCosPitch, cosRollCosPitch);
+
+  f32 sinPitch = 2 * (quaternion.w * quaternion.y - quaternion.z * quaternion.x);
+  f32 pitch;
+  if(sinPitch >= 1){
+    pitch = V_PI / 2;
+  }else if(sinPitch <= -1){
+    pitch = -V_PI / 2;
+  }else{
+    pitch = asin(sinPitch);
+  }
+
+  f32 sinYawCosPitch = 2 * (quaternion.w * quaternion.z + quaternion.x * quaternion.y);
+  f32 cosYawCosPitch = 1 - 2 * (quaternion.y * quaternion.y + quaternion.z * quaternion.z);
+  f32 yaw = atan2(sinYawCosPitch, cosYawCosPitch);
+
+  euler.x = roll * (180 / V_PI);
+  euler.y = pitch * (180 / V_PI);
+  euler.z = yaw * (180 / V_PI);
+  return euler;
+}
+
 mat4 rotation_matrix(quat quaternion){
   mat4 ret_matrix = {0};
   f32 xx = quaternion.x*quaternion.x;
