@@ -13,5 +13,5 @@ layout(location = 1) out uint texIndex;
 layout(location = 0) out vec4 outColor;
 
 void main() {
-    outColor = texture(texSampler[ubo[uboIndex].textureIndex], texCoordOut);
+    outColor = texture(texSampler[texIndex], texCoordOut);
 }

@@ -2,6 +2,8 @@
 #pragma shader_stage(vertex)
 
 const uint VELORA_MAX_OBJECTS = 256;
+const uint VELORA_MAX_JOINTS = 256;
+const uint SKIN_MATRIX_COUNT = VELORA_MAX_OBJECTS*VELORA_MAX_JOINTS;
 
 layout(binding = 0) uniform UniformBufferObject {
     mat4 mvpMat;
@@ -10,8 +12,8 @@ layout(binding = 0) uniform UniformBufferObject {
 } ubo[VELORA_MAX_OBJECTS];
 
 layout(binding = 2) uniform SkinMatrix{
-  mat4 skinMat
-} skinMatrix[VELORA_MAX_JOINTS];
+  mat4 skinMat;
+} skinMatrix[SKIN_MATRIX_COUNT];
 
 layout( push_constant, std430) uniform constants
 {
