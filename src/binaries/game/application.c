@@ -62,10 +62,10 @@ b8 application_run(application_state* app_state){
   free_gltf(&obj);
 
   u64 mainCamera = create_new_entity();
-  VEL_CHECK_MSG(register_empty_transform(mainCamera), "Unable to register transform for main camera");
+  VEL_CHECK_MSG(register_empty_transform(mainCamera, NULL), "Unable to register transform for main camera");
   VEL_CHECK_MSG(register_camera(mainCamera, TRUE), "Unable to register Camera");
   u64 firstRenderable = create_new_entity();
-  VEL_CHECK_MSG(register_transform(firstRenderable, 0, 0, -5, 45, 45, 0, 1, 1, 1), "Unable to register transform for first renderable");
+  VEL_CHECK_MSG(register_transform(firstRenderable, 0, 0, -5, 45, 45, 0, 1, 1, 1, NULL), "Unable to register transform for first renderable");
   VEL_CHECK_MSG(register_renderable(firstRenderable, renderableMeshHandle, 0), "Unable to register renderable");
   while(app_state->is_running){
     platform_pump_messages(&app_state->platform);
