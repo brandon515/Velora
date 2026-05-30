@@ -1,4 +1,4 @@
-out_ecs_files = files('vcamera.c', 'vecs.c', 'vrenderable.c', 'vtransform.c')
+out_ecs_files = files('vcamera.c', 'vecs.c', 'vrenderable.c', 'vtransform.c', 'vskin.c')
 
 out_ecs_lib = library('velora_ecs',
   out_ecs_files,

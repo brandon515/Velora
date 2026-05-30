@@ -1,4 +1,4 @@
-#include "render/vskin.h"
+#include "ecs/vskin.h"
 #include "core/utils/vgltf.h"
 #include "core/utils/vmath.h"
 #include "core/vmemory.h"
