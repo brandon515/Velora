@@ -27,7 +27,7 @@ layout(location = 3) in vec4 weights;
 layout(location = 4) in vec4 joints;
 
 layout(location = 0) out vec2 texCoordOut;
-layout(location = 1) out uint texIndex;
+layout(location = 1) flat out uint texIndex;
 
 void main() {
     gl_Position = ubo[uboIndex].mvpMat * vec4(inPosition, 1.0);
