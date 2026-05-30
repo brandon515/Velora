@@ -19,6 +19,7 @@ typedef struct _platform_state{
   Window win;
   XIM xim;
   XIC xic;
+  Atom wm_delete_window;
   u32 mouseX, mouseY;
 } platform_state;
 #elif VPLATFORM_WINDOWS

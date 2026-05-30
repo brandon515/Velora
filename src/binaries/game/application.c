@@ -76,10 +76,13 @@ b8 application_run(application_state* app_state){
       render_postframe(app_state->render_state);
     }
   }
-  platform_shutdown(&app_state->platform);
+  // Shut down the renderer before the platform: the Vulkan surface and
+  // swapchain reference the X11 display/window, so destroying them after
+  // XCloseDisplay would dereference freed memory and segfault.
   shutdown_render_system(app_state->render_state);
   shutdown_input_sytem(&app_state->input);
   shutdown_entity_component_system();
+  platform_shutdown(&app_state->platform);
 
   return TRUE;
 }

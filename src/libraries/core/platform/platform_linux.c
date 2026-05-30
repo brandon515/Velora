@@ -53,6 +53,12 @@ i32 height){
                               CWBackPixel | CWBorderPixel | CWEventMask | CWColormap, &windowAttributes);
   
   XSelectInput(state->dis, state->win, event_mask);
+
+  // Register for the window manager's close-window protocol so that closing the
+  // window sends us a ClientMessage instead of severing the X11 connection.
+  state->wm_delete_window = XInternAtom(state->dis, "WM_DELETE_WINDOW", False);
+  XSetWMProtocols(state->dis, state->win, &state->wm_delete_window, 1);
+
   XMapWindow(state->dis, state->win);
   XFlush(state->dis);
 
@@ -64,7 +70,9 @@ i32 height){
 
 VEXPORT void platform_shutdown(platform_state* state){
   XDestroyWindow(state->dis, state->win);
+  #ifndef VULKAN_RENDER // vulkan actually handles the closing of the display internally
   XCloseDisplay(state->dis);
+  #endif
 }
 
 VEXPORT b8 platform_pump_messages(platform_state* state){
@@ -73,8 +81,14 @@ VEXPORT b8 platform_pump_messages(platform_state* state){
     XNextEvent(state->dis, &newXEvent);
     switch (newXEvent.type)
     {
+    case ClientMessage:
+      // The window manager asked us to close (e.g. the user clicked the close
+      // button). Queue a graceful shutdown instead of letting X kill us.
+      if((Atom)newXEvent.xclient.data.l[0] == state->wm_delete_window){
+        create_and_queue_event(ENGINE_CLOSE_GAME, 0, NULL);
+      }
+      break;
     case DestroyNotify:
-      //create_and_fire_event(ENGINE_CLOSE_GAME, 0, NULL);
       return TRUE;
     case ResizeRequest:{
       XResizeRequestEvent eventDat = newXEvent.xresizerequest;
