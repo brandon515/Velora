@@ -55,11 +55,12 @@ typedef struct _skinUBO{
   mat4 jointMat;
 } skinUBO;
 
+#pragma pack(push, 1)
 typedef struct _push_constant{
   u32 uboIndex;
-  u64 padding;
-  u32 padding2;
+  vec3 padding;
 } push_constant;
+#pragma pack(pop)
 
 typedef struct _vulkan_buffer{
   VkBuffer buffer;
@@ -1020,15 +1021,15 @@ b8 create_graphics_pipeline(vulkan_state* state){
   vertexStructDesc[2].format = VK_FORMAT_R32G32_SFLOAT;
   vertexStructDesc[2].offset = offsetof(vertex, texCoord);
 
-  vertexStructDesc[2].binding = 0;
-  vertexStructDesc[2].location = 3;
-  vertexStructDesc[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-  vertexStructDesc[2].offset = offsetof(vertex, weights);
+  vertexStructDesc[3].binding = 0;
+  vertexStructDesc[3].location = 3;
+  vertexStructDesc[3].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+  vertexStructDesc[3].offset = offsetof(vertex, weights);
 
-  vertexStructDesc[2].binding = 0;
-  vertexStructDesc[2].location = 4;
-  vertexStructDesc[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-  vertexStructDesc[2].offset = offsetof(vertex, joints);
+  vertexStructDesc[4].binding = 0;
+  vertexStructDesc[4].location = 4;
+  vertexStructDesc[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+  vertexStructDesc[4].offset = offsetof(vertex, joints);
   VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
     .vertexBindingDescriptionCount = 1,
@@ -1587,7 +1588,7 @@ b8 create_uniform_buffers(vulkan_state *state){
   VkDeviceSize skinBufferSize = get_UBO_aligned_size(state->physicalDevice, sizeof(skinUBO));
   VEL_CHECK(create_exclusive_buffer(
     state,
-    &state->uniformBuffer,
+    &state->skinBuffer,
     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
     skinBufferSize*SKIN_BUFFER_COUNT*MAX_FRAMES_IN_FLIGHT,
     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
