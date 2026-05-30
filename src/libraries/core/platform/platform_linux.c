@@ -179,8 +179,8 @@ VEXPORT void* platform_reallocate(void* block, u64 size){
 void linux_console_write(const char* message, log_level color, FILE* file){
   char buffer[strlen(message)+256];
   static u8 text_colors[6] = {30, 31, 33, 32, 34, 36};
-  static u8 background_colors[6] = {41, 40, 40, 40, 40, 40};
-  sprintf(buffer, "\x1b[%d;%dm%s\n", text_colors[color],background_colors[color], message);
+  //static u8 background_colors[6] = {41, 40, 40, 40, 40, 40};
+  sprintf(buffer, "\x1b[%dm%s\n", text_colors[color], message);
   fprintf(file, "%s", buffer);
 }
 
