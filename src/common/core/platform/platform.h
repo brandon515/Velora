@@ -20,6 +20,7 @@ typedef struct _platform_state{
   XIM xim;
   XIC xic;
   Atom wm_delete_window;
+  u32 width, height;
   u32 mouseX, mouseY;
 } platform_state;
 #elif VPLATFORM_WINDOWS

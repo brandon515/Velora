@@ -8,13 +8,6 @@
 #include <string.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-typedef struct _linux_state{
-  Display *dis;
-  Window win;
-  XIM xim;
-  XIC xic;
-  u32 mouseX, mouseY;
-} linux_state;
 
 VEXPORT b8 platform_startup(
 platform_state* state,
@@ -39,7 +32,12 @@ i32 height){
   
   Colormap colormap = XCreateColormap(state->dis, RootWindow(state->dis, visInfoTemplate.screen), visualInfo->visual, AllocNone);
 
-  u32 event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask | ExposureMask | ResizeRedirectMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask;
+  // Note: ResizeRedirectMask is intentionally NOT selected. Selecting it makes
+  // X11 redirect (suppress) resize requests so the window never actually
+  // changes size, which leaves the Vulkan surface capabilities stuck at the
+  // initial dimensions. We instead track real geometry via ConfigureNotify
+  // (delivered through StructureNotifyMask).
+  u32 event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask | ExposureMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask;
 
   XSetWindowAttributes windowAttributes = {};
   windowAttributes.colormap = colormap;
@@ -53,6 +51,9 @@ i32 height){
                               CWBackPixel | CWBorderPixel | CWEventMask | CWColormap, &windowAttributes);
   
   XSelectInput(state->dis, state->win, event_mask);
+
+  state->width = width;
+  state->height = height;
 
   // Register for the window manager's close-window protocol so that closing the
   // window sends us a ClientMessage instead of severing the X11 connection.
@@ -90,13 +91,19 @@ VEXPORT b8 platform_pump_messages(platform_state* state){
       break;
     case DestroyNotify:
       return TRUE;
-    case ResizeRequest:{
-      XResizeRequestEvent eventDat = newXEvent.xresizerequest;
-      resize_data dat = {
-        .height = eventDat.height,
-        .width = eventDat.width
-      };
-      create_and_queue_event(ENGINE_WINDOW_RESIZE, sizeof(resize_data), &dat);
+    case ConfigureNotify:{
+      // ConfigureNotify reports the window's actual geometry. It also fires on
+      // moves, so only emit a resize event when the size truly changed.
+      XConfigureEvent eventDat = newXEvent.xconfigure;
+      if((u32)eventDat.width != state->width || (u32)eventDat.height != state->height){
+        state->width = eventDat.width;
+        state->height = eventDat.height;
+        resize_data dat = {
+          .height = eventDat.height,
+          .width = eventDat.width
+        };
+        create_and_queue_event(ENGINE_WINDOW_RESIZE, sizeof(resize_data), &dat);
+      }
     }break;
     case KeyPress:
     case KeyRelease:{
