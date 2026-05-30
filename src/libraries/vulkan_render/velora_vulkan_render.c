@@ -2179,11 +2179,11 @@ b8 render_preframe(render_state* state){
 
 b8 render_frame(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
-  vcamera *activeCamera = camera_get_active();
-  mat4x4 cameraModelMatrix = transform_get_model_matrix(activeCamera->transform);
   if(vk_state->windowMinimized){
     return TRUE;
   }
+  vcamera *activeCamera = camera_get_active();
+  mat4x4 cameraModelMatrix = transform_get_model_matrix(activeCamera->transform);
   u32 imageIndex = 0;
   VkResult imageErr = vkAcquireNextImageKHR(
     vk_state->logicalDevice,
@@ -2197,6 +2197,23 @@ b8 render_frame(render_state* state){
     VFATAL("Unable to get next image from the swapchain");
     VFATAL("Vulkan Error: %s", string_VkResult(imageErr));
     return FALSE;
+  }else if(imageErr == VK_ERROR_OUT_OF_DATE_KHR){
+    while(imageErr == VK_ERROR_OUT_OF_DATE_KHR){
+      VEL_CHECK(recreate_swapchain(vk_state, vk_state->newWidth, vk_state->newHeight));
+      imageErr = vkAcquireNextImageKHR(
+        vk_state->logicalDevice,
+        vk_state->swapchain,
+        U64_MAX,
+        vk_state->imageAvailable[vk_state->currentFrame], //signal this semaphore once we get the image index
+        VK_NULL_HANDLE, // A fence to signal, we don't use it
+        &imageIndex
+      );
+    }
+    if(imageErr != VK_SUCCESS && imageErr != VK_SUBOPTIMAL_KHR){
+      VFATAL("Unable to get next image from the swapchain");
+      VFATAL("Vulkan Error: %s", string_VkResult(imageErr));
+      return FALSE;
+    }
   }
   VkCommandBuffer buffer;
   if(start_recording_command_buffer(vk_state, imageIndex, &buffer) == FALSE){
