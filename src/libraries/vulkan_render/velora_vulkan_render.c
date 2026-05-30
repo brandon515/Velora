@@ -2047,14 +2047,19 @@ void shutdown_render_system(render_state* state){
   vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
   vkDeviceWaitIdle(vk_state->logicalDevice);
   destroy_vulkan_image(vk_state, &vk_state->depthImage);
-  for(int i = 0; i < VELORA_MAX_TEXTURES; i++){
+  for(int i = 0; i < vk_state->curTextureIndex; i++){
     destroy_vulkan_image(vk_state, &vk_state->textures[i]);
+  }
+  //If max textures aren't used, the rest of the textures are actually just copies of the same default texture. We just need to destroy it once.
+  if(vk_state->curTextureIndex != VELORA_MAX_TEXTURES){
+    destroy_vulkan_image(vk_state, &vk_state->textures[vk_state->curTextureIndex]);
   }
   vfree(vk_state->descriptorSets, sizeof(VkDescriptorSet)*MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
   vkDestroyDescriptorPool(vk_state->logicalDevice, vk_state->descriptorPool, NULL);
   vkDestroyDescriptorSetLayout(vk_state->logicalDevice, vk_state->descriptorSetLayout, NULL);
   destroy_vulkan_buffer(vk_state, &vk_state->vertexIndexBuffer);
   destroy_vulkan_buffer(vk_state, &vk_state->uniformBuffer);
+  destroy_vulkan_buffer(vk_state, &vk_state->skinBuffer);
   destroy_sync_objects(vk_state);
   vkDestroyCommandPool(vk_state->logicalDevice, vk_state->graphicsCommandPool, NULL);
   vkDestroyCommandPool(vk_state->logicalDevice, vk_state->transferCommandPool, NULL);
