@@ -4,7 +4,7 @@
 #ifdef VULKAN_RENDER
 #include "render/velora_render.h"
 #include "core/logger.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 #include <vulkan/vulkan.h>
 #include "core/utils/vstring.h"
 #include <vk_mem_alloc.h>
@@ -1814,8 +1814,10 @@ b8 update_descriptor_sets(vulkan_state* state){
   return TRUE;
 }
 
-b8 register_mesh(render_state* state, vmesh mesh, u64 *outHandle){
-  vulkan_state *vk_state = (vulkan_state*)state->internal_render_state;
+b8 regiser_mesh_handler(event* event, void* state){
+  vulkan_state *vk_state = (vulkan_state*)state;
+  register_mesh_data *data = (register_mesh_data*)event->event_data;
+  vmesh mesh = data->mesh;
   VkDeviceSize vertexSize = mesh.vertexCount*sizeof(vertex);
   VkDeviceSize indexSize = mesh.indexCount*sizeof(u32);
   vulkan_buffer vertexStagingBuffer = {0};
@@ -1861,7 +1863,7 @@ b8 register_mesh(render_state* state, vmesh mesh, u64 *outHandle){
     0,
     vk_state->vertexIndexBufferUsedSize
   ));
-  vk_state->meshes[vk_state->curMeshIndex].vertexOffset = vk_state->vertexIndexBufferUsedSize;
+  vk_state->meshes[data->handle].vertexOffset = vk_state->vertexIndexBufferUsedSize;
   vk_state->vertexIndexBufferUsedSize += vertexSize;
   destroy_vulkan_buffer(vk_state, &vertexStagingBuffer);
   VEL_CHECK(copy_buffer(
@@ -1872,15 +1874,14 @@ b8 register_mesh(render_state* state, vmesh mesh, u64 *outHandle){
     0,
     vk_state->vertexIndexBufferUsedSize
   ));
-  vk_state->meshes[vk_state->curMeshIndex].indexOffset = vk_state->vertexIndexBufferUsedSize;
+  vk_state->meshes[data->handle].indexOffset = vk_state->vertexIndexBufferUsedSize;
   vk_state->vertexIndexBufferUsedSize += indexSize;
   destroy_vulkan_buffer(vk_state, &indexStagingBuffer);
-  vk_state->meshes[vk_state->curMeshIndex].indexCount = mesh.indexCount;
+  vk_state->meshes[data->handle].indexCount = mesh.indexCount;
   VEL_CHECK(create_texture(vk_state, mesh.material.baseColor, &vk_state->textures[vk_state->curTextureIndex]));
-  vk_state->meshes[vk_state->curMeshIndex].baseColorIndex = vk_state->curTextureIndex;
+  vk_state->meshes[data->handle].baseColorIndex = vk_state->curTextureIndex;
   VEL_CHECK(update_descriptor_sets(vk_state));
-  (*outHandle) = vk_state->curMeshIndex;
-  vk_state->curMeshIndex++;
+  data->handle++;
   vk_state->curTextureIndex++;
   return TRUE;
 }
@@ -1982,31 +1983,16 @@ b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_stat
 }
 #endif //VPLATFORM_*
 
-b8 initiate_render_system(render_state* state, const char* application_name, platform_state* plat_internal_state){
-  state->internal_render_state = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
-  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+b8 initiate_render_backend(void** state, const char* application_name, platform_state* plat_internal_state){
+  (*state) = vallocate(sizeof(vulkan_state), MEMORY_TAG_RENDERER);
+  vulkan_state* vk_state = (vulkan_state*)(*state);
 
-  vk_state->curMeshIndex = 0;
+  for(int i = 0; i < VELORA_MAX_MESHES; i++){
+    vk_state->meshes[i].vertexOffset = U64_MAX;
+  }
+
   vk_state->vertexIndexBufferUsedSize = 0;
   vk_state->currentFrame = 0;
-  //TODO: This is horrendous, delete it entirely when we load objects from HDD
-  /*vertex vertices[] = {
-    { {{-0.5f, -0.5f, 0.0f}}, {{1.0f, 0.0f, 0.0f}}, {{1.0f, 0.0f}} },
-    { {{0.5f, -0.5f, 0.0f}},  {{0.0f, 1.0f, 0.0f}}, {{0.0f, 0.0f}} },
-    { {{0.5f, 0.5f, 0.0f}},   {{0.0f, 0.0f, 1.0f}}, {{0.0f, 1.0f}} },
-    { {{-0.5f, 0.5f, 0.0f}},  {{1.0f, 1.0f, 1.0f}}, {{1.0f, 1.0f}} },
-
-    { {{-0.5f, -0.5f, -0.5f}}, {{1.0f, 0.0f, 0.0f}}, {{1.0f, 0.0f}} },
-    { {{0.5f, -0.5f, -0.5f}},  {{0.0f, 1.0f, 0.0f}}, {{0.0f, 0.0f}} },
-    { {{0.5f, 0.5f, -0.5f}},   {{0.0f, 0.0f, 1.0f}}, {{0.0f, 1.0f}} },
-    { {{-0.5f, 0.5f, -0.5f}},  {{1.0f, 1.0f, 1.0f}}, {{1.0f, 1.0f}} },
-  };
-  u32 indices[] = {
-    2,1,0,0,3,2,
-    6,5,4,4,7,6
-  };
-  vk_state->vertexCount = 8;
-  vk_state->indexCount = 12;*/
 
   const char* deviceExtensions[10];
   u32 extensionCount = 0;

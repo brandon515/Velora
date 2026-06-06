@@ -1,6 +1,6 @@
 #include "render/vmesh.h"
 #include "core/utils/vgltf.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 #include "core/logger.h"
 
 b8 vmesh_from_gltf(gltf_object *obj, u64 meshIndex, vmesh *outMesh){

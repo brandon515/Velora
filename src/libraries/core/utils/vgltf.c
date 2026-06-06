@@ -1,7 +1,7 @@
 #include "core/utils/vgltf.h"
 #include "core/utils/vjson.h"
 #include "core/utils/vfile.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 #include "core/logger.h"
 #include "core/utils/vstring.h"
 //#define __STDC_NO_THREADS__

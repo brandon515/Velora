@@ -1,5 +1,5 @@
 #include "vmemory_test.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 #include "core/logger.h"
 #include "core/asserts.h"
 

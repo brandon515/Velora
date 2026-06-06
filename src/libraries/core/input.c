@@ -1,7 +1,7 @@
 #include "core/input.h"
 #include "core/utils/vstring.h"
 #include "core/event.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 
 b8 action_handler(event* curEvent, void* state){
   input_binding* binding = (input_binding*)state;

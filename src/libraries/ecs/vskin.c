@@ -1,7 +1,7 @@
 #include "ecs/vskin.h"
 #include "core/utils/vgltf.h"
 #include "core/utils/vmath.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 #include "core/logger.h"
 
 b8 vskin_from_gltf(gltf_object* gltf, u64 skinIndex, vskin* outSkin){

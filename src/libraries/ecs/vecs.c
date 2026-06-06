@@ -1,5 +1,5 @@
 #include "ecs/vecs.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 
 static entity_component_system componentLists;
 static b8 ECS_INIT = FALSE;

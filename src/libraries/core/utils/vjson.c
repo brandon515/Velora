@@ -1,5 +1,5 @@
 #include "core/utils/vjson.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 #include "core/logger.h"
 #include "core/utils/vstring.h"
 #include "core/utils/vfile.h"

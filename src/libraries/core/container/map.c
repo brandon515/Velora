@@ -1,5 +1,5 @@
 #include "core/container/map.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 
 int_map* map_new(u64 item_size){
   int_map* ret_map = vallocate(sizeof(int_map), MEMORY_TAG_INT_MAP);

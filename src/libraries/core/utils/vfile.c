@@ -1,7 +1,7 @@
 #include "core/utils/vfile.h"
 #include "core/utils/vstring.h"
 #include <stdio.h>
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 
 u64 get_file_size(FILE* file){
   u64 cur_pos = ftell(file);

@@ -6,7 +6,7 @@
 
 #include "core/logger.h"
 #include "core/event.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 #include "render/velora_render.h"
 
 #include <stdio.h>

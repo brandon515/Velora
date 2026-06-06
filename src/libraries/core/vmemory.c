@@ -1,4 +1,4 @@
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 
 #include "core/logger.h"
 #include "core/platform/platform.h"

@@ -1,5 +1,5 @@
 #include "defines.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 #include "core/asserts.h"
 
 void *stb_vallocate(u64 size){

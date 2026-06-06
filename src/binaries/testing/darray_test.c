@@ -5,7 +5,7 @@
 #include "core/asserts.h"
 #include "container/darray.h"
 #include "core/logger.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 void darray_test(){
   VERROR("Starting darray tests");
   darray* test = darray_new(sizeof(u64));

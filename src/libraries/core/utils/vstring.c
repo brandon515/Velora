@@ -1,5 +1,5 @@
 #include "core/utils/vstring.h"
-#include "core/vmemory.h"
+#include "core/memory/vmemory.h"
 
 u64 vstrlen(const char* str){
   u64 len = 0;
