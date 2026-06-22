@@ -1,0 +1,1 @@
+out_memory_files = files('vmemory.c')

@@ -1,10 +1,14 @@
-out_core_files = files('event.c', 'input.c', 'logger.c', 'vmemory.c', 'stb_image.c')
+out_core_files = files('event.c', 'input.c', 'logger.c', 'stb_image.c')
 subdir('utils')
 subdir('container')
 subdir('platform')
+subdir('entry')
+subdir('memory')
 out_core_files += out_utils_files
 out_core_files += out_containers_files
 out_core_files += out_platform_files
+out_core_files += out_entry_files
+out_core_files += out_memory_files
 
 if host_machine.system() == 'linux'
   cc = meson.get_compiler('c')
