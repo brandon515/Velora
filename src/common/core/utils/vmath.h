@@ -117,6 +117,27 @@ typedef union _mat4x2{
 } mat4x2;
 
 /**
+ * @brief Provides the smallest power of 2 to encompass all of the input number
+ * @param input the integer to encompass
+ * @return The smallest power of 2 that is larger than input
+ */
+u64 round_up_to_largest_power_of_two(u64 input);
+
+/**
+ * @brief This function rounds input up to the nearest power of 2 and returns the power of two, so n in Yx2^n
+ * @param input the integer to round up and retrieve the power of two
+ * @return The power of two for the rounded up number
+ */
+u64 log_base_2(u64 input);
+
+/**
+ * @brief This function returns the power of two, so n in Yx2^n. It assumes the input is already a power of two
+ * @param input the integer etrieve the power of two
+ * @return The power of two for input
+ */
+u64 log_base_2_unchecked(u64 input);
+
+/**
  * @brief Normalizes the vector provided
  * @param vector The vector to be normalized
  * @return The normalized vector
