@@ -135,7 +135,7 @@ b8 delete_component(vcomponent_type type, u64 entityID){
   for(int i = 0; i < compTypeList.data->length; i++){
     if(comps[i].entityID == entityID){
       free_component(comps[i]);
-      darray_delete(compTypeList.data->data, i);
+      darray_delete(compTypeList.data, i);
       componentLists.entities[entityID] -= 1;
       return TRUE;
     }
@@ -165,9 +165,9 @@ b8 delete_entity(u64 entityID){
   for(int i = 0; i < componentLists.list->length; i++){
     vcomponent *components = compTypeList[i].data->data;
     for(int j = 0; j < compTypeList[i].data->length; j++){
-      if(components[i].entityID == entityID){
-        free_component(components[i]);
-        darray_delete(compTypeList[i].data, i);
+      if(components[j].entityID == entityID){
+        free_component(components[j]);
+        darray_delete(compTypeList[i].data, j);
         break;
       }
     }
