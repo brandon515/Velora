@@ -140,7 +140,8 @@ typedef struct _vulkan_state{
   vulkan_mesh meshes[VELORA_MAX_MESHES];
   vulkan_material materials[VELORA_MAX_MATERIALS];
   u64 curMeshIndex;
-  u64 vertexIndexBufferUsedSize;
+  u64 vertexBufferUsedSize;
+  u64 indexBufferUsedSize;
   #ifdef _DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
@@ -715,7 +716,7 @@ b8 obtain_physical_device(vulkan_state* state, const char** extensions, u32 exte
   }
   VkPhysicalDevice devices[deviceCount];
   VK_CHECK(vkEnumeratePhysicalDevices(state->instance, &deviceCount, devices), "Unable to fill array with phsyical devices");
-  for(int i = 0; i < deviceCount; deviceCount++){
+  for(int i = 0; i < deviceCount; i++){
     if(is_physical_device_suitable(state, devices[i], extensions, extensionCount)){
       state->physicalDevice = devices[i];
       return TRUE;
@@ -1855,16 +1856,18 @@ b8 regiser_mesh_handler(event* event, void* state){
     indexSize
   ), "Unable to fill index staging buffer with index data");
 
+  u64 vertexOffset = vk_state->vertexBufferUsedSize;
+  u64 indexOffset = VERTEX_BUFFER_SIZE+vk_state->indexBufferUsedSize;
   VEL_CHECK(copy_buffer(
     vk_state, 
     &vk_state->vertexIndexBuffer, 
     &vertexStagingBuffer,
     vertexSize,
     0,
-    vk_state->vertexIndexBufferUsedSize
+    vertexOffset
   ));
-  vk_state->meshes[data->handle].vertexOffset = vk_state->vertexIndexBufferUsedSize;
-  vk_state->vertexIndexBufferUsedSize += vertexSize;
+  vk_state->meshes[data->handle].vertexOffset = vertexOffset/sizeof(vertex);
+  vk_state->vertexBufferUsedSize += vertexSize;
   destroy_vulkan_buffer(vk_state, &vertexStagingBuffer);
   VEL_CHECK(copy_buffer(
     vk_state, 
@@ -1872,10 +1875,10 @@ b8 regiser_mesh_handler(event* event, void* state){
     &indexStagingBuffer,
     indexSize,
     0,
-    vk_state->vertexIndexBufferUsedSize
+    indexOffset
   ));
-  vk_state->meshes[data->handle].indexOffset = vk_state->vertexIndexBufferUsedSize;
-  vk_state->vertexIndexBufferUsedSize += indexSize;
+  vk_state->meshes[data->handle].indexOffset = indexOffset;
+  vk_state->indexBufferUsedSize += indexSize;
   destroy_vulkan_buffer(vk_state, &indexStagingBuffer);
   vk_state->meshes[data->handle].indexCount = mesh.indexCount;
   VEL_CHECK(create_texture(vk_state, mesh.material.baseColor, &vk_state->textures[vk_state->curTextureIndex]));
@@ -1991,7 +1994,8 @@ b8 initiate_render_backend(void** state, const char* application_name, platform_
     vk_state->meshes[i].vertexOffset = U64_MAX;
   }
 
-  vk_state->vertexIndexBufferUsedSize = 0;
+  vk_state->vertexBufferUsedSize = 0;
+  vk_state->indexBufferUsedSize = 0;
   vk_state->currentFrame = 0;
 
   const char* deviceExtensions[10];
@@ -2241,11 +2245,10 @@ b8 render_frame(render_state* state){
         (vk_state->currentFrame*UNIFORM_BUFFER_COUNT)+curObjIndex, 
         vk_state->uniformBuffer.memory_info.pMappedData
       );
-      u64 curUBOIndex = curObjIndex;
-      uniformBufferMemory[curUBOIndex].mvpMat = mvpMatrix;
-      uniformBufferMemory[curUBOIndex].textureIndex = curMesh.baseColorIndex;
+      uniformBufferMemory->mvpMat = mvpMatrix;
+      uniformBufferMemory->textureIndex = curMesh.baseColorIndex;
       push_constant push = {
-        .uboIndex = curUBOIndex,
+        .uboIndex = curObjIndex,
       };
       curObjIndex++;
       vkCmdBindIndexBuffer(buffer, vk_state->vertexIndexBuffer.buffer, curMesh.indexOffset, VK_INDEX_TYPE_UINT32);
