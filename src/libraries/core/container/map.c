@@ -1,4 +1,5 @@
 #include "core/container/map.h"
+#include "core/container/darray.h"
 #include "core/memory/vmemory.h"
 
 int_map* map_new(u64 item_size){
@@ -36,7 +37,11 @@ void map_set_item(int_map* map, u64 key, void* item){
     map->data = darray_push(map->data, item);
   }else{ // The key does exist, replace the current thing with the new thing
     darray_delete(map->data, key_index);
-    map->data = darray_insert(map->data, item, key_index);
+    if(key_index == map->data->length){
+      map->data = darray_push(map->data, item);
+    }else{
+      map->data = darray_insert(map->data, item, key_index);
+    }
   }
 }
 
