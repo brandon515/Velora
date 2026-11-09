@@ -1,4 +1,4 @@
-out_game_files = files('entry.c', 'application.c')
+out_game_files = files('application.c')
 
 executable('engine', 
   out_game_files,

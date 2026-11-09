@@ -1,0 +1,1 @@
+out_entry_files = files('entry.c')
