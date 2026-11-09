@@ -62,10 +62,10 @@ darray* darray_insert(darray* arr, const void* data, u64 index){
   vcopy_memory(buffer, ret_arr->data, mem_location);
   // Copy the item into the buffer
   vcopy_memory(buffer+mem_location, data, ret_arr->stride);
-  // Copy the rest of data into the buffer
+  // Copy the rest of data into the buffer, subtract a stride from the size because the mem_location is at the beginning of the buffer segment
   vcopy_memory(buffer+(mem_location+ret_arr->stride), 
                ret_arr->data+(mem_location),
-               (ret_arr->cap*ret_arr->stride)-mem_location);
+               (ret_arr->cap*(ret_arr->stride-1))-mem_location);
   // Now copy the entire buffer back into data
   vcopy_memory(ret_arr->data, buffer, ret_arr->cap*ret_arr->stride);
   ret_arr->length++;
@@ -130,11 +130,11 @@ void* darray_get_pointer(darray* arr, u64 index){
   if(index >= arr->length){
     return NULL;
   }
-  return arr->data+(index*arr->stride*index);
+  return arr->data+(index*arr->stride);
 }
 
 b8 darray_get_data(darray* arr, u64 index, void* data){
-  if(arr->length >= index){
+  if(index >= arr->length){
     return FALSE;
   }
   vcopy_memory(data, arr->data+(arr->stride*index), arr->stride);
