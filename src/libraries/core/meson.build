@@ -1,4 +1,4 @@
-out_core_files = files('event.c', 'input.c', 'logger.c', 'stb_image.c')
+out_core_files = files('event.c', 'logger.c', 'stb_image.c')
 subdir('utils')
 subdir('container')
 subdir('platform')

@@ -155,13 +155,13 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
   const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
   void* pUserData){
     if(messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT){
-      VDEBUG(pCallbackData->pMessage);
+      VDEBUG("%s", pCallbackData->pMessage);
     }else if(messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT){
-      VINFO(pCallbackData->pMessage);
+      VINFO("%s", pCallbackData->pMessage);
     }else if(messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT){
-      VWARN(pCallbackData->pMessage);
+      VWARN("%s", pCallbackData->pMessage);
     }else if(messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT){
-      VERROR(pCallbackData->pMessage);
+      VERROR("%s", pCallbackData->pMessage);
     }
     return VK_FALSE;
   }
@@ -1126,7 +1126,7 @@ b8 create_graphics_pipeline(vulkan_state* state){
   };
   if(sizeof(push_constant) % 16 != 0){
     VFATAL("Push constants need to be aligned to 16 bytes.");
-    VFATAL("Current size of push constant struct: %d", sizeof(push_constant));
+    VFATAL("Current size of push constant struct: %zu", sizeof(push_constant));
     return FALSE;
   }
   VkPushConstantRange pushRange = {
@@ -1825,19 +1825,19 @@ b8 register_mesh_handler(event* event, void* state){
   u64 vertexOffset = vk_state->vertexBufferUsedSize;
   if(vertexOffset+vertexSize > VERTEX_BUFFER_SIZE){
     VERROR("New mesh would overload the vertex buffer");
-    VERROR("\tVertex Buffer Size: %llu", VERTEX_BUFFER_SIZE);
+    VERROR("\tVertex Buffer Size: %llu", (u64)VERTEX_BUFFER_SIZE);
     VERROR("\tCurrent Vertex Buffer Usage: %llu", vertexOffset);
-    VERROR("\tNew Mesh Size: %llu", vertexSize);
-    VERROR("\tNew Buffer Size: %llu", vertexOffset+vertexSize);
+    VERROR("\tNew Mesh Size: %llu", (u64)vertexSize);
+    VERROR("\tNew Buffer Size: %llu", (u64)(vertexOffset+vertexSize));
     return FALSE;
   }
   u64 indexOffset = VERTEX_BUFFER_SIZE+vk_state->indexBufferUsedSize;
   if(indexOffset+indexSize > VERTEX_BUFFER_SIZE+INDEX_BUFFER_SIZE){
     VERROR("New mesh would overload the index buffer");
-    VERROR("\tTotal Buffer Size: %llu", (INDEX_BUFFER_SIZE+VERTEX_BUFFER_SIZE));
+    VERROR("\tTotal Buffer Size: %llu", (u64)(INDEX_BUFFER_SIZE+VERTEX_BUFFER_SIZE));
     VERROR("\tCurrent Total Buffer Usage: %llu", indexOffset);
-    VERROR("\tNew Mesh Index Size: %llu", indexSize);
-    VERROR("\tNew Buffer Size: %llu", indexOffset+indexSize);
+    VERROR("\tNew Mesh Index Size: %llu", (u64)indexSize);
+    VERROR("\tNew Buffer Size: %llu", (u64)(indexOffset+indexSize));
     return FALSE;
   }
   VEL_CHECK(create_exclusive_buffer(

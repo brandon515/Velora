@@ -1182,7 +1182,7 @@ void free_gltf(gltf_object* out_gltf){
 
 b8 gltf_accessor_get_element_size(gltf_object* gltf, u64 accIndex, u64 *outSize, gltf_data_type *outType){
   if(accIndex >= gltf->accessorCount){
-    VERROR("GLTF accessor index %d is out of bounds, max index is %d", accIndex, gltf->accessorCount-1);
+    VERROR("GLTF accessor index %llu is out of bounds, max index is %llu", accIndex, gltf->accessorCount-1);
     return FALSE;
   }
   gltf_accessor curAcc = gltf->accessors[accIndex];
@@ -1241,7 +1241,7 @@ b8 gltf_accessor_get_element_size(gltf_object* gltf, u64 accIndex, u64 *outSize,
         scratchSize = sizeof(f32);
       break;
       default:
-        VERROR("GLTF accessor %d has invalid component type", accIndex);
+        VERROR("GLTF accessor %llu has invalid component type", accIndex);
         return FALSE;
       break;
     }
@@ -1257,7 +1257,7 @@ b8 gltf_accessor_get_element_size(gltf_object* gltf, u64 accIndex, u64 *outSize,
 
 b8 gltf_accessor_get_element_count(gltf_object* gltf, u64 accIndex, u64 *outCount){
   if(accIndex >= gltf->accessorCount){
-    VERROR("GLTF accessor index %d is out of bounds, max index is %d", accIndex, gltf->accessorCount-1);
+    VERROR("GLTF accessor index %llu is out of bounds, max index is %llu", accIndex, gltf->accessorCount-1);
     return FALSE;
   }
   (*outCount) = gltf->accessors[accIndex].count;
@@ -1266,17 +1266,17 @@ b8 gltf_accessor_get_element_count(gltf_object* gltf, u64 accIndex, u64 *outCoun
 
 b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream){
   if(accIndex >= gltf->accessorCount){
-    VERROR("GLTF accessor index %d is out of bounds, max index is %d", accIndex, gltf->accessorCount-1);
+    VERROR("GLTF accessor index %llu is out of bounds, max index is %llu", accIndex, gltf->accessorCount-1);
     return FALSE;
   }
   gltf_accessor curAcc = gltf->accessors[accIndex];
   if(curAcc.bufferViewIndex >= gltf->bufferViewCount){
-    VERROR("GLTF buffer view index %d is out of bounds, max index is %d", curAcc.bufferViewIndex, gltf->bufferViewCount-1);
+    VERROR("GLTF buffer view index %llu is out of bounds, max index is %llu", curAcc.bufferViewIndex, gltf->bufferViewCount-1);
     return FALSE;
   }
   gltf_buffer_view curView = gltf->bufferViews[curAcc.bufferViewIndex];
   if(curView.bufferIndex >= gltf->bufferCount){
-    VERROR("GLTF buffer index %d is out of bounds, max index is %d", curView.bufferIndex, gltf->bufferCount-1);
+    VERROR("GLTF buffer index %llu is out of bounds, max index is %llu", curView.bufferIndex, gltf->bufferCount-1);
     return FALSE;
   }
   gltf_data_stream scratchStream = {0};
@@ -1291,7 +1291,7 @@ b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream)
   }
   for(int i = 0; i < curAcc.count; i++){
     if(curView.offset+(dataStride*i)+scratchStream.dataSize > curBuf.size){
-      VERROR("GLTF Accessor went beyond the bounds of the buffer. Buffer size %d, attempted access at %d", curBuf.size, curView.offset+(dataStride*i)+scratchStream.dataSize);
+      VERROR("GLTF Accessor went beyond the bounds of the buffer. Buffer size %llu, attempted access at %llu", curBuf.size, curView.offset+(dataStride*i)+scratchStream.dataSize);
       gltf_free_stream(scratchStream);
       return FALSE;
     }
@@ -1316,7 +1316,7 @@ b8 gltf_accessor_get_u32_array(gltf_object* gltf, u64 accIndex, u32 *outArray){
   }else if(scratchStream.type == U32){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not able to be put in a u32 array", accIndex);
+    VERROR("Accessor %llu is not able to be put in a u32 array", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1330,7 +1330,7 @@ b8 gltf_accessor_get_vec2_array(gltf_object* gltf, u64 accIndex, vec2 *outArray)
   if(scratchStream.type == VECTOR2D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not pointing to a 2D Vector type", accIndex);
+    VERROR("Accessor %llu is not pointing to a 2D Vector type", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1344,7 +1344,7 @@ b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec3 *outArray)
   if(scratchStream.type == VECTOR3D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not pointing to a 3D Vector type", accIndex);
+    VERROR("Accessor %llu is not pointing to a 3D Vector type", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1358,7 +1358,7 @@ b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray)
   if(scratchStream.type == VECTOR4D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not pointing to a 4D Vector type", accIndex);
+    VERROR("Accessor %llu is not pointing to a 4D Vector type", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1372,7 +1372,7 @@ b8 gltf_accessor_get_mat4_array(gltf_object* gltf, u64 accIndex, mat4 *outArray)
   if(scratchStream.type == MAT4D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not pointing to a 4x4 matrix type", accIndex);
+    VERROR("Accessor %llu is not pointing to a 4x4 matrix type", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1386,7 +1386,7 @@ b8 gltf_accessor_get_u8_array(gltf_object* gltf, u64 accIndex, u8 *outArray){
   if(scratchStream.type == U8){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not pointing to an unsigned 8 bit integer type", accIndex);
+    VERROR("Accessor %llu is not pointing to an unsigned 8 bit integer type", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1400,7 +1400,7 @@ b8 gltf_accessor_get_i8_array(gltf_object* gltf, u64 accIndex, i8 *outArray){
   if(scratchStream.type == I8){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not pointing to a signed 8 bit integer type", accIndex);
+    VERROR("Accessor %llu is not pointing to a signed 8 bit integer type", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1418,7 +1418,7 @@ b8 gltf_accessor_get_u16_array(gltf_object* gltf, u64 accIndex, u16 *outArray){
   }else if(scratchStream.type == U16){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not able to be put in a u16 array", accIndex);
+    VERROR("Accessor %llu is not able to be put in a u16 array", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1437,7 +1437,7 @@ b8 gltf_accessor_get_i16_array(gltf_object* gltf, u64 accIndex, i16 *outArray){
   }else if(scratchStream.type == I16){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not able to be put in an i16 array", accIndex);
+    VERROR("Accessor %llu is not able to be put in an i16 array", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1461,7 +1461,7 @@ b8 gltf_accessor_get_i32_array(gltf_object* gltf, u64 accIndex, i32 *outArray){
   }else if(scratchStream.type == I32){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not able to be put in an i32 array", accIndex);
+    VERROR("Accessor %llu is not able to be put in an i32 array", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1475,7 +1475,7 @@ b8 gltf_accessor_get_f32_array(gltf_object* gltf, u64 accIndex, f32 *outArray){
   if(scratchStream.type == FLOAT){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not pointing to a floating point type", accIndex);
+    VERROR("Accessor %llu is not pointing to a floating point type", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1489,7 +1489,7 @@ b8 gltf_accessor_get_mat2_array(gltf_object* gltf, u64 accIndex, mat2 *outArray)
   if(scratchStream.type == MAT2D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not pointing to a 2x2 matrix type", accIndex);
+    VERROR("Accessor %llu is not pointing to a 2x2 matrix type", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }
@@ -1503,7 +1503,7 @@ b8 gltf_accessor_get_mat3_array(gltf_object* gltf, u64 accIndex, mat3 *outArray)
   if(scratchStream.type == MAT3D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
-    VERROR("Accessor %d is not pointing to a 3x3 matrix type", accIndex);
+    VERROR("Accessor %llu is not pointing to a 3x3 matrix type", accIndex);
     gltf_free_stream(scratchStream);
     return FALSE;
   }

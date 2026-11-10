@@ -12,7 +12,7 @@ b8 create_buddy_allocator(u64 initialOffset, u64 memorySize, u64 minOrder, vbudd
   u64 maxOrder = round_up_to_largest_power_of_two(memorySize)/2; //The memory size cannot be bigger than requested so we round down for this
   maxOrder = log_base_2_unchecked(maxOrder);
   if(maxOrder < minOrder){
-    VERROR("Buddy Allocator made with minimum order less than requested maximum order\nMinimum Order: %d\nMaximum Order: %d", minOrder, maxOrder);
+    VERROR("Buddy Allocator made with minimum order less than requested maximum order\nMinimum Order: %llu\nMaximum Order: %llu", minOrder, maxOrder);
     return FALSE;
   }
   scratch.maxOrder = maxOrder;

@@ -16,7 +16,14 @@
 b8 initialize_logging();
 void shutdown_logging();
 
-void log_output(log_level level, const char* message, ...);
+// Lets clang/gcc check log format strings against their arguments (-Wformat)
+#if defined(__clang__) || defined(__GNUC__)
+#define VPRINTF_FMT(fmt_idx, args_idx) __attribute__((format(printf, fmt_idx, args_idx)))
+#else
+#define VPRINTF_FMT(fmt_idx, args_idx)
+#endif
+
+void log_output(log_level level, const char* message, ...) VPRINTF_FMT(2, 3);
 
 #ifndef VFATAL
 #define VFATAL(message, ...) log_output(LOG_LEVEL_FATAL, message, ##__VA_ARGS__);

@@ -12,11 +12,11 @@ b8 vmesh_from_gltf(gltf_object *obj, u64 meshIndex, vmesh *outMesh){
   for(int i = 0; i < mesh.primitiveCount; i++){
     gltf_mesh_primitive prim = mesh.primitives[i];
     if(prim.mode != GLTF_MODE_TRIANGLES){
-      VERROR("Primitive %d in Mesh %d is not a triangle mesh mode, Velora currently only supports triangles", i, meshIndex);
+      VERROR("Primitive %d in Mesh %llu is not a triangle mesh mode, Velora currently only supports triangles", i, meshIndex);
       return FALSE;
     }
     if(prim.attributes.position == U64_MAX){
-      VERROR("Primitive %d in Mesh %d does not contain a position for the vertices. Velora currently does not support positionless primitives", i, meshIndex);
+      VERROR("Primitive %d in Mesh %llu does not contain a position for the vertices. Velora currently does not support positionless primitives", i, meshIndex);
       return FALSE;
     }
     VEL_CHECK(gltf_accessor_get_element_count(obj, prim.attributes.position, &scratchMesh.vertexCount));

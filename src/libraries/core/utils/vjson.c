@@ -330,15 +330,15 @@ void print_json_value(json_value *val){
     break;
     case VELORA_JSON_DOUBLE:
     VINFO("Type: Double");
-    VINFO("Data: %f", val->data);
+    VINFO("Data: %f", val->data.dFloat);
     break;
     case VELORA_JSON_INTEGER:
     VINFO("Type: Integer");
-    VINFO("Data: %d", val->data);
+    VINFO("Data: %lld", val->data.integer);
     break;
     case VELORA_JSON_STRING:
     VINFO("Type: String");
-    VINFO("data: %s", val->data);
+    VINFO("data: %s", val->data.string);
     break;
     case VELORA_JSON_OBJECT:{
     VINFO("Type: Object");

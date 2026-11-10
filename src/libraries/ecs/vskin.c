@@ -6,7 +6,7 @@
 
 b8 vskin_from_gltf(gltf_object* gltf, u64 skinIndex, vskin* outSkin){
   if(skinIndex >= gltf->skinCount){
-    VERROR("Skin index %d is out of bounds, max index is %d", skinIndex, gltf->skinCount-1);
+    VERROR("Skin index %llu is out of bounds, max index is %llu", skinIndex, gltf->skinCount-1);
     return FALSE;
   }
   vskin scratchSkin = {0};
@@ -28,7 +28,7 @@ b8 vskin_from_gltf(gltf_object* gltf, u64 skinIndex, vskin* outSkin){
     u64 matrixCount = 0;
     VEL_CHECK(gltf_accessor_get_element_count(gltf, skin.inverseBindMatrices, &matrixCount));
     if(matrixCount != scratchSkin.jointCount){
-      VERROR("Skin has %d joints but %d inverse bind matrices, the counts must match", scratchSkin.jointCount, matrixCount);
+      VERROR("Skin has %llu joints but %llu inverse bind matrices, the counts must match", scratchSkin.jointCount, matrixCount);
       vfree(scratchSkin.joints, scratchSkin.jointCount*sizeof(vjoint), MEMORY_TAG_RENDERER);
       return FALSE;
     }
@@ -41,7 +41,7 @@ b8 vskin_from_gltf(gltf_object* gltf, u64 skinIndex, vskin* outSkin){
   for(int i = 0; i < scratchSkin.jointCount; i++){
     u64 nodeIndex = skin.joints[i];
     if(nodeIndex >= gltf->nodeCount){
-      VERROR("Joint %d in the skin references node %d which is out of bounds, max index is %d", i, nodeIndex, gltf->nodeCount-1);
+      VERROR("Joint %d in the skin references node %llu which is out of bounds, max index is %llu", i, nodeIndex, gltf->nodeCount-1);
       vfree(scratchSkin.joints, scratchSkin.jointCount*sizeof(vjoint), MEMORY_TAG_RENDERER);
       return FALSE;
     }
