@@ -1815,13 +1815,31 @@ b8 update_descriptor_sets(vulkan_state* state){
   return TRUE;
 }
 
-b8 regiser_mesh_handler(event* event, void* state){
+b8 register_mesh_handler(event* event, void* state){
   vulkan_state *vk_state = (vulkan_state*)state;
   register_mesh_data *data = (register_mesh_data*)event->event_data;
   vmesh mesh = data->mesh;
   VkDeviceSize vertexSize = mesh.vertexCount*sizeof(vertex);
   VkDeviceSize indexSize = mesh.indexCount*sizeof(u32);
   vulkan_buffer vertexStagingBuffer = {0};
+  u64 vertexOffset = vk_state->vertexBufferUsedSize;
+  if(vertexOffset+vertexSize > VERTEX_BUFFER_SIZE){
+    VERROR("New mesh would overload the vertex buffer");
+    VERROR("\tVertex Buffer Size: %llu", VERTEX_BUFFER_SIZE);
+    VERROR("\tCurrent Vertex Buffer Usage: %llu", vertexOffset);
+    VERROR("\tNew Mesh Size: %llu", vertexSize);
+    VERROR("\tNew Buffer Size: %llu", vertexOffset+vertexSize);
+    return FALSE;
+  }
+  u64 indexOffset = VERTEX_BUFFER_SIZE+vk_state->indexBufferUsedSize;
+  if(indexOffset+indexSize > VERTEX_BUFFER_SIZE+INDEX_BUFFER_SIZE){
+    VERROR("New mesh would overload the index buffer");
+    VERROR("\tTotal Buffer Size: %llu", (INDEX_BUFFER_SIZE+VERTEX_BUFFER_SIZE));
+    VERROR("\tCurrent Total Buffer Usage: %llu", indexOffset);
+    VERROR("\tNew Mesh Index Size: %llu", indexSize);
+    VERROR("\tNew Buffer Size: %llu", indexOffset+indexSize);
+    return FALSE;
+  }
   VEL_CHECK(create_exclusive_buffer(
     vk_state,
     &vertexStagingBuffer,
@@ -1856,8 +1874,6 @@ b8 regiser_mesh_handler(event* event, void* state){
     indexSize
   ), "Unable to fill index staging buffer with index data");
 
-  u64 vertexOffset = vk_state->vertexBufferUsedSize;
-  u64 indexOffset = VERTEX_BUFFER_SIZE+vk_state->indexBufferUsedSize;
   VEL_CHECK(copy_buffer(
     vk_state, 
     &vk_state->vertexIndexBuffer, 
