@@ -3,6 +3,8 @@
 #include "core/memory/vmemory.h"
 #include "core/logger.h"
 
+#include <string.h>
+
 darray* darray_new(u64 stride){
   darray* ret_arr = vallocate(sizeof(darray), MEMORY_TAG_DARRAY);
   u64 size_in_bytes = STARTING_LENGTH*stride;
@@ -49,25 +51,22 @@ darray* darray_pop(darray* arr, void* dest){
 }
 
 darray* darray_insert(darray* arr, const void* data, u64 index){
-  darray* ret_arr = arr;
-  if(index >= arr->length){
+  if(index > arr->length){
     VWARN("Attempted to insert into a dynamic array past it's length");
     return NULL;
-  }else if(arr->length+1 >= arr->cap){
+  }
+  if(index == arr->length){
+    return darray_push(arr, data);
+  }
+  darray* ret_arr = arr;
+  if(arr->length+1 >= arr->cap){
     ret_arr = darray_reallocate(arr);
   }
-  u8 buffer[ret_arr->cap*ret_arr->stride];
+  u8* base = (u8*)ret_arr->data;
   u64 mem_location = ret_arr->stride*index;
-  // Copy the first half of data into the buffer
-  vcopy_memory(buffer, ret_arr->data, mem_location);
-  // Copy the item into the buffer
-  vcopy_memory(buffer+mem_location, data, ret_arr->stride);
-  // Copy the rest of data into the buffer, subtract a stride from the size because the mem_location is at the beginning of the buffer segment
-  vcopy_memory(buffer+(mem_location+ret_arr->stride), 
-               ret_arr->data+(mem_location),
-               (ret_arr->cap*(ret_arr->stride-1))-mem_location);
-  // Now copy the entire buffer back into data
-  vcopy_memory(ret_arr->data, buffer, ret_arr->cap*ret_arr->stride);
+  // Shift [index, length) one slot right in place; the ranges overlap, so memmove
+  memmove(base+mem_location+ret_arr->stride, base+mem_location, (ret_arr->length-index)*ret_arr->stride);
+  vcopy_memory(base+mem_location, data, ret_arr->stride);
   ret_arr->length++;
   return ret_arr;
 }

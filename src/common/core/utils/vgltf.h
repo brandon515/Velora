@@ -284,19 +284,19 @@ typedef struct _import_thread_tracking{
 // Type of accessor, possible types are MAT2, MAT3, MAT4, VEC2, VEC3, VEC4, or SCALAR
 
 typedef enum _gltf_data_type{
-  U8,
-  I8,
-  U16,
-  I16,
-  U32,
-  I32,
-  FLOAT,
-  MAT2D,
-  MAT3D,
-  MAT4D,
-  VECTOR2D,
-  VECTOR3D,
-  VECTOR4D,
+  GLTF_TYPE_U8,
+  GLTF_TYPE_I8,
+  GLTF_TYPE_U16,
+  GLTF_TYPE_I16,
+  GLTF_TYPE_U32,
+  GLTF_TYPE_I32,
+  GLTF_TYPE_FLOAT,
+  GLTF_TYPE_MAT2D,
+  GLTF_TYPE_MAT3D,
+  GLTF_TYPE_MAT4D,
+  GLTF_TYPE_VECTOR2D,
+  GLTF_TYPE_VECTOR3D,
+  GLTF_TYPE_VECTOR4D,
 }gltf_data_type;
 
 typedef struct _gltf_data_stream{
