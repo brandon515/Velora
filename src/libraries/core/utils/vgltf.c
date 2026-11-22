@@ -1193,51 +1193,51 @@ b8 gltf_accessor_get_element_size(gltf_object* gltf, u64 accIndex, u64 *outSize,
   gltf_data_type scratchType = 0;
   u64 scratchSize = 0;
   if(vstrcmp(curAcc.type, "MAT2")){
-    scratchType = MAT2D;
+    scratchType = GLTF_TYPE_MAT2D;
     scratchSize = sizeof(mat2);
   }else if(vstrcmp(curAcc.type, "MAT3")){
-    scratchType = MAT3D;
+    scratchType = GLTF_TYPE_MAT3D;
     scratchSize = sizeof(mat3);
   }else if(vstrcmp(curAcc.type, "MAT4")){
-    scratchType = MAT4D;
+    scratchType = GLTF_TYPE_MAT4D;
     scratchSize = sizeof(mat4);
   }else if(vstrcmp(curAcc.type, "VEC2")){
-    scratchType = VECTOR2D;
+    scratchType = GLTF_TYPE_VECTOR2D;
     scratchSize = sizeof(vec2);
   }else if(vstrcmp(curAcc.type, "VEC3")){
-    scratchType = VECTOR3D;
+    scratchType = GLTF_TYPE_VECTOR3D;
     scratchSize = sizeof(vec3);
   }else if(vstrcmp(curAcc.type, "VEC4")){
-    scratchType = VECTOR4D;
+    scratchType = GLTF_TYPE_VECTOR4D;
     scratchSize = sizeof(vec4);
   }else if(vstrcmp(curAcc.type, "SCALAR")){
     switch (curAcc.componentType){
       case GLTF_I8:
-        scratchType = I8;
+        scratchType = GLTF_TYPE_I8;
         scratchSize = sizeof(i8);
       break;
       case GLTF_U8:
-        scratchType = U8;
+        scratchType = GLTF_TYPE_U8;
         scratchSize = sizeof(u8);
       break;
       case GLTF_I16:
-        scratchType = I16;
+        scratchType = GLTF_TYPE_I16;
         scratchSize = sizeof(i16);
       break;
       case GLTF_U16:
-        scratchType = U16;
+        scratchType = GLTF_TYPE_U16;
         scratchSize = sizeof(u16);
       break;
       case GLTF_I32:
-        scratchType = I32;
+        scratchType = GLTF_TYPE_I32;
         scratchSize = sizeof(i32);
       break;
       case GLTF_U32:
-        scratchType = U32;
+        scratchType = GLTF_TYPE_U32;
         scratchSize = sizeof(u32);
       break;
       case GLTF_FLOAT:
-        scratchType = FLOAT;
+        scratchType = GLTF_TYPE_FLOAT;
         scratchSize = sizeof(f32);
       break;
       default:
@@ -1304,16 +1304,16 @@ b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream)
 b8 gltf_accessor_get_u32_array(gltf_object* gltf, u64 accIndex, u32 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == U8){
+  if(scratchStream.type == GLTF_TYPE_U8){
     for(int i = 0; i < scratchStream.count; i++){
       outArray[i] = scratchStream.data[i];
     }
-  }else if(scratchStream.type == U16){
+  }else if(scratchStream.type == GLTF_TYPE_U16){
     u16 *arr = (u16*)scratchStream.data;
     for(int i = 0; i < scratchStream.count; i++){
       outArray[i] = arr[i];
     }
-  }else if(scratchStream.type == U32){
+  }else if(scratchStream.type == GLTF_TYPE_U32){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not able to be put in a u32 array", accIndex);
@@ -1327,7 +1327,7 @@ b8 gltf_accessor_get_u32_array(gltf_object* gltf, u64 accIndex, u32 *outArray){
 b8 gltf_accessor_get_vec2_array(gltf_object* gltf, u64 accIndex, vec2 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == VECTOR2D){
+  if(scratchStream.type == GLTF_TYPE_VECTOR2D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not pointing to a 2D Vector type", accIndex);
@@ -1341,7 +1341,7 @@ b8 gltf_accessor_get_vec2_array(gltf_object* gltf, u64 accIndex, vec2 *outArray)
 b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec3 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == VECTOR3D){
+  if(scratchStream.type == GLTF_TYPE_VECTOR3D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not pointing to a 3D Vector type", accIndex);
@@ -1355,7 +1355,7 @@ b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec3 *outArray)
 b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == VECTOR4D){
+  if(scratchStream.type == GLTF_TYPE_VECTOR4D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not pointing to a 4D Vector type", accIndex);
@@ -1369,7 +1369,7 @@ b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray)
 b8 gltf_accessor_get_mat4_array(gltf_object* gltf, u64 accIndex, mat4 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == MAT4D){
+  if(scratchStream.type == GLTF_TYPE_MAT4D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not pointing to a 4x4 matrix type", accIndex);
@@ -1383,7 +1383,7 @@ b8 gltf_accessor_get_mat4_array(gltf_object* gltf, u64 accIndex, mat4 *outArray)
 b8 gltf_accessor_get_u8_array(gltf_object* gltf, u64 accIndex, u8 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == U8){
+  if(scratchStream.type == GLTF_TYPE_U8){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not pointing to an unsigned 8 bit integer type", accIndex);
@@ -1397,7 +1397,7 @@ b8 gltf_accessor_get_u8_array(gltf_object* gltf, u64 accIndex, u8 *outArray){
 b8 gltf_accessor_get_i8_array(gltf_object* gltf, u64 accIndex, i8 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == I8){
+  if(scratchStream.type == GLTF_TYPE_I8){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not pointing to a signed 8 bit integer type", accIndex);
@@ -1411,11 +1411,11 @@ b8 gltf_accessor_get_i8_array(gltf_object* gltf, u64 accIndex, i8 *outArray){
 b8 gltf_accessor_get_u16_array(gltf_object* gltf, u64 accIndex, u16 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == U8){
+  if(scratchStream.type == GLTF_TYPE_U8){
     for(int i = 0; i < scratchStream.count; i++){
       outArray[i] = scratchStream.data[i];
     }
-  }else if(scratchStream.type == U16){
+  }else if(scratchStream.type == GLTF_TYPE_U16){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not able to be put in a u16 array", accIndex);
@@ -1429,12 +1429,12 @@ b8 gltf_accessor_get_u16_array(gltf_object* gltf, u64 accIndex, u16 *outArray){
 b8 gltf_accessor_get_i16_array(gltf_object* gltf, u64 accIndex, i16 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == I8){
+  if(scratchStream.type == GLTF_TYPE_I8){
     i8 *arr = (i8*)scratchStream.data;
     for(int i = 0; i < scratchStream.count; i++){
       outArray[i] = arr[i];
     }
-  }else if(scratchStream.type == I16){
+  }else if(scratchStream.type == GLTF_TYPE_I16){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not able to be put in an i16 array", accIndex);
@@ -1448,17 +1448,17 @@ b8 gltf_accessor_get_i16_array(gltf_object* gltf, u64 accIndex, i16 *outArray){
 b8 gltf_accessor_get_i32_array(gltf_object* gltf, u64 accIndex, i32 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == I8){
+  if(scratchStream.type == GLTF_TYPE_I8){
     i8 *arr = (i8*)scratchStream.data;
     for(int i = 0; i < scratchStream.count; i++){
       outArray[i] = arr[i];
     }
-  }else if(scratchStream.type == I16){
+  }else if(scratchStream.type == GLTF_TYPE_I16){
     i16 *arr = (i16*)scratchStream.data;
     for(int i = 0; i < scratchStream.count; i++){
       outArray[i] = arr[i];
     }
-  }else if(scratchStream.type == I32){
+  }else if(scratchStream.type == GLTF_TYPE_I32){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not able to be put in an i32 array", accIndex);
@@ -1472,7 +1472,7 @@ b8 gltf_accessor_get_i32_array(gltf_object* gltf, u64 accIndex, i32 *outArray){
 b8 gltf_accessor_get_f32_array(gltf_object* gltf, u64 accIndex, f32 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == FLOAT){
+  if(scratchStream.type == GLTF_TYPE_FLOAT){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not pointing to a floating point type", accIndex);
@@ -1486,7 +1486,7 @@ b8 gltf_accessor_get_f32_array(gltf_object* gltf, u64 accIndex, f32 *outArray){
 b8 gltf_accessor_get_mat2_array(gltf_object* gltf, u64 accIndex, mat2 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == MAT2D){
+  if(scratchStream.type == GLTF_TYPE_MAT2D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not pointing to a 2x2 matrix type", accIndex);
@@ -1500,7 +1500,7 @@ b8 gltf_accessor_get_mat2_array(gltf_object* gltf, u64 accIndex, mat2 *outArray)
 b8 gltf_accessor_get_mat3_array(gltf_object* gltf, u64 accIndex, mat3 *outArray){
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
-  if(scratchStream.type == MAT3D){
+  if(scratchStream.type == GLTF_TYPE_MAT3D){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
   }else{
     VERROR("Accessor %llu is not pointing to a 3x3 matrix type", accIndex);

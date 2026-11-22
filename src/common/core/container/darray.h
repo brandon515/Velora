@@ -49,11 +49,11 @@ darray* darray_push(darray* arr, const void* data);
 darray* darray_pop(darray* arr, void* dest);
 
 /*!
- * @brief Places data from data pointer to the index
+ * @brief Places data from data pointer to the index, shifting later items right
  * @param arr Pointer to dynamic array
  * @param data  Pointer to data to be inserted
- * @param index Index to place data
- * @result Pointer to darray, returns NULL if trying to insert beyond the length of the array
+ * @param index Index to place data. index == length appends, like darray_push
+ * @result Pointer to darray, returns NULL if index is greater than the length of the array
  */
 darray* darray_insert(darray* arr, const void* data, u64 index);
 
