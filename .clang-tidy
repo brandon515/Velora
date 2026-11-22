@@ -1,0 +1,22 @@
+# Bug-finding checks only; no style checks. Third-party code (stb_image, VMA)
+# is excluded in CI by only passing first-party files.
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-reserved-identifier,
+  -bugprone-assignment-in-if-condition,
+  -bugprone-macro-parentheses,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-narrowing-conversions,
+  -bugprone-multi-level-implicit-pointer-conversion,
+  clang-analyzer-*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -clang-analyzer-optin.core.EnumCastOutOfRange,
+  cert-err33-c,
+  cert-str34-c,
+  misc-redundant-expression,
+  misc-misplaced-const
+WarningsAsErrors: ''
+HeaderFilterRegex: 'src/(common|libraries|binaries)/.*'
+ExcludeHeaderFilterRegex: 'stb_image\.h'

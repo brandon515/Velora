@@ -1,3 +1,3 @@
 #pragma once
 
-void darray_test();
+void darray_test(void);

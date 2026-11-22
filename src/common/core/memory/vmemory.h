@@ -52,3 +52,9 @@ void* vcopy_memory(void* dest, const void* src, u64 size);
 void* vset_memory(void* block, i32 value, u64 size);
 
 char* get_memory_usage_str();
+
+/*!
+ * @brief Total bytes currently allocated through vallocate/vreallocate and not yet freed
+ * @result Number of bytes outstanding across every memory tag
+ */
+u64 get_memory_allocated();
