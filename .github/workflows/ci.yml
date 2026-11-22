@@ -101,12 +101,11 @@ jobs:
           glslangValidator -V --target-env vulkan1.3 -S vert vert.glsl -o /dev/null
           glslangValidator -V --target-env vulkan1.3 -S frag frag.glsl -o /dev/null
 
-  # Advisory for now: reports findings but doesn't fail the run. Flip
-  # continue-on-error to false once the existing warnings are cleaned up.
+  # Advisory for now: findings show up as PR annotations but the job stays
+  # green. Make it blocking once the existing findings are cleaned up.
   clang-tidy:
     name: clang-tidy (advisory)
     runs-on: ubuntu-24.04
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -118,8 +117,12 @@ jobs:
           git ls-files 'src/*.c' | grep -v stb_image \
             | xargs -P "$(nproc)" -n1 clang-tidy -p build --quiet 2>/dev/null \
             | tee clang-tidy.txt
-          echo "### clang-tidy: $(grep -c 'warning:' clang-tidy.txt || true) warnings" >> "$GITHUB_STEP_SUMMARY"
-          ! grep -q 'warning:\|error:' clang-tidy.txt
+          # Surface each finding as a PR annotation; never fail the job.
+          grep -E '^[^ ]+:[0-9]+:[0-9]+: (warning|error):' clang-tidy.txt \
+            | sed -E 's#^(\.\./|/home/runner/work/[^/]+/[^/]+/)##' \
+            | sed -E 's#^([^:]+):([0-9]+):([0-9]+): (warning|error): (.*)$#::warning file=\1,line=\2,col=\3::\5#' \
+            | sort -u || true
+          echo "### clang-tidy: $(grep -cE ': (warning|error):' clang-tidy.txt || true) findings" >> "$GITHUB_STEP_SUMMARY"
 
   # Advisory: checks only the lines a PR changes, so it never asks for a
   # whole-codebase reformat. See .clang-format for the style.
@@ -127,7 +130,6 @@ jobs:
     name: clang-format (advisory, PR lines only)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -136,5 +138,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format
       - name: Check changed lines
         run: |
-          git clang-format --diff "origin/${{ github.base_ref }}" -- 'src/*.c' 'src/*.h' ':!*stb_image*' | tee format.diff
-          ! grep -q '^diff' format.diff
+          git clang-format --diff "origin/${{ github.base_ref }}" -- 'src/*.c' 'src/*.h' ':!*stb_image*' | tee format.diff || true
+          if grep -q '^diff' format.diff; then
+            echo "::warning::Changed lines don't match .clang-format. Run: git clang-format origin/${{ github.base_ref }}"
+            { echo '### clang-format suggestions'; echo '```diff'; cat format.diff; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi

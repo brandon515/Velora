@@ -9,7 +9,7 @@
 u64 g_test_failures = 0;
 u64 g_test_checks = 0;
 
-typedef struct _test_suite{
+typedef struct _test_suite {
   const char* name;
   void (*run)(void);
 } test_suite;
@@ -19,20 +19,20 @@ static const test_suite suites[] = {
   {"darray", darray_test},
 };
 
-#define SUITE_COUNT (sizeof(suites)/sizeof(suites[0]))
+#define SUITE_COUNT (sizeof(suites) / sizeof(suites[0]))
 
 /*
  * Usage: velora_tests [suite]
  * With no argument every suite runs. Exit code is 0 only if every CHECK passed.
  */
-int main(int argc, char** argv){
+int main(int argc, char** argv) {
   initialize_memory();
   initialize_logging();
 
   const char* filter = argc > 1 ? argv[1] : NULL;
   b8 matched = FALSE;
-  for(u64 i = 0; i < SUITE_COUNT; i++){
-    if(filter != NULL && strcmp(filter, suites[i].name) != 0){
+  for(u64 i = 0; i < SUITE_COUNT; i++) {
+    if(filter != NULL && strcmp(filter, suites[i].name) != 0) {
       continue;
     }
     matched = TRUE;
@@ -40,14 +40,14 @@ int main(int argc, char** argv){
     suites[i].run();
   }
 
-  if(!matched){
+  if(!matched) {
     VERROR("No test suite named '%s'", filter);
     g_test_failures++;
   }
 
-  if(g_test_failures == 0){
+  if(g_test_failures == 0) {
     VINFO("All %llu checks passed", g_test_checks);
-  }else{
+  } else {
     VERROR("%llu of %llu checks failed", g_test_failures, g_test_checks);
   }
 

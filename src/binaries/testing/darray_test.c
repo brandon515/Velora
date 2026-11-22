@@ -3,23 +3,23 @@
 #include "core/container/darray.h"
 
 // Builds an array holding 0, 1, ..., count-1 as u64s.
-static darray* make_sequence(u64 count){
+static darray* make_sequence(u64 count) {
   darray* arr = darray_new(sizeof(u64));
-  for(u64 i = 0; i < count; i++){
+  for(u64 i = 0; i < count; i++) {
     arr = darray_push(arr, &i);
   }
   return arr;
 }
 
 // TRUE if arr holds exactly the values in expected, read through darray_get_data.
-static b8 contents_equal(darray* arr, const u64* expected, u64 count){
-  if(arr->length != count){
+static b8 contents_equal(darray* arr, const u64* expected, u64 count) {
+  if(arr->length != count) {
     VERROR("    length is %llu, expected %llu", arr->length, count);
     return FALSE;
   }
-  for(u64 i = 0; i < count; i++){
+  for(u64 i = 0; i < count; i++) {
     u64 value = 0;
-    if(!darray_get_data(arr, i, &value) || value != expected[i]){
+    if(!darray_get_data(arr, i, &value) || value != expected[i]) {
       VERROR("    index %llu holds %llu, expected %llu", i, value, expected[i]);
       return FALSE;
     }
@@ -27,7 +27,7 @@ static b8 contents_equal(darray* arr, const u64* expected, u64 count){
   return TRUE;
 }
 
-static void test_push_grows_and_keeps_order(void){
+static void test_push_grows_and_keeps_order(void) {
   darray* arr = make_sequence(10);
   CHECK(arr->length == 10, "length after 10 pushes");
   CHECK(arr->cap >= 10, "cap grew to fit 10 items");
@@ -36,9 +36,9 @@ static void test_push_grows_and_keeps_order(void){
   darray_free(arr);
 }
 
-static void test_get_pointer_every_index(void){
+static void test_get_pointer_every_index(void) {
   darray* arr = make_sequence(8);
-  for(u64 i = 0; i < 8; i++){
+  for(u64 i = 0; i < 8; i++) {
     u64* p = darray_get_pointer(arr, i);
     REQUIRE(p != NULL, "get_pointer returned NULL for an in-range index");
     CHECK(*p == i, "get_pointer points at the right element");
@@ -46,7 +46,7 @@ static void test_get_pointer_every_index(void){
   darray_free(arr);
 }
 
-static void test_get_out_of_range(void){
+static void test_get_out_of_range(void) {
   darray* arr = make_sequence(3);
   u64 value = 12345;
   CHECK(darray_get_pointer(arr, 3) == NULL, "get_pointer at length returns NULL");
@@ -55,7 +55,7 @@ static void test_get_out_of_range(void){
   darray_free(arr);
 }
 
-static void test_pop(void){
+static void test_pop(void) {
   darray* arr = make_sequence(4);
   u64 value = 0;
   CHECK(darray_pop(arr, &value) != NULL, "pop on non-empty array succeeds");
@@ -68,7 +68,7 @@ static void test_pop(void){
   darray_free(arr);
 }
 
-static void test_insert_middle(void){
+static void test_insert_middle(void) {
   darray* arr = make_sequence(4);
   u64 v = 99;
   arr = darray_insert(arr, &v, 2);
@@ -80,7 +80,7 @@ static void test_insert_middle(void){
 
 // Exercises the insert path while the array is still small (cap < 8), which is
 // where the copy size in darray_insert can run past its stack buffer.
-static void test_insert_front_small_array(void){
+static void test_insert_front_small_array(void) {
   darray* arr = make_sequence(2);
   u64 v = 99;
   arr = darray_insert(arr, &v, 0);
@@ -92,12 +92,12 @@ static void test_insert_front_small_array(void){
 
 // index == length is "at" the end, not "beyond" it, so it should append.
 // map_set_item relies on this when replacing the last key (bug-report #4).
-static void test_insert_at_length_appends(void){
+static void test_insert_at_length_appends(void) {
   darray* arr = make_sequence(3);
   u64 v = 99;
   darray* result = darray_insert(arr, &v, 3);
   CHECK(result != NULL, "insert at index == length succeeds");
-  if(result != NULL){
+  if(result != NULL) {
     arr = result;
     u64 expected[4] = {0, 1, 2, 99};
     CHECK(contents_equal(arr, expected, 4), "insert at length appends");
@@ -105,7 +105,7 @@ static void test_insert_at_length_appends(void){
   darray_free(arr);
 }
 
-static void test_insert_beyond_length_fails(void){
+static void test_insert_beyond_length_fails(void) {
   darray* arr = make_sequence(3);
   u64 v = 99;
   CHECK(darray_insert(arr, &v, 4) == NULL, "insert past length returns NULL");
@@ -113,7 +113,7 @@ static void test_insert_beyond_length_fails(void){
   darray_free(arr);
 }
 
-static void test_remove_middle(void){
+static void test_remove_middle(void) {
   darray* arr = make_sequence(5);
   u64 removed = 0;
   CHECK(darray_remove(arr, 2, &removed) != NULL, "remove in range succeeds");
@@ -124,7 +124,7 @@ static void test_remove_middle(void){
   darray_free(arr);
 }
 
-static void test_delete(void){
+static void test_delete(void) {
   darray* arr = make_sequence(5);
   CHECK(darray_delete(arr, 0) != NULL, "delete first succeeds");
   CHECK(darray_delete(arr, arr->length - 1) != NULL, "delete last succeeds");
@@ -134,7 +134,7 @@ static void test_delete(void){
   darray_free(arr);
 }
 
-static void test_drain(void){
+static void test_drain(void) {
   darray* arr = make_sequence(6);
   CHECK(darray_drain(arr, 2) != NULL, "drain 2 succeeds");
   u64 expected[4] = {2, 3, 4, 5};
@@ -145,7 +145,7 @@ static void test_drain(void){
   darray_free(arr);
 }
 
-static void test_clear(void){
+static void test_clear(void) {
   darray* arr = make_sequence(5);
   u64 cap = arr->cap;
   darray_clear(arr);
@@ -154,13 +154,13 @@ static void test_clear(void){
   darray_free(arr);
 }
 
-static void test_iterator(void){
+static void test_iterator(void) {
   darray* arr = make_sequence(6);
   iterator it = darray_create_iterator(arr);
   CHECK(iterator_index_of_last_Item(&it) == U64_MAX, "fresh iterator has no last item");
   u64* p = NULL;
   u64 seen = 0;
-  while(iterator_next(&it, (void**)&p)){
+  while(iterator_next(&it, (void**)&p)) {
     CHECK(p != NULL && *p == seen, "iterator visits elements in order");
     CHECK(iterator_index_of_last_Item(&it) == seen, "index_of_last_Item tracks position");
     seen++;
@@ -171,10 +171,14 @@ static void test_iterator(void){
   darray_free(arr);
 }
 
-static void test_large_stride(void){
-  typedef struct { u64 a; u64 b; u64 c; } triple;
+static void test_large_stride(void) {
+  typedef struct {
+    u64 a;
+    u64 b;
+    u64 c;
+  } triple;
   darray* arr = darray_new(sizeof(triple));
-  for(u64 i = 0; i < 5; i++){
+  for(u64 i = 0; i < 5; i++) {
     triple t = {i, i * 10, i * 100};
     arr = darray_push(arr, &t);
   }
@@ -187,7 +191,7 @@ static void test_large_stride(void){
   darray_free(arr);
 }
 
-void darray_test(void){
+void darray_test(void) {
   RUN_TEST(test_push_grows_and_keeps_order);
   RUN_TEST(test_get_pointer_every_index);
   RUN_TEST(test_get_out_of_range);

@@ -4,7 +4,7 @@
 
 #define MEMORY_SIZE 128
 
-static void test_set_copy_zero(void){
+static void test_set_copy_zero(void) {
   u8* test_mem = (u8*)vallocate(MEMORY_SIZE, MEMORY_TAG_APPLICATION);
   REQUIRE(test_mem != NULL, "vallocate returned NULL");
 
@@ -34,7 +34,7 @@ static void test_set_copy_zero(void){
   vfree((void*)test_mem, MEMORY_SIZE, MEMORY_TAG_APPLICATION);
 }
 
-static void test_allocation_tracking(void){
+static void test_allocation_tracking(void) {
   u64 before = get_memory_allocated();
   void* block = vallocate(MEMORY_SIZE, MEMORY_TAG_APPLICATION);
   CHECK(get_memory_allocated() == before + MEMORY_SIZE, "vallocate not counted");
@@ -45,7 +45,7 @@ static void test_allocation_tracking(void){
   CHECK(get_memory_allocated() == before, "vfree not counted");
 }
 
-void vmemory_test(void){
+void vmemory_test(void) {
   RUN_TEST(test_set_copy_zero);
   RUN_TEST(test_allocation_tracking);
 }

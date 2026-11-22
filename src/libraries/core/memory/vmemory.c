@@ -69,7 +69,7 @@ void* vset_memory(void* block, i32 value, u64 size){
   return block;
 }
 
-u64 get_memory_allocated(){
+u64 get_memory_allocated() {
   return mem_stats.total_allocated;
 }
 
