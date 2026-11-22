@@ -157,15 +157,10 @@ b8 enable_virtual_terminal(DWORD output){
 
 void windows_console_write(const char* message, log_level color, DWORD std_handle){
   char* buffer = platform_allocate(strlen(message)+256, FALSE);
-  static b8 warned = FALSE;
+  // Fails when the handle isn't a console (e.g. redirected to a pipe or file,
+  // as under `meson test` or CI). Write plain text then; never block on a
+  // dialog, since there may be no one to dismiss it.
   if(enable_virtual_terminal(std_handle) == FALSE){
-    if(warned == FALSE){ //Only put this message box out once
-      MessageBoxA(0, 
-        "Virtual terminal isn't avaiable for output, color will be ignored",
-        0,
-        MB_ICONEXCLAMATION|MB_OK);
-        warned = TRUE;
-    }
     sprintf(buffer,"%s\n", message);
   }else{
     //Each member corresponds to a log_level
@@ -174,10 +169,12 @@ void windows_console_write(const char* message, log_level color, DWORD std_handl
     static u8 background_colors[6] = {41, 40, 40, 40, 40, 40};
     sprintf(buffer, "\x1b[%d;%dm%s\x1b[37;40m\n", text_colors[color],background_colors[color], message);
   }
-  HANDLE console = GetStdHandle(std_handle);
+  HANDLE output = GetStdHandle(std_handle);
   OutputDebugStringA(buffer);
-  LPDWORD number_written = 0;
-  WriteConsole(console, buffer, strlen(buffer), number_written, 0);
+  // WriteFile works for consoles, pipes and files; WriteConsole only consoles.
+  DWORD number_written = 0;
+  WriteFile(output, buffer, (DWORD)strlen(buffer), &number_written, NULL);
+  platform_free(buffer, FALSE);
 }
 
 void platform_console_write(const char* message, log_level color){
