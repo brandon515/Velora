@@ -93,7 +93,7 @@ int main(int argc, char* argv[]){
 
 /*b8 application_run(application_state* app_state){
   gltf_object obj = {0};
-  VEL_CHECK(import_gltf("Cube.gltf", &obj))
+  VEL_CHECK(import_gltf("Cube.gltf", &obj));
   vmesh cube;
   VEL_CHECK(vmesh_from_gltf(&obj, 0, &cube));
   u64 renderableMeshHandle = 0;

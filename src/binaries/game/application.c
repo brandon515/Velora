@@ -13,7 +13,7 @@
 
 b8 velora_init(void **state, int argc, char **argv){
   gltf_object obj = {0};
-  VEL_CHECK(import_gltf("Cube.gltf", &obj))
+  VEL_CHECK(import_gltf("Cube.gltf", &obj));
   vmesh cube;
   VEL_CHECK(vmesh_from_gltf(&obj, 0, &cube));
   u64 renderableMeshHandle = 0;
