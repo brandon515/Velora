@@ -115,7 +115,7 @@ b8 platform_pump_messages(platform_state* plat_state){
   return TRUE;
 }
 
-VEXPORT void* platform_move_memory(void* dest, const void* src, u64 size){
+void* platform_move_memory(void* dest, const void* src, u64 size){
   return memmove(dest, src, size);
 }
 

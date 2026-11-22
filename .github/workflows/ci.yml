@@ -16,7 +16,7 @@ permissions:
 env:
   CC: clang
   CXX: clang++
-  LINUX_DEPS: clang meson ninja-build libx11-dev libvulkan-dev glslc
+  LINUX_DEPS: clang meson ninja-build libx11-dev libvulkan-dev vulkan-utility-libraries-dev glslc
 
 jobs:
   # Unit tests (velora_tests). Needs no GPU or display, so it runs on stock runners.
