@@ -1,0 +1,45 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '23 6 * * 1'  # weekly, Monday 06:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (C/C++)
+    runs-on: ubuntu-24.04
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang meson ninja-build libx11-dev libvulkan-dev glslc
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: c-cpp
+          build-mode: manual
+          queries: security-and-quality
+          config: |
+            paths-ignore:
+              - src/common/core/stb_image.h
+              - src/libraries/core/stb_image.c
+              - subprojects
+      # -k 0 keeps compiling past failing files, so CodeQL still sees every
+      # source file that does compile.
+      - name: Build
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          meson setup build
+          ninja -C build -k 0 || true
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:c-cpp

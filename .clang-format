@@ -1,0 +1,22 @@
+# Matches the existing Velora style: 2-space indent, attached braces,
+# no space between keywords and '(' ("if(", "for(", "while(").
+BasedOnStyle: LLVM
+IndentWidth: 2
+ContinuationIndentWidth: 2
+ColumnLimit: 0
+SpaceBeforeParens: Never
+PointerAlignment: Left
+DerivePointerAlignment: true
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AlignAfterOpenBracket: DontAlign
+AlignConsecutiveMacros: Consecutive
+AlignEscapedNewlines: DontAlign
+AlignTrailingComments: true
+SortIncludes: Never
+IncludeBlocks: Preserve
+IndentPPDirectives: None
+MaxEmptyLinesToKeep: 2
+KeepEmptyLinesAtTheStartOfBlocks: true
+---
+Language: Cpp

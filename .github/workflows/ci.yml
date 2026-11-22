@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CC: clang
+  CXX: clang++
+  LINUX_DEPS: clang meson ninja-build libx11-dev libvulkan-dev glslc
+
+jobs:
+  # Unit tests (velora_tests). Needs no GPU or display, so it runs on stock runners.
+  # "sanitize" is the important one: ASan + UBSan turn silent memory corruption
+  # (darray, glTF, renderer buffers) into a failing test with a stack trace.
+  tests-linux:
+    name: Tests (Linux, ${{ matrix.config.name }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: sanitize
+            setup: -Dbuildtype=debug -Db_sanitize=address,undefined -Db_lundef=false
+          - name: release
+            setup: -Dbuildtype=release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends $LINUX_DEPS
+      - name: Configure
+        run: meson setup build ${{ matrix.config.setup }}
+      - name: Build tests
+        run: meson compile -C build velora_tests
+      - name: Run tests
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: meson test -C build --print-errorlogs --no-rebuild
+      - name: Upload test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testlog-linux-${{ matrix.config.name }}
+          path: build/meson-logs/testlog.txt
+
+  # Compiles every target (engine, renderer, shaders), not just the tests.
+  build-linux:
+    name: Full build (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends $LINUX_DEPS
+      - name: Configure
+        run: meson setup build
+      - name: Build
+        run: meson compile -C build
+
+  # Keeps platform_win32.c compiling. Uses clang (not MSVC) because the code
+  # relies on VLAs and GCC-style flags.
+  tests-windows:
+    name: Tests (Windows)
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Install Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: latest
+          cache: true
+      - name: Install Meson and Ninja
+        run: pip install meson ninja
+      - name: Configure
+        run: meson setup build
+      - name: Build tests
+        run: meson compile -C build velora_tests
+      - name: Run tests
+        run: meson test -C build --print-errorlogs --no-rebuild
+
+  shaders:
+    name: Shader validation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install glslang
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends glslang-tools
+      - name: Validate GLSL
+        working-directory: src/libraries/vulkan_render/shaders
+        run: |
+          glslangValidator -V --target-env vulkan1.3 -S vert vert.glsl -o /dev/null
+          glslangValidator -V --target-env vulkan1.3 -S frag frag.glsl -o /dev/null
+
+  # Advisory for now: reports findings but doesn't fail the run. Flip
+  # continue-on-error to false once the existing warnings are cleaned up.
+  clang-tidy:
+    name: clang-tidy (advisory)
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends $LINUX_DEPS clang-tidy
+      - name: Configure (for compile_commands.json)
+        run: meson setup build
+      - name: Run clang-tidy
+        run: |
+          git ls-files 'src/*.c' | grep -v stb_image \
+            | xargs -P "$(nproc)" -n1 clang-tidy -p build --quiet 2>/dev/null \
+            | tee clang-tidy.txt
+          echo "### clang-tidy: $(grep -c 'warning:' clang-tidy.txt || true) warnings" >> "$GITHUB_STEP_SUMMARY"
+          ! grep -q 'warning:\|error:' clang-tidy.txt
+
+  # Advisory: checks only the lines a PR changes, so it never asks for a
+  # whole-codebase reformat. See .clang-format for the style.
+  format:
+    name: clang-format (advisory, PR lines only)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format
+      - name: Check changed lines
+        run: |
+          git clang-format --diff "origin/${{ github.base_ref }}" -- 'src/*.c' 'src/*.h' ':!*stb_image*' | tee format.diff
+          ! grep -q '^diff' format.diff

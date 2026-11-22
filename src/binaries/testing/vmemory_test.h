@@ -1,2 +1,3 @@
 #pragma once
-void vmemory_test();
+
+void vmemory_test(void);

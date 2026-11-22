@@ -69,6 +69,10 @@ void* vset_memory(void* block, i32 value, u64 size){
   return block;
 }
 
+u64 get_memory_allocated(){
+  return mem_stats.total_allocated;
+}
+
 char* get_memory_usage_str(){
   const u64 kib = 1024;
   const u64 mib = kib * 1024;
