@@ -69,6 +69,11 @@ i32 height){
   return TRUE;
 }
 
+VEXPORT void* platform_move_memory(void* dest, const void* src, u64 size){
+  return memmove(dest, src, size);
+}
+
+
 VEXPORT void platform_shutdown(platform_state* state){
   XDestroyWindow(state->dis, state->win);
   #ifndef VULKAN_RENDER // vulkan actually handles the closing of the display internally
