@@ -1,5 +1,6 @@
 #pragma once
 #include "defines.h"
+#include "core/core_api.h"
 #include "core/container/darray.h"
 
 typedef struct _vbuddy_block{
@@ -26,14 +27,14 @@ typedef struct _vbuddy_allocator{
   darray* allocated_lists[64]; // An array of dynamic arrays of buddy nodes that have been allocated 
 }vbuddy_allocator;
 
-b8 create_buddy_allocator(u64 initialOffset, u64 memorySize, u64 minOrder, vbuddy_allocator *outAlloc);
+VCORE_API b8 create_buddy_allocator(u64 initialOffset, u64 memorySize, u64 minOrder, vbuddy_allocator *outAlloc);
 
-void free_buddy_allocator(vbuddy_allocator* allocator);
+VCORE_API void free_buddy_allocator(vbuddy_allocator* allocator);
 
-vbuddy_node* create_node(vbuddy_allocator* allocator, u64 order);
+VCORE_API vbuddy_node* create_node(vbuddy_allocator* allocator, u64 order);
 
-void free_node(vbuddy_node* node);
+VCORE_API void free_node(vbuddy_node* node);
 
-u64 buddy_allocate(vbuddy_allocator* allocator, u64 id, u64 size);
+VCORE_API u64 buddy_allocate(vbuddy_allocator* allocator, u64 id, u64 size);
 
-void buddy_free(vbuddy_allocator* allocator, u64 id);
+VCORE_API void buddy_free(vbuddy_allocator* allocator, u64 id);

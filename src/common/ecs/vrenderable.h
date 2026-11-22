@@ -1,6 +1,7 @@
 #pragma once
 
 #include "defines.h"
+#include "ecs/ecs_api.h"
 #include "ecs/vtransform.h"
 
 typedef struct _vrenderable{
@@ -16,4 +17,4 @@ typedef struct _vrenderable{
  * @param materialHandle The handle returned by registering the material to the render system
  * @return TRUE if the component was able to be attached, FALSE if there was an existing renderable component or if the entity does not have a transform component
  */
-b8 register_renderable(u64 entityID, u64 meshHandle, u64 materialHandle);
+VECS_API b8 register_renderable(u64 entityID, u64 meshHandle, u64 materialHandle);

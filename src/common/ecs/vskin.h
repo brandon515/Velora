@@ -2,6 +2,7 @@
 
 #include "core/utils/vgltf.h"
 #include "defines.h"
+#include "ecs/ecs_api.h"
 #include "core/utils/vmath.h"
 #include "ecs/vtransform.h"
 
@@ -15,6 +16,6 @@ typedef struct _vskin{
   vjoint* joints;
 }vskin;
 
-b8 vskin_from_gltf(gltf_object* gltf, u64 skinIndex, vskin* outSkin);
+VECS_API b8 vskin_from_gltf(gltf_object* gltf, u64 skinIndex, vskin* outSkin);
 
-void free_vskin(vskin* skin);
+VECS_API void free_vskin(vskin* skin);

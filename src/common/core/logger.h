@@ -1,6 +1,7 @@
 #pragma once
 
 #include "defines.h"
+#include "core/core_api.h"
 #include "platform/platform.h"
 
 #define LOG_WARN_ENABLED 1  
@@ -13,8 +14,8 @@
 #define LOG_TRACE_ENABLED 0
 #endif
 
-b8 initialize_logging();
-void shutdown_logging();
+VCORE_API b8 initialize_logging();
+VCORE_API void shutdown_logging();
 
 // Lets clang/gcc check log format strings against their arguments (-Wformat)
 #if defined(__clang__) || defined(__GNUC__)
@@ -23,7 +24,7 @@ void shutdown_logging();
 #define VPRINTF_FMT(fmt_idx, args_idx)
 #endif
 
-void log_output(log_level level, const char* message, ...) VPRINTF_FMT(2, 3);
+VCORE_API void log_output(log_level level, const char* message, ...) VPRINTF_FMT(2, 3);
 
 #ifndef VFATAL
 #define VFATAL(message, ...) log_output(LOG_LEVEL_FATAL, message, ##__VA_ARGS__);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "defines.h"
+#include "render/render_api.h"
 #include "core/utils/vmath.h"
 #include "core/utils/vgltf.h"
 #include "render/vmaterial.h"
@@ -21,6 +22,6 @@ typedef struct _vmesh {
   vmaterial material;
 } vmesh;
 
-b8 vmesh_from_gltf(gltf_object *obj, u64 meshIndex, vmesh *outMesh);
+VRENDER_API b8 vmesh_from_gltf(gltf_object *obj, u64 meshIndex, vmesh *outMesh);
 
-void free_vmesh(vmesh *mesh);
+VRENDER_API void free_vmesh(vmesh *mesh);
