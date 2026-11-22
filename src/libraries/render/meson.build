@@ -1,8 +1,8 @@
-out_render_files = files('vmaterial.c', 'vmesh.c')
+out_render_files = files('vmaterial.c', 'vmesh.c', 'velora_render.c')
 
 out_render_lib = library('velora_render',
   out_render_files,
-  link_with: [out_core_lib],
+  link_with: [out_vulkan_lib, out_core_lib],
   include_directories: inc,
   pic: true,
   link_language: 'c',
