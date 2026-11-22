@@ -1815,6 +1815,14 @@ b8 update_descriptor_sets(vulkan_state* state){
   return TRUE;
 }
 
+b8 register_texture_handler(event* event, void* state){
+  return TRUE;
+}
+
+b8 register_material_handler(event* event, void* state){
+  return TRUE;
+}
+
 b8 register_mesh_handler(event* event, void* state){
   vulkan_state *vk_state = (vulkan_state*)state;
   register_mesh_data *data = (register_mesh_data*)event->event_data;
@@ -2049,8 +2057,8 @@ b8 initiate_render_backend(void** state, const char* application_name, platform_
   return TRUE;
 }
 
-void shutdown_render_system(render_state* state){
-  vulkan_state* vk_state = (vulkan_state*)state->internal_render_state;
+void shutdown_render_backend(void* state){
+  vulkan_state* vk_state = (vulkan_state*)state;
   vkDeviceWaitIdle(vk_state->logicalDevice);
   destroy_vulkan_image(vk_state, &vk_state->depthImage);
   for(int i = 0; i < vk_state->curTextureIndex; i++){
@@ -2091,7 +2099,7 @@ void shutdown_render_system(render_state* state){
   DestroyDebugUtilsMessengerEXT(vk_state->instance, vk_state->debugMessenger, NULL);
   #endif
   vkDestroyInstance(vk_state->instance, NULL);
-  vfree(state->internal_render_state, sizeof(vulkan_state), MEMORY_TAG_RENDERER);
+  vfree(state, sizeof(vulkan_state), MEMORY_TAG_RENDERER);
 }
 
 /*void update_uniform_buffer(vulkan_state* state){

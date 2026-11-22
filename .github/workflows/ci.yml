@@ -16,7 +16,7 @@ permissions:
 env:
   CC: clang
   CXX: clang++
-  LINUX_DEPS: clang meson ninja-build libx11-dev libvulkan-dev glslc
+  LINUX_DEPS: clang meson ninja-build libx11-dev libvulkan-dev vulkan-utility-libraries-dev glslc
 
 jobs:
   # Unit tests (velora_tests). Needs no GPU or display, so it runs on stock runners.
@@ -59,8 +59,28 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      # The renderer targets Vulkan 1.4, but Ubuntu 24.04 only packages 1.3, so
+      # use the LunarG SDK (same as the Windows job) and skip apt's Vulkan.
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends $LINUX_DEPS
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang meson ninja-build libx11-dev glslc
+      - name: Install Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: latest
+          cache: true
+      - name: Point pkg-config at the Vulkan SDK
+        run: |
+          # SDK >= 1.4.350 moved the loader (and its vulkan.pc) under
+          # lib/VulkanLoader/lib, so search rather than hardcode the path.
+          # LD_LIBRARY_PATH is already set correctly by the install action.
+          pc=$(find "$VULKAN_SDK" -name vulkan.pc -print -quit)
+          if [ -z "$pc" ]; then
+            echo "vulkan.pc not found under $VULKAN_SDK" >&2
+            find "$VULKAN_SDK" -maxdepth 4 -type d -name '*pkgconfig*' >&2
+            exit 1
+          fi
+          echo "Using $pc"
+          echo "PKG_CONFIG_PATH=$(dirname "$pc")" >> "$GITHUB_ENV"
       - name: Configure
         run: meson setup build
       - name: Build

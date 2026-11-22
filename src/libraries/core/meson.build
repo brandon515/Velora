@@ -2,17 +2,11 @@ out_core_files = files('event.c', 'logger.c', 'stb_image.c')
 subdir('utils')
 subdir('container')
 subdir('platform')
-subdir('entry')
 subdir('memory')
 out_core_files += out_utils_files
 out_core_files += out_containers_files
 out_core_files += out_platform_files
 out_core_files += out_memory_files
-
-# Everything in velora_core except the entry point (which defines main() and
-# depends on the ecs/render layers). Unit tests compile these directly.
-out_core_testable_files = out_core_files
-out_core_files += out_entry_files
 
 m_dep = []
 if host_machine.system() == 'linux'
