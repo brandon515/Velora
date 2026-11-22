@@ -1,7 +1,7 @@
 #define VELORA_MAIN_CALLBACKS
 #ifdef VELORA_MAIN_CALLBACKS
 #include "defines.h"
-#include "core/entry/entry.h"
+#include "entry/entry.h"
 #include "core/logger.h"
 #include "core/memory/vmemory.h"
 #include "core/event.h"
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]){
   return 0;
 }
 
-b8 application_run(application_state* app_state){
+/*b8 application_run(application_state* app_state){
   gltf_object obj = {0};
   VEL_CHECK(import_gltf("Cube.gltf", &obj))
   vmesh cube;
@@ -119,5 +119,5 @@ b8 application_run(application_state* app_state){
   }
 
   return TRUE;
-}
+}*/
 #endif
