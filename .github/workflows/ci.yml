@@ -70,11 +70,17 @@ jobs:
           cache: true
       - name: Point pkg-config at the Vulkan SDK
         run: |
-          sdk="$VULKAN_SDK"
-          [ -d "$sdk/x86_64" ] && sdk="$sdk/x86_64"
-          ls "$sdk/lib/pkgconfig/vulkan.pc"
-          echo "PKG_CONFIG_PATH=$sdk/lib/pkgconfig" >> "$GITHUB_ENV"
-          echo "LD_LIBRARY_PATH=$sdk/lib" >> "$GITHUB_ENV"
+          # SDK >= 1.4.350 moved the loader (and its vulkan.pc) under
+          # lib/VulkanLoader/lib, so search rather than hardcode the path.
+          # LD_LIBRARY_PATH is already set correctly by the install action.
+          pc=$(find "$VULKAN_SDK" -name vulkan.pc -print -quit)
+          if [ -z "$pc" ]; then
+            echo "vulkan.pc not found under $VULKAN_SDK" >&2
+            find "$VULKAN_SDK" -maxdepth 4 -type d -name '*pkgconfig*' >&2
+            exit 1
+          fi
+          echo "Using $pc"
+          echo "PKG_CONFIG_PATH=$(dirname "$pc")" >> "$GITHUB_ENV"
       - name: Configure
         run: meson setup build
       - name: Build
