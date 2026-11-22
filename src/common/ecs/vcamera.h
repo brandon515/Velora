@@ -1,5 +1,6 @@
 #pragma once
 #include "defines.h"
+#include "ecs/ecs_api.h"
 #include "ecs/vtransform.h"
 
 typedef struct _vcamera{
@@ -7,6 +8,6 @@ typedef struct _vcamera{
   vtransform *transform;
 }vcamera;
 
-b8 register_camera(u64 entityID, b8 active);
+VECS_API b8 register_camera(u64 entityID, b8 active);
 
-vcamera* camera_get_active();
+VECS_API vcamera* camera_get_active();

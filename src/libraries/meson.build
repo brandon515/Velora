@@ -6,5 +6,5 @@ subdir('ecs')
 # calls into the backend, so velora_render links against vulkan_render.
 subdir('vulkan_render')
 subdir('render')
-# Static library providing main(); linked into executables. See entry/meson.build.
+# Static library (not shared) providing main(); linked into executables. See entry/meson.build.
 subdir('entry')

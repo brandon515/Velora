@@ -1,5 +1,6 @@
 #pragma once
 #include "defines.h"
+#include "core/core_api.h"
 #include "vmath.h"
 #include "vimage.h"
 #include <threads.h>
@@ -312,13 +313,13 @@ typedef struct _gltf_data_stream{
  * @param out_gltf A gltf_object variable to be filled with the data pointed at by the URI
  * @return FALSE if the file doesn't exist or the file isn't valid JSON, TRUE otherwise
  */
-b8 import_gltf(const char *uri, gltf_object *out_gltf);
+VCORE_API b8 import_gltf(const char *uri, gltf_object *out_gltf);
 
 /**
  * @brief Frees the memory that the gltf_object uses but not the pointer itself
  * @param out_gltf The gltf_object that's been filled with import_gltf
  */
-void free_gltf(gltf_object* out_gltf);
+VCORE_API void free_gltf(gltf_object* out_gltf);
 
 /**
  * @brief Frees the memory that the gltf_object uses but not the pointer itself
@@ -328,7 +329,7 @@ void free_gltf(gltf_object* out_gltf);
  * @param outType A pointer to the gltf_data_type enum, not used if NULL
  * @return FALSE if the accIndex is out of range of the gltf accessors, TRUE otherwise
  */
-b8 gltf_accessor_get_element_size_type(gltf_object* gltf, u64 accIndex, u64 *outSize, gltf_data_type *outType);
+VCORE_API b8 gltf_accessor_get_element_size_type(gltf_object* gltf, u64 accIndex, u64 *outSize, gltf_data_type *outType);
 
 /**
  * @brief Frees the memory that the gltf_object uses but not the pointer itself
@@ -337,7 +338,7 @@ b8 gltf_accessor_get_element_size_type(gltf_object* gltf, u64 accIndex, u64 *out
  * @param outCount A pointer to the u64 where the number of elements should be inputed
  * @return FALSE if the accIndex is out of range of the gltf accessors, TRUE otherwise
  */
-b8 gltf_accessor_get_element_count(gltf_object* gltf, u64 accIndex, u64 *outCount);
+VCORE_API b8 gltf_accessor_get_element_count(gltf_object* gltf, u64 accIndex, u64 *outCount);
 
 
 /**
@@ -347,7 +348,7 @@ b8 gltf_accessor_get_element_count(gltf_object* gltf, u64 accIndex, u64 *outCoun
  * @param outStream The stream being created. The data pointer is heap allocated and needs to be freed using free_stream.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream);
+VCORE_API b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream);
 
 /**
  * @brief Packes the data from the accessor into a u32 array
@@ -356,7 +357,7 @@ b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream)
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_u32_array(gltf_object* gltf, u64 accIndex, u32 *outArray);
+VCORE_API b8 gltf_accessor_get_u32_array(gltf_object* gltf, u64 accIndex, u32 *outArray);
 
 /**
  * @brief Packes the data from the accessor into a vec2 array
@@ -365,7 +366,7 @@ b8 gltf_accessor_get_u32_array(gltf_object* gltf, u64 accIndex, u32 *outArray);
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_vec2_array(gltf_object* gltf, u64 accIndex, vec2 *outArray);
+VCORE_API b8 gltf_accessor_get_vec2_array(gltf_object* gltf, u64 accIndex, vec2 *outArray);
 
 /**
  * @brief Packes the data from the accessor into a vec3 array
@@ -374,7 +375,7 @@ b8 gltf_accessor_get_vec2_array(gltf_object* gltf, u64 accIndex, vec2 *outArray)
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec3 *outArray);
+VCORE_API b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec3 *outArray);
 
 /**
  * @brief Packes the data from the accessor into a vec4 array
@@ -383,7 +384,7 @@ b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec3 *outArray)
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray);
+VCORE_API b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray);
 
 /**
  * @brief Packes the data from the accessor into a mat4 array
@@ -392,7 +393,7 @@ b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray)
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_mat4_array(gltf_object* gltf, u64 accIndex, mat4 *outArray);
+VCORE_API b8 gltf_accessor_get_mat4_array(gltf_object* gltf, u64 accIndex, mat4 *outArray);
 
 /**
  * @brief Packes the data from the accessor into a u8 array
@@ -401,7 +402,7 @@ b8 gltf_accessor_get_mat4_array(gltf_object* gltf, u64 accIndex, mat4 *outArray)
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_u8_array(gltf_object* gltf, u64 accIndex, u8 *outArray);
+VCORE_API b8 gltf_accessor_get_u8_array(gltf_object* gltf, u64 accIndex, u8 *outArray);
 
 /**
  * @brief Packes the data from the accessor into an i8 array
@@ -410,7 +411,7 @@ b8 gltf_accessor_get_u8_array(gltf_object* gltf, u64 accIndex, u8 *outArray);
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_i8_array(gltf_object* gltf, u64 accIndex, i8 *outArray);
+VCORE_API b8 gltf_accessor_get_i8_array(gltf_object* gltf, u64 accIndex, i8 *outArray);
 
 /**
  * @brief Packes the data from the accessor into a u16 array
@@ -419,7 +420,7 @@ b8 gltf_accessor_get_i8_array(gltf_object* gltf, u64 accIndex, i8 *outArray);
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_u16_array(gltf_object* gltf, u64 accIndex, u16 *outArray);
+VCORE_API b8 gltf_accessor_get_u16_array(gltf_object* gltf, u64 accIndex, u16 *outArray);
 
 /**
  * @brief Packes the data from the accessor into an i16 array
@@ -428,7 +429,7 @@ b8 gltf_accessor_get_u16_array(gltf_object* gltf, u64 accIndex, u16 *outArray);
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_i16_array(gltf_object* gltf, u64 accIndex, i16 *outArray);
+VCORE_API b8 gltf_accessor_get_i16_array(gltf_object* gltf, u64 accIndex, i16 *outArray);
 
 /**
  * @brief Packes the data from the accessor into an i32 array
@@ -437,7 +438,7 @@ b8 gltf_accessor_get_i16_array(gltf_object* gltf, u64 accIndex, i16 *outArray);
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_i32_array(gltf_object* gltf, u64 accIndex, i32 *outArray);
+VCORE_API b8 gltf_accessor_get_i32_array(gltf_object* gltf, u64 accIndex, i32 *outArray);
 
 /**
  * @brief Packes the data from the accessor into an f32 array
@@ -446,7 +447,7 @@ b8 gltf_accessor_get_i32_array(gltf_object* gltf, u64 accIndex, i32 *outArray);
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_f32_array(gltf_object* gltf, u64 accIndex, f32 *outArray);
+VCORE_API b8 gltf_accessor_get_f32_array(gltf_object* gltf, u64 accIndex, f32 *outArray);
 
 /**
  * @brief Packes the data from the accessor into a mat2 array
@@ -455,7 +456,7 @@ b8 gltf_accessor_get_f32_array(gltf_object* gltf, u64 accIndex, f32 *outArray);
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_mat2_array(gltf_object* gltf, u64 accIndex, mat2 *outArray);
+VCORE_API b8 gltf_accessor_get_mat2_array(gltf_object* gltf, u64 accIndex, mat2 *outArray);
 
 /**
  * @brief Packes the data from the accessor into a mat3 array
@@ -464,10 +465,10 @@ b8 gltf_accessor_get_mat2_array(gltf_object* gltf, u64 accIndex, mat2 *outArray)
  * @param outArray The stream being created. The data pointer is allocated outside the function.
  * @return TRUE if the data stream was able to be created, FALSE if the accIndex is out of range or the data stream isn't able to be reconstituted for any reason.
  */
-b8 gltf_accessor_get_mat3_array(gltf_object* gltf, u64 accIndex, mat3 *outArray);
+VCORE_API b8 gltf_accessor_get_mat3_array(gltf_object* gltf, u64 accIndex, mat3 *outArray);
 
 /**
  * @brief Frees the data struct inside the data stream
  * @param stream The gltf stream to free
  */
-void gltf_free_stream(gltf_data_stream stream);
+VCORE_API void gltf_free_stream(gltf_data_stream stream);

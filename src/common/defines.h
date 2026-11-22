@@ -90,17 +90,16 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #error "Unknown platform!"
 #endif
 
-// Exports
-#ifdef _MSC_VER
+// Shared library symbol visibility. Don't use these directly on declarations;
+// use the per-library macros (VCORE_API, VECS_API, VRENDER_API,
+// VRENDER_BACKEND_API), which pick VEXPORT or VIMPORT for the library being built.
+// Keyed on the platform rather than the compiler so MinGW gets dllexport too.
+#if VPLATFORM_WINDOWS
 #define VEXPORT __declspec(dllexport)
-#else
-#define VEXPORT __attribute__((visibility("default")))
-#endif //_MSC_VER
-
-// Imports
-#ifdef _MSC_VER
 #define VIMPORT __declspec(dllimport)
 #else
+// Libraries build with -fvisibility=hidden, so only annotated symbols are exported.
+#define VEXPORT __attribute__((visibility("default")))
 #define VIMPORT
 #endif
 

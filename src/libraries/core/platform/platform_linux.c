@@ -9,7 +9,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-VEXPORT b8 platform_startup(
+b8 platform_startup(
 platform_state* state,
 const char* application_name,
 i32 x,
@@ -69,19 +69,19 @@ i32 height){
   return TRUE;
 }
 
-VEXPORT void* platform_move_memory(void* dest, const void* src, u64 size){
+void* platform_move_memory(void* dest, const void* src, u64 size){
   return memmove(dest, src, size);
 }
 
 
-VEXPORT void platform_shutdown(platform_state* state){
+void platform_shutdown(platform_state* state){
   XDestroyWindow(state->dis, state->win);
   #ifndef VULKAN_RENDER // vulkan actually handles the closing of the display internally
   XCloseDisplay(state->dis);
   #endif
 }
 
-VEXPORT b8 platform_pump_messages(platform_state* state){
+b8 platform_pump_messages(platform_state* state){
   XEvent newXEvent;
   while(XPending(state->dis)){
     XNextEvent(state->dis, &newXEvent);
@@ -182,23 +182,23 @@ VEXPORT b8 platform_pump_messages(platform_state* state){
   return TRUE;
 }
 
-VEXPORT void* platform_allocate(u64 size, b8 aligned){
+void* platform_allocate(u64 size, b8 aligned){
   return malloc(size);
 }
-VEXPORT void platform_free(void* block, b8 aligned){
+void platform_free(void* block, b8 aligned){
   free(block);
 }
-VEXPORT void* platform_zero_memory(void* block, u64 size){
+void* platform_zero_memory(void* block, u64 size){
   return memset(block, 0, size);
 }
-VEXPORT void* platform_copy_memory(void* dest, const void* source, u64 size){
+void* platform_copy_memory(void* dest, const void* source, u64 size){
   return memcpy(dest, source, size);
 }
-VEXPORT void* platform_set_memory(void* dest, i32 value, u64 size){
+void* platform_set_memory(void* dest, i32 value, u64 size){
   return memset(dest, value, size);
 }
 
-VEXPORT void* platform_reallocate(void* block, u64 size){
+void* platform_reallocate(void* block, u64 size){
   return realloc(block, size);
 }
 
@@ -210,17 +210,17 @@ void linux_console_write(const char* message, log_level color, FILE* file){
   fprintf(file, "%s", buffer);
 }
 
-VEXPORT void platform_console_write(const char* message, log_level color){
+void platform_console_write(const char* message, log_level color){
   linux_console_write(message, color, stdout);
 }
-VEXPORT void platform_console_write_error(const char* message, log_level color){
+void platform_console_write_error(const char* message, log_level color){
   linux_console_write(message, color, stderr);
 }
 
-VEXPORT f64 platform_get_absolute_time(){
+f64 platform_get_absolute_time(){
   return 0.0f;
 }
 
-VEXPORT void platform_sleep(u64 ms){
+void platform_sleep(u64 ms){
   //
 }

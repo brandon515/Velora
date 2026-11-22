@@ -1,15 +1,16 @@
 #pragma once
 
 #include "defines.h"
+#include "core/core_api.h"
 
 typedef struct _platform_library{
   void *internal_lib;
   char* libName;
 }platform_library;
 
-b8 platform_load_library(const char* libURI, platform_library* outLib);
-b8 platform_free_library(platform_library* outLib);
-void* platform_get_function(const char* funcName, platform_library library);
+VCORE_API b8 platform_load_library(const char* libURI, platform_library* outLib);
+VCORE_API b8 platform_free_library(platform_library* outLib);
+VCORE_API void* platform_get_function(const char* funcName, platform_library library);
 
 #if VPLATFORM_LINUX
 #include <X11/Xlib.h>
@@ -41,7 +42,7 @@ typedef enum log_level {
   LOG_LEVEL_TRACE = 5
 } log_level;
 
-b8 platform_startup(
+VCORE_API b8 platform_startup(
   platform_state* plat_state,
   const char* application_name,
   i32 x,
@@ -50,21 +51,21 @@ b8 platform_startup(
   i32 height
 );
 
-void platform_shutdown(platform_state* plat_state);
+VCORE_API void platform_shutdown(platform_state* plat_state);
 
-b8 platform_pump_messages(platform_state* plat_state);
+VCORE_API b8 platform_pump_messages(platform_state* plat_state);
 
-void* platform_allocate(u64 size, b8 aligned);
-void platform_free(void* block, b8 aligned);
-void* platform_reallocate(void* block, u64 size);
-void* platform_zero_memory(void* block, u64 size);
-void* platform_copy_memory(void* dest, const void* source, u64 size);
-void* platform_set_memory(void* dest, i32 value, u64 size);
-void* platform_move_memory(void* dest, const void* src, u64 size);
+VCORE_API void* platform_allocate(u64 size, b8 aligned);
+VCORE_API void platform_free(void* block, b8 aligned);
+VCORE_API void* platform_reallocate(void* block, u64 size);
+VCORE_API void* platform_zero_memory(void* block, u64 size);
+VCORE_API void* platform_copy_memory(void* dest, const void* source, u64 size);
+VCORE_API void* platform_set_memory(void* dest, i32 value, u64 size);
+VCORE_API void* platform_move_memory(void* dest, const void* src, u64 size);
 
-void platform_console_write(const char* message, log_level color);
-void platform_console_write_error(const char* message, log_level color);
+VCORE_API void platform_console_write(const char* message, log_level color);
+VCORE_API void platform_console_write_error(const char* message, log_level color);
 
-f64 platform_get_absolute_time();
+VCORE_API f64 platform_get_absolute_time();
 
-void platform_sleep(u64 ms);
+VCORE_API void platform_sleep(u64 ms);

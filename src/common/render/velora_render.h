@@ -2,6 +2,8 @@
 
 #include "core/utils/vimage.h"
 #include "defines.h"
+#include "render/render_backend_api.h"
+#include "render/render_api.h"
 #include "core/event.h"
 #include "core/platform/platform.h"
 #include "render/vmesh.h"
@@ -29,20 +31,20 @@ typedef struct _register_material_data{
   u64 handle;
 }register_material_data;
 
-void shutdown_render_system(render_state* state);
+VRENDER_API void shutdown_render_system(render_state* state);
 
-b8 initiate_render_system(render_state* state, const char* application_name, platform_state *plat_internal_state);
+VRENDER_API b8 initiate_render_system(render_state* state, const char* application_name, platform_state *plat_internal_state);
 
 //The functions below are to be defined in the specific backend implementation
 
-b8 initiate_render_backend(void** internalState, const char* application_name, platform_state *plat_internal_state);
-void shutdown_render_backend(void* internalState);
+VRENDER_BACKEND_API b8 initiate_render_backend(void** internalState, const char* application_name, platform_state *plat_internal_state);
+VRENDER_BACKEND_API void shutdown_render_backend(void* internalState);
 
-b8 register_mesh_handler(event* event, void* state);
-b8 register_texture_handler(event* event, void* state);
-b8 register_material_handler(event* event, void* state);
-b8 resize_handler(event* newEvent, void* state);
+VRENDER_BACKEND_API b8 register_mesh_handler(event* event, void* state);
+VRENDER_BACKEND_API b8 register_texture_handler(event* event, void* state);
+VRENDER_BACKEND_API b8 register_material_handler(event* event, void* state);
+VRENDER_BACKEND_API b8 resize_handler(event* newEvent, void* state);
 
-b8 render_preframe(render_state* state);
-b8 render_frame(render_state* state);
-b8 render_postframe(render_state* state);
+VRENDER_BACKEND_API b8 render_preframe(render_state* state);
+VRENDER_BACKEND_API b8 render_frame(render_state* state);
+VRENDER_BACKEND_API b8 render_postframe(render_state* state);

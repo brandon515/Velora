@@ -1,6 +1,7 @@
 #pragma once
 
 #include "defines.h"
+#include "core/core_api.h"
 
 #define V_PI 3.141592
 
@@ -121,42 +122,42 @@ typedef union _mat4x2{
  * @param input the integer to encompass
  * @return The smallest power of 2 that is larger than input
  */
-u64 round_up_to_largest_power_of_two(u64 input);
+VCORE_API u64 round_up_to_largest_power_of_two(u64 input);
 
 /**
  * @brief This function rounds input up to the nearest power of 2 and returns the power of two, so n in Yx2^n
  * @param input the integer to round up and retrieve the power of two
  * @return The power of two for the rounded up number
  */
-u64 log_base_2(u64 input);
+VCORE_API u64 log_base_2(u64 input);
 
 /**
  * @brief This function returns the power of two, so n in Yx2^n. It assumes the input is already a power of two
  * @param input the integer etrieve the power of two
  * @return The power of two for input
  */
-u64 log_base_2_unchecked(u64 input);
+VCORE_API u64 log_base_2_unchecked(u64 input);
 
 /**
  * @brief Normalizes the vector provided
  * @param vector The vector to be normalized
  * @return The normalized vector
  */
-vec2 vec2_normalize(vec2 vector);
+VCORE_API vec2 vec2_normalize(vec2 vector);
 
 /**
  * @brief Normalizes the vector provided
  * @param vector The vector to be normalized
  * @return The normalized vector
  */
-vec3 vec3_normalize(vec3 vector);
+VCORE_API vec3 vec3_normalize(vec3 vector);
 
 /**
  * @brief Normalizes the vector provided
  * @param vector The vector to be normalized
  * @return The normalized vector
  */
-vec4 vec4_normalize(vec4 vector);
+VCORE_API vec4 vec4_normalize(vec4 vector);
 
 /**
  * @brief Scale the vector by the scalar provided
@@ -164,7 +165,7 @@ vec4 vec4_normalize(vec4 vector);
  * @param scalar The scalar value to scale the entire vector
  * @return The scaled up vector
  */
-vec2 vec2_multiply_scalar(vec2 vector, f32 scalar);
+VCORE_API vec2 vec2_multiply_scalar(vec2 vector, f32 scalar);
 
 /**
  * @brief Scale the vector by the scalar provided
@@ -172,7 +173,7 @@ vec2 vec2_multiply_scalar(vec2 vector, f32 scalar);
  * @param scalar The scalar value to scale the entire vector
  * @return The scaled up vector
  */
-vec3 vec3_multiply_scalar(vec3 vector, f32 scalar);
+VCORE_API vec3 vec3_multiply_scalar(vec3 vector, f32 scalar);
 
 /**
  * @brief Scale the vector by the scalar provided
@@ -180,7 +181,7 @@ vec3 vec3_multiply_scalar(vec3 vector, f32 scalar);
  * @param scalar The scalar value to scale the entire vector
  * @return The scaled up vector
  */
-vec4 vec4_multiply_scalar(vec4 vector, f32 scalar);
+VCORE_API vec4 vec4_multiply_scalar(vec4 vector, f32 scalar);
 
 /**
  * @brief Add the two vectors together
@@ -188,7 +189,7 @@ vec4 vec4_multiply_scalar(vec4 vector, f32 scalar);
  * @param vector2 The second vector
  * @return A new vector with all the members of the vectors of vector1 and vector2 added together
  */
-vec2 vec2_add(vec2 vector1, vec2 vector2);
+VCORE_API vec2 vec2_add(vec2 vector1, vec2 vector2);
 
 /**
  * @brief Add the two vectors together
@@ -196,7 +197,7 @@ vec2 vec2_add(vec2 vector1, vec2 vector2);
  * @param vector2 The second vector
  * @return A new vector with all the members of the vectors of vector1 and vector2 added together
  */
-vec3 vec3_add(vec3 vector1, vec3 vector2);
+VCORE_API vec3 vec3_add(vec3 vector1, vec3 vector2);
 
 /**
  * @brief Add the two vectors together
@@ -204,46 +205,46 @@ vec3 vec3_add(vec3 vector1, vec3 vector2);
  * @param vector2 The second vector
  * @return A new vector with all the members of the vectors of vector1 and vector2 added together
  */
-vec4 vec4_add(vec4 vector1, vec4 vector2);
+VCORE_API vec4 vec4_add(vec4 vector1, vec4 vector2);
 
 /**
  * @brief Gets a translation matrix based on the translation vector
  * @param translation A vector containing a translation of the object from the origin
  * @return A 4x4 matrix that is the translation matrix
  */
-mat4 translation_matrix(vec3 translation);
+VCORE_API mat4 translation_matrix(vec3 translation);
 
 /**
  * @brief Gets a scaling matrix based on the scaling of the individual axies
  * @param scale A vector containing the scale of the object on each axis
  * @return A 4x4 matrix that is the scaling matrix
  */
-mat4 scaling_matrix(vec3 scale);
+VCORE_API mat4 scaling_matrix(vec3 scale);
 
 /**
  * @brief Gets a rotation matrix based on the quaternion
  * @param quaternion A quaternion that represents the rotation of the oject
  * @return A 4x4 matrix that is the rotation matrix
  */
-mat4 rotation_matrix(quat quaternion);
+VCORE_API mat4 rotation_matrix(quat quaternion);
 
 /**
  * @brief A helper function that returns an identity matrix
  * @return A 2x2 identity matrix
  */
-mat2 indentity_mat2();
+VCORE_API mat2 indentity_mat2();
 
 /**
  * @brief A helper function that returns an identity matrix
  * @return A 3x3 identity matrix
  */
-mat3 indentity_mat3();
+VCORE_API mat3 indentity_mat3();
 
 /**
  * @brief A helper function that returns an identity matrix
  * @return A 4x4 identity matrix
  */
-mat4 indentity_mat4();
+VCORE_API mat4 indentity_mat4();
 
 /**
  * @brief Type casting for multiplying a 2x2 matrix with a 4 member vector
@@ -251,7 +252,7 @@ mat4 indentity_mat4();
  * @param vec A 2 member vector passed by reference
  * @return A vector with the results
  */
-vec2 matrix_vec2_multiply(mat2x2 mat, vec2 vec);
+VCORE_API vec2 matrix_vec2_multiply(mat2x2 mat, vec2 vec);
 
 /**
  * @brief Type casting for multiplying a 2x2 matrix with another
@@ -259,7 +260,7 @@ vec2 matrix_vec2_multiply(mat2x2 mat, vec2 vec);
  * @param mat2 A 2x2 matrix passed by reference
  * @return The result of the multiplied matrices
  */
-mat2x2 matrix2_multiply(mat2x2 mat1, mat2x2 mat2);
+VCORE_API mat2x2 matrix2_multiply(mat2x2 mat1, mat2x2 mat2);
 
 /**
  * @brief Type casting for multiplying a 3x3 matrix with a 4 member vector
@@ -267,7 +268,7 @@ mat2x2 matrix2_multiply(mat2x2 mat1, mat2x2 mat2);
  * @param vec A 3 member vector passed by reference
  * @return A vector with the results
  */
-vec3 matrix_vec3_multiply(mat3x3 mat, vec3 vec);
+VCORE_API vec3 matrix_vec3_multiply(mat3x3 mat, vec3 vec);
 
 /**
  * @brief Type casting for multiplying a 3x3 matrix with another
@@ -275,7 +276,7 @@ vec3 matrix_vec3_multiply(mat3x3 mat, vec3 vec);
  * @param mat2 A 3x3 matrix passed by reference
  * @return The result of the multiplied matrices
  */
-mat3x3 matrix3_multiply(mat3x3 mat1, mat3x3 mat2);
+VCORE_API mat3x3 matrix3_multiply(mat3x3 mat1, mat3x3 mat2);
 
 /**
  * @brief Type casting for multiplying a 4x4 matrix with a 4 member vector
@@ -283,7 +284,7 @@ mat3x3 matrix3_multiply(mat3x3 mat1, mat3x3 mat2);
  * @param vec A 4 member vector passed by reference
  * @return A vector with the results
  */
-vec4 matrix_vec4_multiply(mat4x4 mat, vec4 vec);
+VCORE_API vec4 matrix_vec4_multiply(mat4x4 mat, vec4 vec);
 
 /**
  * @brief Type casting for multiplying a 4x4 matrix with another
@@ -291,7 +292,7 @@ vec4 matrix_vec4_multiply(mat4x4 mat, vec4 vec);
  * @param mat2 A 4x4 matrix passed by reference
  * @return The result of the multiplied matrices
  */
-mat4x4 matrix4_multiply(mat4x4 mat1, mat4x4 mat2);
+VCORE_API mat4x4 matrix4_multiply(mat4x4 mat1, mat4x4 mat2);
 
 /**
  * @brief Shorthand to combine the translation, rotation and scale matrix into one
@@ -300,7 +301,7 @@ mat4x4 matrix4_multiply(mat4x4 mat1, mat4x4 mat2);
  * @param scale A vector containined the scale of the object in the x, y, and z axies
  * @return A pass by reference model matrix
  */
-mat4 model_matrix(vec3 translation, quat rotation, vec3 scale);
+VCORE_API mat4 model_matrix(vec3 translation, quat rotation, vec3 scale);
 
 /**
  * @brief This is ripped straight from MESA GLU implementation, black magic that is
@@ -308,7 +309,7 @@ mat4 model_matrix(vec3 translation, quat rotation, vec3 scale);
  * @param outMatrix A pointer to the matrix to store the results
  * @return TRUE if the matrix was succesfully inverted, FALSE if the matrix determinent is 0 so no inverse exists
  */
-b8 matrix4_invert(mat4x4 mat, mat4x4* outMatrix);
+VCORE_API b8 matrix4_invert(mat4x4 mat, mat4x4* outMatrix);
 
 /**
  * @brief Creates a perspective projection matrix
@@ -321,7 +322,7 @@ b8 matrix4_invert(mat4x4 mat, mat4x4* outMatrix);
  * @param outMatrix A pointer to the matrix to store the output
  * @return FALSE if left = right, top = bottom or near = far, TRUE otherwise
  */
-b8 perspective_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix);
+VCORE_API b8 perspective_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix);
 
 /**
  * @brief Creates a orthographic projection matrix
@@ -334,7 +335,7 @@ b8 perspective_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 botto
  * @param outMatrix A pointer to the matrix to store the output
  * @return FALSE if left = right, top = bottom or near = far, TRUE otherwise
  */
-b8 orthographic_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix);
+VCORE_API b8 orthographic_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bottom, mat4x4* outMatrix);
 
 /**
  * @brief creates a perspective projection matrix based on aspect ratio and field of view
@@ -344,7 +345,7 @@ b8 orthographic_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bott
  * @param aspectRatio The aspect ratio of the extent
  * @return A pass by reference 4x4 matrix containing the projection matrix
  */
-mat4 perspective_projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f32 aspectRatio);
+VCORE_API mat4 perspective_projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f32 aspectRatio);
 
 /**
  * @brief creates an orthographic projection matrix based on aspect ratio and field of view
@@ -354,7 +355,7 @@ mat4 perspective_projection_matrix(f32 nearClip, f32 farClip, f32 degreeView, f3
  * @param aspectRatio The aspect ratio of the extent
  * @return A pass by reference 4x4 matrix containing the projection matrix
  */
-mat4 orthographic_projection_matrix(f32 nearClip, f32 farClip, f32 topDistance, f32 aspectRatio);
+VCORE_API mat4 orthographic_projection_matrix(f32 nearClip, f32 farClip, f32 topDistance, f32 aspectRatio);
 
 /**
  * @brief creates an orthographic projection matrix based on aspect ratio and field of view
@@ -363,21 +364,21 @@ mat4 orthographic_projection_matrix(f32 nearClip, f32 farClip, f32 topDistance, 
  * @param out_quat A pointer to an allocated quat to put the rotation data into
  * @param out_scale A pointer to an allocated vec3 to put the scale data into
  */
-void decompose_model_matrix(mat4 matrix, vec3* out_translation, quat* out_quat, vec3* out_scale);
+VCORE_API void decompose_model_matrix(mat4 matrix, vec3* out_translation, quat* out_quat, vec3* out_scale);
 
 /**
  * @brief Turns the rotation in degrees around each access into a quaternion for the rotation matrix
  * @param eulerDegreeAngles The angle around the 3 axies in degrees
  * @return A pass by reference quaternion
  */
-quat euler_to_quat(vec3 eulerDegreeAngles);
+VCORE_API quat euler_to_quat(vec3 eulerDegreeAngles);
 
 /**
  * @brief Turns a rotation quaternion into the rotation in degrees around each axis
  * @param quaternion The quaternion to decompose into euler angles
  * @return A pass by reference vec3 containing the rotation in degrees around the x, y, and z axies
  */
-vec3 quat_to_euler(quat quaternion);
+VCORE_API vec3 quat_to_euler(quat quaternion);
 
 /*! 
  * @brief Clamps the value between the minimum and maximum
@@ -386,4 +387,4 @@ vec3 quat_to_euler(quat quaternion);
  * @param maximum The maximum that value is allowed to be
  * @return value if the value is between minimum and maximum, minimum if value is smaller than minimum and likewise with maximum
  */
-u64 vclamp(u64 value, u64 minimum, u64 maximum);
+VCORE_API u64 vclamp(u64 value, u64 minimum, u64 maximum);

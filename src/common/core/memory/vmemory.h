@@ -1,6 +1,7 @@
 #pragma once
 
 #include "defines.h"
+#include "core/core_api.h"
 
 #define FOREACH_MEM_TAG(MEM_TAG)          \
   MEM_TAG(MEMORY_TAG_UNKNOWN)             \
@@ -41,21 +42,21 @@ static const char* memory_tag_strings[] ={
   FOREACH_MEM_TAG(GENERATE_STRING)
 };
 
-void initialize_memory();
-void shutdown_memory();
+VCORE_API void initialize_memory();
+VCORE_API void shutdown_memory();
 
-void* vallocate(u64 size, memory_tag tag);
-void vfree(void* block, u64 size, memory_tag tag);
-void* vreallocate(void *block, u64 old_size, u64 new_size, memory_tag tag);
-void* vzero_memory(void* block, u64 size);
-void* vcopy_memory(void* dest, const void* src, u64 size);
-void* vset_memory(void* block, i32 value, u64 size);
-void* vmove_memory(void* dest, const void* src, u64 size);
+VCORE_API void* vallocate(u64 size, memory_tag tag);
+VCORE_API void vfree(void* block, u64 size, memory_tag tag);
+VCORE_API void* vreallocate(void *block, u64 old_size, u64 new_size, memory_tag tag);
+VCORE_API void* vzero_memory(void* block, u64 size);
+VCORE_API void* vcopy_memory(void* dest, const void* src, u64 size);
+VCORE_API void* vset_memory(void* block, i32 value, u64 size);
+VCORE_API void* vmove_memory(void* dest, const void* src, u64 size);
 
-char* get_memory_usage_str();
+VCORE_API char* get_memory_usage_str();
 
 /*!
  * @brief Total bytes currently allocated through vallocate/vreallocate and not yet freed
  * @result Number of bytes outstanding across every memory tag
  */
-u64 get_memory_allocated();
+VCORE_API u64 get_memory_allocated();
