@@ -69,6 +69,10 @@ void* vset_memory(void* block, i32 value, u64 size){
   return block;
 }
 
+void* vmove_memory(void* dest, const void* src, u64 size){
+  return platform_move_memory(dest, src, size);
+}
+
 u64 get_memory_allocated() {
   return mem_stats.total_allocated;
 }

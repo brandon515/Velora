@@ -50,6 +50,7 @@ void* vreallocate(void *block, u64 old_size, u64 new_size, memory_tag tag);
 void* vzero_memory(void* block, u64 size);
 void* vcopy_memory(void* dest, const void* src, u64 size);
 void* vset_memory(void* block, i32 value, u64 size);
+void* vmove_memory(void* dest, const void* src, u64 size);
 
 char* get_memory_usage_str();
 

@@ -1,4 +1,4 @@
-#include "platform.h"
+#include "core/platform/platform.h"
 #include "defines.h"
 #include "core/asserts.h"
 
@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static f64 clock_frequency;
 static LARGE_INTEGER start_time;
@@ -112,6 +113,10 @@ b8 platform_pump_messages(platform_state* plat_state){
     DispatchMessageA(&msg);
   }
   return TRUE;
+}
+
+VEXPORT void* platform_move_memory(void* dest, const void* src, u64 size){
+  return memmove(dest, src, size);
 }
 
 void platform_free(void* block, b8 aligned){
