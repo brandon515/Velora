@@ -59,7 +59,9 @@ VCORE_API void log_output(log_level level, const char* message, ...) VPRINTF_FMT
 #endif
 
 #define VEL_CHECK_MSG(expr, msg, ...) \
-  if(expr == FALSE){                  \
-    VERROR(msg, ##__VA_ARGS__);       \
-    return FALSE;                     \
-  } 
+  do {                               \
+    if((expr) == FALSE){             \
+      VERROR(msg, ##__VA_ARGS__);    \
+      return FALSE;                  \
+    }                                \
+  } while(0)
