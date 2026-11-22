@@ -65,7 +65,7 @@ darray* darray_insert(darray* arr, const void* data, u64 index){
   u8* base = (u8*)ret_arr->data;
   u64 mem_location = ret_arr->stride*index;
   // Shift [index, length) one slot right in place; the ranges overlap, so memmove
-  memmove(base+mem_location+ret_arr->stride, base+mem_location, (ret_arr->length-index)*ret_arr->stride);
+  vmove_memory(base+mem_location+ret_arr->stride, base+mem_location, (ret_arr->length-index)*ret_arr->stride);
   vcopy_memory(base+mem_location, data, ret_arr->stride);
   ret_arr->length++;
   return ret_arr;
