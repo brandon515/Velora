@@ -57,6 +57,6 @@ VCORE_API char* get_memory_usage_str();
 
 /*!
  * @brief Total bytes currently allocated through vallocate/vreallocate and not yet freed
- * @result Number of bytes outstanding across every memory tag
+ * @return Number of bytes outstanding across every memory tag
  */
 VCORE_API u64 get_memory_allocated();
