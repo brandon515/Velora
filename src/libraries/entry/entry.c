@@ -67,7 +67,8 @@ int main(int argc, char* argv[]){
     return -3;
   }
 
-  while(velora_frame(engine_state->app_data)){
+  while(engine_state->is_running){
+    engine_state->is_running = velora_frame(engine_state->app_data);
     platform_pump_messages(&engine_state->platform);
     pump_events(99.9f);
     if(engine_state->is_suspended == FALSE){
