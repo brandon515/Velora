@@ -28,7 +28,9 @@ void initiate_event_system(){
 
 void shutdown_event_system(){
   darray_free(event_queue);
+  event_queue = NULL;
   darray_free(event_listeners);
+  event_listeners = NULL;
 }
 
 u64 register_listener(u64 e_type, event_listener func, void* state){
