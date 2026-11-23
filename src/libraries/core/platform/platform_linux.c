@@ -1,3 +1,4 @@
+#include "core/memory/vmemory.h"
 #include "core/platform/platform.h"
 #include "defines.h"
 #include "core/event.h"
@@ -8,6 +9,8 @@
 #include <string.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+
+#include <dlfcn.h>
 
 b8 platform_startup(
 platform_state* state,
@@ -223,4 +226,48 @@ f64 platform_get_absolute_time(){
 
 void platform_sleep(u64 ms){
   //
+}
+
+b8 platform_load_library(const char* libURI, platform_library* outLib){
+  dlerror();
+  outLib->internal_lib = dlopen(libURI, RTLD_NOW | RTLD_LOCAL);
+  if(outLib->internal_lib == NULL){
+    VERROR("Could not open library '%s'", libURI);
+    VERROR("Error is %s", dlerror());
+    return FALSE;
+  }
+  u64 size = strlen(libURI)+1;
+  outLib->libName = vallocate(size, MEMORY_TAG_APPLICATION);
+  vcopy_memory(outLib->libName, libURI, size);
+  return TRUE;
+}
+
+b8 platform_free_library(platform_library* library){
+  b8 retVal = TRUE;
+  dlerror();
+  if(library->internal_lib == NULL){
+    VERROR("Freeing null library");
+    return FALSE;
+  }
+  if(dlclose(library->internal_lib) != 0){
+    VERROR("Could not close library '%s'", library->libName);
+    VERROR("Error is %s", dlerror());
+    retVal = FALSE;
+  }
+  vfree(library->libName, strlen(library->libName)+1, MEMORY_TAG_APPLICATION);
+  library->libName = NULL;
+  library->internal_lib = NULL;
+  return retVal;
+}
+
+platform_proc platform_get_function(platform_library* library, const char* funcName){
+  dlerror();
+  void* sym = dlsym(library->internal_lib, funcName);
+  const char *err = dlerror();
+  if (err || !sym){
+    VERROR("Unable to import function '%s' from '%s'", funcName, library->libName);
+    VERROR("Error is %s", err ? err : "Symbol is NULL");
+    return NULL;
+  }
+  return (platform_proc)sym;
 }
