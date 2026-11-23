@@ -20,7 +20,11 @@ darray* darray_reallocate(darray* arr){
   u64 new_cap = arr->cap*REALLOCATE_MULTIPLIER;
   u64 current_mem_size = arr->cap*arr->stride;
   u64 new_mem_size = new_cap*arr->stride;
-  vreallocate(arr->data, current_mem_size, new_mem_size, MEMORY_TAG_DARRAY);
+  void* ret = vreallocate(arr->data, current_mem_size, new_mem_size, MEMORY_TAG_DARRAY);
+  if(ret == NULL){
+    return NULL;
+  }
+  arr->data = ret;
   arr->cap = new_cap;
   return arr;
 }
@@ -106,9 +110,7 @@ void darray_clear(darray* arr){
 
 darray* darray_drain(darray* arr, u64 num_of_items){
   if(num_of_items > arr->length){
-    VERROR("Attempted to drain darray past length")
-    VERROR("Length: %llu", arr->length);
-    VERROR("Drain size: %llu", num_of_items);
+    VWARN("Attempted to drain %llu number of items in darray with length %llu", num_of_items, arr->length);
     return NULL;
   }
   u64 mem_location = arr->stride*num_of_items;
