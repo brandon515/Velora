@@ -2,8 +2,8 @@
 
 #include "defines.h"
 #include "render/render_api.h"
-#include "core/utils/vimage.h"
-#include "core/utils/vgltf.h"
+#include "assets/vimage.h"
+#include "assets/vgltf.h"
 
 typedef struct _vmaterial {
   velora_pixels baseColor;

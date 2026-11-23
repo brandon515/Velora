@@ -5,7 +5,7 @@ out_ecs_files = files('vcamera.c', 'vecs.c', 'vrenderable.c', 'vtransform.c', 'v
 # macro export here and import in every other target.
 out_ecs_lib = shared_library('velora_ecs',
   out_ecs_files,
-  link_with: out_core_lib,
+  link_with: [out_assets_lib, out_core_lib],
   include_directories: inc,
   gnu_symbol_visibility: 'hidden',
   link_language: 'c',

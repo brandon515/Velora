@@ -12,7 +12,7 @@
 #include "core/utils/vfile.h"
 #include <vulkan/vk_enum_string_helper.h>
 #include "core/event.h"
-#include "core/utils/vimage.h"
+#include "assets/vimage.h"
 #include "ecs/vrenderable.h"
 #include "ecs/vcamera.h"
 #include "ecs/vtransform.h"

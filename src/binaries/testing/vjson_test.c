@@ -1,6 +1,6 @@
 #include "vjson_test.h"
 #include "test_framework.h"
-#include "core/utils/vjson.h"
+#include "assets/vjson.h"
 #include "core/utils/vstring.h"
 
 #include <string.h>

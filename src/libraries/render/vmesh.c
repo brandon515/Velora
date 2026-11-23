@@ -1,5 +1,5 @@
 #include "render/vmesh.h"
-#include "core/utils/vgltf.h"
+#include "assets/vgltf.h"
 #include "core/memory/vmemory.h"
 #include "core/logger.h"
 

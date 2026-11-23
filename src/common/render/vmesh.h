@@ -3,7 +3,7 @@
 #include "defines.h"
 #include "render/render_api.h"
 #include "core/utils/vmath.h"
-#include "core/utils/vgltf.h"
+#include "assets/vgltf.h"
 #include "render/vmaterial.h"
 
 typedef struct _vertex {

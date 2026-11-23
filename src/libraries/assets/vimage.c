@@ -1,5 +1,5 @@
-#include "core/utils/vimage.h"
-#include "core/stb_image.h"
+#include "assets/vimage.h"
+#include "stb_image.h"
 
 b8 import_pixels(const char *uri, velora_pixels *out_pixels){
   int height, width, chans;
