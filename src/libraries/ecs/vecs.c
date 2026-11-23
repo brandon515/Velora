@@ -40,7 +40,7 @@ b8 get_component_list(vcomponent_list *outList, vcomponent_type requestedType){
 }
 
 void* get_component_data(u64 entityID, vcomponent_type compType){
-  if(ECS_INIT == FALSE){
+  if(ECS_INIT == FALSE || entityID >= VELORA_MAX_OBJECTS){
     return NULL;
   }
   vcomponent_list compList;
@@ -57,15 +57,15 @@ void* get_component_data(u64 entityID, vcomponent_type compType){
   return NULL;
 }
 
-b8 attach_component(vcomponent_type compType, u64 entityId, u64 dataSize, void *data){
-  if(ECS_INIT == FALSE || entityId >= VELORA_MAX_OBJECTS){
+b8 attach_component(vcomponent_type compType, u64 entityID, u64 dataSize, void *data){
+  if(ECS_INIT == FALSE || entityID >= VELORA_MAX_OBJECTS){
     return FALSE;
   }
   vcomponent_list compTypeList;
   vcomponent newComp = {
     .data = vallocate(dataSize, MEMORY_TAG_ECS),
     .dataSize = dataSize,
-    .entityID = entityId,
+    .entityID = entityID,
   };
   vcopy_memory(newComp.data, data, dataSize);
   if(get_component_list(&compTypeList, compType) == FALSE){
@@ -75,7 +75,7 @@ b8 attach_component(vcomponent_type compType, u64 entityId, u64 dataSize, void *
     };
     darray_push(newList.data, &newComp);
     darray_push(componentLists.list, &newList);
-    componentLists.entities[entityId] += 1;
+    componentLists.entities[entityID] += 1;
     return TRUE;
   }
   iterator it = darray_create_iterator(compTypeList.data);
@@ -88,13 +88,13 @@ b8 attach_component(vcomponent_type compType, u64 entityId, u64 dataSize, void *
     if(comp->entityID > newComp.entityID){
       u64 i = iterator_index_of_last_Item(&it);
       darray_insert(compTypeList.data, &newComp, i);
-      componentLists.entities[entityId] += 1;
+      componentLists.entities[entityID] += 1;
       return TRUE;
     }
   }
   // If we got here, that means comp has the highest entityID in the list, just push it to the end
   darray_push(compTypeList.data, &newComp);
-  componentLists.entities[entityId] += 1;
+  componentLists.entities[entityID] += 1;
   return TRUE;
 }
 
@@ -124,7 +124,7 @@ b8 shutdown_entity_component_system(){
 }
 
 b8 delete_component(vcomponent_type type, u64 entityID){
-  if(ECS_INIT == FALSE){
+  if(ECS_INIT == FALSE || entityID >= VELORA_MAX_OBJECTS){
     return FALSE;
   }
   vcomponent_list compTypeList;
@@ -158,7 +158,7 @@ b8 get_components(vcomponent_type type, darray** outList){
 }
 
 b8 delete_entity(u64 entityID){
-  if(ECS_INIT == FALSE || componentLists.entities[entityID] == 0){
+  if(ECS_INIT == FALSE || entityID >= VELORA_MAX_OBJECTS || componentLists.entities[entityID] == 0){
     return FALSE;
   }
   vcomponent_list *compTypeList = componentLists.list->data;
