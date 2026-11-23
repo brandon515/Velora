@@ -1045,9 +1045,9 @@ b8 create_graphics_pipeline(vulkan_state* state){
   };
   VkViewport viewport = {
     .x = 0.0f,
-    .y = 0.0f,
+    .y = (float)state->swapchainExtent.height,
     .width = (float)state->swapchainExtent.width,
-    .height = (float)state->swapchainExtent.height,
+    .height = -(float)state->swapchainExtent.height,
     .minDepth = 0.0f,
     .maxDepth = 1.0f,
   };
@@ -1072,7 +1072,7 @@ b8 create_graphics_pipeline(vulkan_state* state){
     .polygonMode = VK_POLYGON_MODE_FILL, // The other modes are good for wireframes and vertex points but requires enabling a GPU feature in the logical device
     .lineWidth = 1.0f,
     .cullMode = VK_CULL_MODE_BACK_BIT,
-    .frontFace = VK_FRONT_FACE_CLOCKWISE,
+    .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
     .depthBiasEnable = VK_FALSE,
     .depthBiasConstantFactor = 0.0f, //Optional when depthBias is set to false
     .depthBiasClamp = 0.0f, //Optional when depthBias is set to false
@@ -2152,9 +2152,9 @@ b8 start_recording_command_buffer(vulkan_state* state, u32 swapchainImageIndex, 
   vkCmdBeginRenderPass(buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
   VkViewport viewport = {
     .x = 0.0f,
-    .y = 0.0f,
+    .y = (float)state->swapchainExtent.height,
     .width = (float)state->swapchainExtent.width,
-    .height = (float)state->swapchainExtent.height,
+    .height = -(float)state->swapchainExtent.height,
     .minDepth = 0.0f,
     .maxDepth = 1.0f,
   };
