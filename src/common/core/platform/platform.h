@@ -3,14 +3,19 @@
 #include "defines.h"
 #include "core/core_api.h"
 
+#define PLATFORM_LOAD_FUNCTION(lib, name, type, dest) \
+  ((dest) = (type)platform_get_function((lib), (name)))
+
 typedef struct _platform_library{
   void *internal_lib;
   char* libName;
 }platform_library;
 
+typedef void (*platform_proc)(void);
+
 VCORE_API b8 platform_load_library(const char* libURI, platform_library* outLib);
-VCORE_API b8 platform_free_library(platform_library* outLib);
-VCORE_API void* platform_get_function(const char* funcName, platform_library library);
+VCORE_API b8 platform_free_library(platform_library* library);
+VCORE_API platform_proc platform_get_function(platform_library* library, const char* funcName);
 
 #if VPLATFORM_LINUX
 #include <X11/Xlib.h>

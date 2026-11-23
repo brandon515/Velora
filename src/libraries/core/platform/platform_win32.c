@@ -315,4 +315,42 @@ LRESULT CALLBACK windows_message_handler(HWND hwnd, UINT uMsg, WPARAM wParam, LP
   return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
+b8 platform_load_library(const char* libURI, platform_library* outLib){
+  outLib->internal_lib = (void*)LoadLibraryA(libURI);
+  if(!outLib->internal_lib){
+    VERROR("Unable to load library '%s'", libURI);
+    VERROR("Error: %lu", GetLastError());
+    return FALSE;
+  }
+  u64 size = strlen(libURI)+1;
+  outLib->libName = vallocate(size, MEMORY_TAG_APPLICATION);
+  vcopy_memory(outLib->libName, libURI, size);
+  return TRUE;
+}
+
+b8 platform_free_library(platform_library* library){
+  b8 retVal = TRUE;
+  if(library->internal_lib == NULL){
+    VERROR("Freeing null library");
+    return FALSE;
+  }
+  if(!FreeLibrary((HMODULE)library->internal_lib)){
+    VERROR("Could not close library '%s'", library->libName);
+    VERROR("Error is %lu", GetLastError());
+    retVal = FALSE;
+  }
+  vfree(library->libName, strlen(library->libName)+1, MEMORY_TAG_APPLICATION);
+  library->libName = NULL;
+  library->internal_lib = NULL;
+  return retVal;
+}
+
+platform_proc platform_get_function(platform_library* library, const char* funcName){
+  FARPROC p = GetProcAddress((HMODULE)library->internal_lib, funcName);
+  if(!p){
+    VERROR("Unable to import '%s' from '%s' (error %lu)", funcName, library->libName, GetLastError());
+  }
+  return (platform_proc)p;
+}
+
 #endif //VPLATFORM_WINDOWS
