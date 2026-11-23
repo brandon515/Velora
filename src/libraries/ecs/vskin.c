@@ -1,5 +1,5 @@
 #include "ecs/vskin.h"
-#include "core/utils/vgltf.h"
+#include "assets/vgltf.h"
 #include "core/utils/vmath.h"
 #include "core/memory/vmemory.h"
 #include "core/logger.h"

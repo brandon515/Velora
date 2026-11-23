@@ -11,7 +11,7 @@ vulkan_deps = [dependency('vulkan', required : true), dependency('VulkanMemoryAl
 # macro export here and import in every other target.
 out_vulkan_lib = shared_library('vulkan_render',
   out_render_files,
-  link_with: [out_ecs_lib, out_core_lib],
+  link_with: [out_ecs_lib, out_assets_lib, out_core_lib],
   dependencies: [platform_deps, vulkan_deps],
   include_directories: inc,
   gnu_symbol_visibility: 'hidden',

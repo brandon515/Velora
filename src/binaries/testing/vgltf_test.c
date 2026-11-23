@@ -1,6 +1,6 @@
 #include "vgltf_test.h"
 #include "test_framework.h"
-#include "core/utils/vgltf.h"
+#include "assets/vgltf.h"
 
 #include <math.h>
 #include <stdio.h>

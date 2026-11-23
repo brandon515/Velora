@@ -2,7 +2,7 @@ out_game_files = files('application.c')
 
 executable('engine', 
   out_game_files,
-  link_with: [out_entry_lib, out_core_lib, out_ecs_lib, out_render_lib, out_vulkan_lib],
+  link_with: [out_entry_lib, out_core_lib, out_assets_lib, out_ecs_lib, out_render_lib, out_vulkan_lib],
   include_directories: inc,
   link_language: 'c',
   install_rpath: './plugins/',

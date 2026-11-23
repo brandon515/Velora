@@ -1,5 +1,5 @@
-#include "core/utils/vgltf.h"
-#include "core/utils/vjson.h"
+#include "assets/vgltf.h"
+#include "assets/vjson.h"
 #include "core/utils/vfile.h"
 #include "core/memory/vmemory.h"
 #include "core/logger.h"

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/utils/vgltf.h"
+#include "assets/vgltf.h"
 #include "defines.h"
 #include "ecs/ecs_api.h"
 #include "core/utils/vmath.h"

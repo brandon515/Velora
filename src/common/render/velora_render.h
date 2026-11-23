@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/utils/vimage.h"
+#include "assets/vimage.h"
 #include "defines.h"
 #include "render/render_backend_api.h"
 #include "render/render_api.h"

@@ -1,6 +1,6 @@
 #pragma once
 #include "defines.h"
-#include "core/core_api.h"
+#include "assets/assets_api.h"
 
 typedef struct _velora_pixels{
   u8* pixels;
@@ -15,13 +15,13 @@ typedef struct _velora_pixels{
  * @param out_pixels a pointer to a velora_pixels struct
  * @return returns FALSE if image doesn't exist, TRUE otherwise
  */
- VCORE_API b8 import_pixels(const char *uri, velora_pixels *out_pixels);
+ VASSETS_API b8 import_pixels(const char *uri, velora_pixels *out_pixels);
 
 /**
  * @brief frees the memory allocated in import_pixels
  * @param out_pixels a pointer to the velora_pixels that was previously allocated by import_pixels
  */
- VCORE_API void free_pixels(velora_pixels *pixels);
+ VASSETS_API void free_pixels(velora_pixels *pixels);
 
 
 

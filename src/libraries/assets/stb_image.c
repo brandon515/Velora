@@ -40,4 +40,4 @@ void stb_vfree(void *block){
 #define STBI_ASSERT(x) VASSERT_MSG(x, "STB_Image ran into an error")
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "core/stb_image.h"
+#include "stb_image.h"

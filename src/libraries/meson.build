@@ -1,6 +1,7 @@
 lib_deps = []
 
 subdir('core')
+subdir('assets')
 subdir('ecs')
 # vulkan_render (the backend) must come before render: the render frontend
 # calls into the backend, so velora_render links against vulkan_render.

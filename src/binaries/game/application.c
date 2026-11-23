@@ -3,7 +3,7 @@
 #include "defines.h"
 #include "render/velora_render.h"
 #include "render/vmesh.h"
-#include "core/utils/vgltf.h"
+#include "assets/vgltf.h"
 #include "ecs/vecs.h"
 #include "ecs/vcamera.h"
 #include "ecs/vtransform.h"
