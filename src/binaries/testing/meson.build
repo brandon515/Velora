@@ -1,19 +1,30 @@
-out_test_files = files('test_entry.c', 'darray_test.c', 'vmemory_test.c')
+# Every suite listed here is also registered in test_entry.c's suites[] table.
+test_suites = [
+  'vmemory', 'darray', 'map', 'event', 'vstring', 'vmath',
+  'vfile', 'vjson', 'vgltf', 'logger', 'platform', 'ecs',
+]
 
-# Unit tests compile velora_core's sources straight in, so they
-# don't depend on the entry point or renderer and run on CI machines with no GPU.
-# VELORA_CORE_BUILD is defined because the core sources are compiled into this
-# executable rather than imported from the DLL.
+out_test_files = files('test_entry.c', 'test_framework.c')
+foreach suite : test_suites
+  out_test_files += files(suite + '_test.c')
+endforeach
+
+# Unit tests compile velora_core's and velora_ecs's sources straight in, so
+# they don't depend on the entry point or renderer and run on CI machines with
+# no GPU. VELORA_CORE_BUILD and VELORA_ECS_BUILD are defined because those
+# sources are compiled into this executable rather than imported from the DLLs.
 velora_tests = executable('velora_tests',
-  out_test_files + out_core_files,
+  out_test_files + out_core_files + out_ecs_files,
   dependencies: [m_dep, platform_deps],
   include_directories: inc,
   link_language: 'c',
-  c_args: ['-g', '-Wvarargs', '-Wall', '-Werror', '-DVELORA_CORE_BUILD'],
+  c_args: ['-g', '-Wvarargs', '-Wall', '-Werror', '-DVELORA_CORE_BUILD', '-DVELORA_ECS_BUILD'],
   link_args: ['-g'],
   install: false
 )
 
-foreach suite : ['vmemory', 'darray']
-  test(suite, velora_tests, args: [suite], timeout: 30)
+# Each suite is its own meson test, so one failing or crashing suite doesn't
+# hide the others. The per-test-case timeout lives in test_framework.c.
+foreach suite : test_suites
+  test(suite, velora_tests, args: [suite], timeout: 120)
 endforeach

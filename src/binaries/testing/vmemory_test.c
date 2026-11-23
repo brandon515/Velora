@@ -45,7 +45,56 @@ static void test_allocation_tracking(void) {
   CHECK(get_memory_allocated() == before, "vfree not counted");
 }
 
+static void test_move_overlapping(void) {
+  u8 buf[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  vmove_memory(buf + 2, buf, 6);
+  u8 right[10] = {0, 1, 0, 1, 2, 3, 4, 5, 8, 9};
+  b8 ok = TRUE;
+  for(int i = 0; i < 10; i++) {
+    ok = ok && buf[i] == right[i];
+  }
+  CHECK(ok, "vmove_memory shifts right over an overlapping range");
+
+  u8 buf2[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  vmove_memory(buf2, buf2 + 3, 7);
+  u8 left[10] = {3, 4, 5, 6, 7, 8, 9, 7, 8, 9};
+  ok = TRUE;
+  for(int i = 0; i < 10; i++) {
+    ok = ok && buf2[i] == left[i];
+  }
+  CHECK(ok, "vmove_memory shifts left over an overlapping range");
+}
+
+static void test_vallocate_zeroes(void) {
+  u8* block = vallocate(MEMORY_SIZE, MEMORY_TAG_APPLICATION);
+  REQUIRE(block != NULL, "vallocate returned NULL");
+  b8 zero = TRUE;
+  for(int i = 0; i < MEMORY_SIZE; i++) {
+    zero = zero && block[i] == 0;
+  }
+  CHECK(zero, "vallocate returns zeroed memory");
+  vfree(block, MEMORY_SIZE, MEMORY_TAG_APPLICATION);
+}
+
+static void test_reallocate_keeps_contents(void) {
+  u8* block = vallocate(MEMORY_SIZE, MEMORY_TAG_APPLICATION);
+  for(int i = 0; i < MEMORY_SIZE; i++) {
+    block[i] = (u8)i;
+  }
+  block = vreallocate(block, MEMORY_SIZE, MEMORY_SIZE * 64, MEMORY_TAG_APPLICATION);
+  REQUIRE(block != NULL, "vreallocate returned NULL");
+  b8 kept = TRUE;
+  for(int i = 0; i < MEMORY_SIZE; i++) {
+    kept = kept && block[i] == (u8)i;
+  }
+  CHECK(kept, "vreallocate keeps the old contents");
+  vfree(block, MEMORY_SIZE * 64, MEMORY_TAG_APPLICATION);
+}
+
 void vmemory_test(void) {
   RUN_TEST(test_set_copy_zero);
   RUN_TEST(test_allocation_tracking);
+  RUN_TEST(test_move_overlapping);
+  RUN_TEST(test_vallocate_zeroes);
+  RUN_TEST(test_reallocate_keeps_contents);
 }

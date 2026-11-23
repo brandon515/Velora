@@ -1,6 +1,16 @@
 #include "test_framework.h"
-#include "darray_test.h"
 #include "vmemory_test.h"
+#include "darray_test.h"
+#include "map_test.h"
+#include "event_test.h"
+#include "vstring_test.h"
+#include "vmath_test.h"
+#include "vfile_test.h"
+#include "vjson_test.h"
+#include "vgltf_test.h"
+#include "logger_test.h"
+#include "platform_test.h"
+#include "ecs_test.h"
 #include "core/memory/vmemory.h"
 #include "core/logger.h"
 
@@ -17,6 +27,16 @@ typedef struct _test_suite {
 static const test_suite suites[] = {
   {"vmemory", vmemory_test},
   {"darray", darray_test},
+  {"map", map_test},
+  {"event", event_test},
+  {"vstring", vstring_test},
+  {"vmath", vmath_test},
+  {"vfile", vfile_test},
+  {"vjson", vjson_test},
+  {"vgltf", vgltf_test},
+  {"logger", logger_test},
+  {"platform", platform_test},
+  {"ecs", ecs_test},
 };
 
 #define SUITE_COUNT (sizeof(suites) / sizeof(suites[0]))

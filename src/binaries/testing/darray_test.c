@@ -191,6 +191,69 @@ static void test_large_stride(void) {
   darray_free(arr);
 }
 
+
+// Inserting into a full array has to grow it first.
+static void test_insert_grows_full_array(void) {
+  darray* arr = darray_new(sizeof(u64));
+  u64 expected[64];
+  for(u64 i = 0; i < 64; i++) {
+    u64 v = 63 - i;
+    arr = darray_insert(arr, &v, 0);
+    REQUIRE(arr != NULL, "insert at front of a growing array succeeds");
+    expected[i] = i;
+  }
+  CHECK(contents_equal(arr, expected, 64), "64 front inserts give 0..63 in order");
+  darray_free(arr);
+}
+
+// Insert / remove / delete / drain mixed together on one array.
+static void test_mixed_operations(void) {
+  darray* arr = make_sequence(10);
+  u64 v = 100;
+  arr = darray_insert(arr, &v, 5);   // 0 1 2 3 4 100 5 6 7 8 9
+  darray_delete(arr, 0);             // 1 2 3 4 100 5 6 7 8 9
+  u64 removed = 0;
+  darray_remove(arr, 9, &removed);   // 1 2 3 4 100 5 6 7 8
+  CHECK(removed == 9, "remove last returns it");
+  darray_drain(arr, 2);              // 3 4 100 5 6 7 8
+  v = 200;
+  arr = darray_push(arr, &v);        // 3 4 100 5 6 7 8 200
+  u64 expected[8] = {3, 4, 100, 5, 6, 7, 8, 200};
+  CHECK(contents_equal(arr, expected, 8), "mixed operations keep the right order");
+  darray_free(arr);
+}
+
+/*
+ * bug-report #5: every darray function copies the whole array through a
+ * stack buffer of cap*stride bytes, so a big array overflows the stack.
+ * 12 elements of 1 MiB means copying 8+ MiB through the stack when the
+ * array grows, more than the default 8 MiB Linux (or 1 MiB Windows) stack.
+ */
+static void test_large_array_does_not_overflow_stack(void) {
+  const u64 stride = 1024 * 1024;
+  const u64 count = 12;
+  u8* element = vallocate(stride, MEMORY_TAG_APPLICATION);
+  darray* arr = darray_new(stride);
+  for(u64 i = 0; i < count; i++) {
+    vset_memory(element, (i32)i, stride);
+    arr = darray_push(arr, element);
+  }
+  CHECK(arr->length == count, "pushed 12 one-MiB elements");
+  u8* third = darray_get_pointer(arr, 3);
+  REQUIRE(third != NULL, "get_pointer on a large array");
+  CHECK(third[0] == 3 && third[stride - 1] == 3, "large element read back intact");
+
+  CHECK(darray_remove(arr, 0, element) != NULL, "remove from a large array");
+  CHECK(element[0] == 0, "remove returned element 0");
+  CHECK(darray_delete(arr, 0) != NULL, "delete from a large array");
+  CHECK(darray_drain(arr, 1) != NULL, "drain from a large array");
+  u8* first = darray_get_pointer(arr, 0);
+  CHECK(first != NULL && first[0] == 3, "element 3 is first after removing three");
+
+  darray_free(arr);
+  vfree(element, stride, MEMORY_TAG_APPLICATION);
+}
+
 void darray_test(void) {
   RUN_TEST(test_push_grows_and_keeps_order);
   RUN_TEST(test_get_pointer_every_index);
@@ -206,4 +269,7 @@ void darray_test(void) {
   RUN_TEST(test_clear);
   RUN_TEST(test_iterator);
   RUN_TEST(test_large_stride);
+  RUN_TEST(test_insert_grows_full_array);
+  RUN_TEST(test_mixed_operations);
+  RUN_TEST(test_large_array_does_not_overflow_stack);
 }
