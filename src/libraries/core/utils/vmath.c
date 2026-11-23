@@ -178,13 +178,13 @@ mat4 rotation_matrix(quat quaternion){
   f32 zw = quaternion.z*quaternion.w;
 
   ret_matrix.mat[0]  = 1 - 2 * ( yy + zz );
-  ret_matrix.mat[1]  =     2 * ( xy - zw );
-  ret_matrix.mat[2]  =     2 * ( xz + yw );
-  ret_matrix.mat[4]  =     2 * ( xy + zw );
+  ret_matrix.mat[1]  =     2 * ( xy + zw );
+  ret_matrix.mat[2]  =     2 * ( xz - yw );
+  ret_matrix.mat[4]  =     2 * ( xy - zw );
   ret_matrix.mat[5]  = 1 - 2 * ( xx + zz );
-  ret_matrix.mat[6]  =     2 * ( yz - xw );
-  ret_matrix.mat[8]  =     2 * ( xz - yw );
-  ret_matrix.mat[9]  =     2 * ( yz + xw );
+  ret_matrix.mat[6]  =     2 * ( yz + xw );
+  ret_matrix.mat[8]  =     2 * ( xz + yw );
+  ret_matrix.mat[9]  =     2 * ( yz - xw );
   ret_matrix.mat[10] = 1 - 2 * ( xx + yy );
   ret_matrix.mat[15] = 1;
 
@@ -462,35 +462,35 @@ u64 vclamp(u64 value, u64 minimum, u64 maximum){
 }
 
 quat rotation_to_quat(mat4 rotMat){
-  f32 trace = 1 + rotMat.mat[0] + rotMat.mat[5] + rotMat.mat[10];
+  // Column-major: mat[col*4 + row].
+  // m[1]=R21, m[2]=R31, m[4]=R12, m[6]=R32, m[8]=R13, m[9]=R23
+  f32 *m = rotMat.mat;
+  f32 trace = m[0] + m[5] + m[10];
   quat retQuat;
-  if(trace > 0.00000001f){
-    f32 S = sqrt(trace)*2;
-    retQuat.x = (rotMat.mat[9] - rotMat.mat[6]) / S;
-    retQuat.y = (rotMat.mat[2] - rotMat.mat[8]) / S;
-    retQuat.z = (rotMat.mat[4] - rotMat.mat[1]) / S;
+  if(trace > 0){
+    f32 S = sqrt(1.0f + trace) * 2; // S = 4w
     retQuat.w = 0.25f * S;
-    return retQuat;
-  }
-
-  if(rotMat.mat[0] > rotMat.mat[5] && rotMat.mat[0] > rotMat.mat[10]){
-    f32 S = sqrt(1.0f + rotMat.mat[0] - rotMat.mat[5] - rotMat.mat[10]) * 2;
+    retQuat.x = (m[6] - m[9]) / S;
+    retQuat.y = (m[8] - m[2]) / S;
+    retQuat.z = (m[1] - m[4]) / S;
+  }else if(m[0] > m[5] && m[0] > m[10]){
+    f32 S = sqrt(1.0f + m[0] - m[5] - m[10]) * 2; // S = 4x
+    retQuat.w = (m[6] - m[9]) / S;
     retQuat.x = 0.25f * S;
-    retQuat.y = (rotMat.mat[4] + rotMat.mat[1]) / S;
-    retQuat.z = (rotMat.mat[2] + rotMat.mat[8]) / S;
-    retQuat.w = (rotMat.mat[9] + rotMat.mat[6]) / S;
-  }else if(rotMat.mat[5] > rotMat.mat[10]){
-    f32 S = sqrt(1.0f + rotMat.mat[5] - rotMat.mat[0] - rotMat.mat[10]) * 2;
-    retQuat.x = (rotMat.mat[4] + rotMat.mat[1]) / S;
+    retQuat.y = (m[4] + m[1]) / S;
+    retQuat.z = (m[8] + m[2]) / S;
+  }else if(m[5] > m[10]){
+    f32 S = sqrt(1.0f + m[5] - m[0] - m[10]) * 2; // S = 4y
+    retQuat.w = (m[8] - m[2]) / S;
+    retQuat.x = (m[4] + m[1]) / S;
     retQuat.y = 0.25f * S;
-    retQuat.z = (rotMat.mat[9] + rotMat.mat[6]) / S;
-    retQuat.w = (rotMat.mat[2] + rotMat.mat[8]) / S;
+    retQuat.z = (m[9] + m[6]) / S;
   }else{
-    f32 S = sqrt(1.0f + rotMat.mat[10] - rotMat.mat[0] - rotMat.mat[5]) * 2;
-    retQuat.x = (rotMat.mat[2] + rotMat.mat[8]) / S;
-    retQuat.y = (rotMat.mat[9] + rotMat.mat[6]) / S;
+    f32 S = sqrt(1.0f + m[10] - m[0] - m[5]) * 2; // S = 4z
+    retQuat.w = (m[1] - m[4]) / S;
+    retQuat.x = (m[8] + m[2]) / S;
+    retQuat.y = (m[9] + m[6]) / S;
     retQuat.z = 0.25f * S;
-    retQuat.w = (rotMat.mat[4] + rotMat.mat[1]) / S;
   }
   return retQuat;
 }
