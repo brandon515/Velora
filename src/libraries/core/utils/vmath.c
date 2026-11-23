@@ -222,7 +222,7 @@ b8 matrix_multiply(f32* mat1, u64 mat1Rows, u64 mat1Cols, f32* mat2, u64 mat2Row
 }
 
 void matrix_vec_multiply(f32* mat, f32* vec, u64 vecLength, f32* outVec){
-  matrix_multiply(mat, vecLength, vecLength, vec, vecLength, 1, outVec);
+  matrix_multiply( vec, 1, vecLength,mat, vecLength, vecLength, outVec);
 }
 
 vec2 matrix_vec2_multiply(mat2x2 mat, vec2 vec){
