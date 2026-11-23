@@ -12,7 +12,7 @@ typedef struct _int_map{
 /*!
  * @brief Creates a new int_map
  * @param item_size The size of a single item in the map/dynamic array
- * @result Pointer to the new int_map allocated in this function
+ * @return Pointer to the new int_map allocated in this function
  */
  VCORE_API int_map* map_new(u64 item_size);
 
@@ -21,7 +21,7 @@ typedef struct _int_map{
  * @param map Pointer to int_map
  * @param key The key used to locate the data requested
  * @param dest The memory location to copy the item into
- * @result TRUE if the key exists and points to data, FALSE if they do not
+ * @return TRUE if the key exists and points to data, FALSE if they do not
  */
  VCORE_API b8 map_get_item(int_map* map, u64 key, void* dest);
 

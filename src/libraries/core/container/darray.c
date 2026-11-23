@@ -20,11 +20,11 @@ darray* darray_reallocate(darray* arr){
   u64 new_cap = arr->cap*REALLOCATE_MULTIPLIER;
   u64 current_mem_size = arr->cap*arr->stride;
   u64 new_mem_size = new_cap*arr->stride;
-  u8 buffer[current_mem_size];
-  vcopy_memory(&buffer, arr->data, current_mem_size);
-  vfree(arr->data, current_mem_size, MEMORY_TAG_DARRAY);
-  arr->data = vallocate(new_mem_size, MEMORY_TAG_DARRAY);
-  vcopy_memory(arr->data, &buffer, current_mem_size);
+  void* ret = vreallocate(arr->data, current_mem_size, new_mem_size, MEMORY_TAG_DARRAY);
+  if(ret == NULL){
+    return NULL;
+  }
+  arr->data = ret;
   arr->cap = new_cap;
   return arr;
 }
@@ -77,12 +77,11 @@ darray* darray_remove(darray* arr, u64 index, void* dest){
     return NULL;
   }
   u64 mem_location = arr->stride*index;
-  u64 mem_size = (arr->cap*arr->stride)-mem_location-arr->stride;
-  u8 buffer[mem_size];
-  vcopy_memory(buffer, arr->data+(mem_location+arr->stride), mem_size);
+  u64 mem_size = (arr->length*arr->stride)-mem_location-arr->stride;
   vcopy_memory(dest, arr->data+mem_location, arr->stride);
-  vcopy_memory(arr->data+mem_location, buffer, mem_size);
+  vmove_memory(arr->data+mem_location, arr->data+(mem_location+arr->stride), mem_size);
   arr->length--;
+  vzero_memory(arr->data+(arr->length*arr->stride), arr->stride);
   return arr;
 }
 
@@ -92,11 +91,10 @@ darray* darray_delete(darray* arr, u64 index){
     return NULL;
   }
   u64 mem_location = arr->stride*index;
-  u64 mem_size = (arr->cap*arr->stride)-mem_location-arr->stride;
-  u8 buffer[mem_size];
-  vcopy_memory(buffer, arr->data+(mem_location+arr->stride), mem_size);
-  vcopy_memory(arr->data+mem_location, buffer, mem_size);
+  u64 mem_size = (arr->length*arr->stride)-mem_location-arr->stride;
+  vmove_memory(arr->data+mem_location, arr->data+(mem_location+arr->stride), mem_size);
   arr->length--;
+  vzero_memory(arr->data+(arr->length*arr->stride), arr->stride);
   return arr;
 }
 
@@ -112,16 +110,13 @@ void darray_clear(darray* arr){
 
 darray* darray_drain(darray* arr, u64 num_of_items){
   if(num_of_items > arr->length){
+    VWARN("Attempted to drain %llu number of items in darray with length %llu", num_of_items, arr->length);
     return NULL;
   }
   u64 mem_location = arr->stride*num_of_items;
-  u64 darray_mem_size = arr->stride*arr->cap;
-  u64 backend_mem_size = darray_mem_size - mem_location;
-  u8 buffer[backend_mem_size];
-  vcopy_memory(&buffer, arr->data+mem_location, backend_mem_size);
-  vzero_memory(arr->data, darray_mem_size);
-  vcopy_memory(arr->data, &buffer, backend_mem_size);
   arr->length -= num_of_items;
+  vmove_memory(arr->data, arr->data+mem_location, arr->length*arr->stride);
+  vzero_memory(arr->data+(arr->length*arr->stride), num_of_items*arr->stride);
   return arr;
 }
 

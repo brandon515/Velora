@@ -29,7 +29,7 @@ typedef struct _iterator{
 /*!
  * @brief Creates a new dynamic array on the heap
  * @param stride  The size of each individual item
- * @result A newly allocated dynamic array on the heap
+ * @return A newly allocated dynamic array on the heap
  */
 VCORE_API darray* darray_new(u64 stride);
 
@@ -37,7 +37,7 @@ VCORE_API darray* darray_new(u64 stride);
  * @brief Copies the data from the pointer given into the end of the dynamic array
  * @param arr Pointer to dynamic array data is being added to
  * @param data  Data pointer to the item being added
- * @result Pointer to the dynamic array
+ * @return Pointer to the dynamic array
  */
 VCORE_API darray* darray_push(darray* arr, const void* data);
 
@@ -45,7 +45,7 @@ VCORE_API darray* darray_push(darray* arr, const void* data);
  * @brief Copies the data from end of the darray and decreases the length by one. Doesn't zero out the final item.
  * @param arr Pointer to dynamic array item is popped out of
  * @param dest  Pointer to deposit the data
- * @result Pointer to darray, returns NULL if dynamic array is empty
+ * @return Pointer to darray, returns NULL if dynamic array is empty
  */
 VCORE_API darray* darray_pop(darray* arr, void* dest);
 
@@ -54,7 +54,7 @@ VCORE_API darray* darray_pop(darray* arr, void* dest);
  * @param arr Pointer to dynamic array
  * @param data  Pointer to data to be inserted
  * @param index Index to place data. index == length appends, like darray_push
- * @result Pointer to darray, returns NULL if index is greater than the length of the array
+ * @return Pointer to darray, returns NULL if index is greater than the length of the array
  */
 VCORE_API darray* darray_insert(darray* arr, const void* data, u64 index);
 
@@ -91,7 +91,7 @@ VCORE_API void darray_clear(darray* arr);
  * @brief Deletes the first num_of_items items in the dynamic array in FIFO order
  * @param arr Pointer to dynamic array
  * @param num_of_items Number of items to delete
- * @result Pointer to array, returns NULL if num_of_items is larger than the dynamic array's length
+ * @return Pointer to array, returns NULL if num_of_items is larger than the dynamic array's length
  */
 VCORE_API darray* darray_drain(darray* arr, u64 num_of_items);
 
@@ -99,7 +99,7 @@ VCORE_API darray* darray_drain(darray* arr, u64 num_of_items);
  * @brief Gets a pointer to the data in the dynamic array. Making this pointer mutable
  * @param arr Pointer to dynamic array
  * @param index The index of the item in the array
- * @result Pointer to the data in the array. This pointer is not to be kept as it might change if the dynamic array changes. return NULL if the index is larger than the size of the array
+ * @return Pointer to the data in the array. This pointer is not to be kept as it might change if the dynamic array changes. return NULL if the index is larger than the size of the array
  */
 VCORE_API void* darray_get_pointer(darray* arr, u64 index);
 
@@ -108,14 +108,14 @@ VCORE_API void* darray_get_pointer(darray* arr, u64 index);
  * @param arr Pointer to dynamic array
  * @param index The index of the item in the array
  * @param data A pointer to a stack variable or already allocated heap variable to house the data
- * @result TRUE if data was able to be loaded, FALSE if the data wasn't able to be loaded for any reason, usually this is because the index is larger than the size of the dynamic array
+ * @return TRUE if data was able to be loaded, FALSE if the data wasn't able to be loaded for any reason, usually this is because the index is larger than the size of the dynamic array
  */
 VCORE_API b8 darray_get_data(darray* arr, u64 index, void* data);
 
 /*!
  * @brief Creates an iterator to iterator over the dynamic array
  * @param arr Pointer to dynamic array
- * @result Pass by reference iterator struct for this dynamic array
+ * @return Pass by reference iterator struct for this dynamic array
  */
 VCORE_API iterator darray_create_iterator(darray* arr);
 
@@ -129,13 +129,13 @@ VCORE_API void iterator_restart(iterator* iter);
  * @brief Gets a pointer to the next item in the dynamic array and pointer the dataPointer to it
  * @param iter Pointer to the iterator
  * @param dataPointer The index of the item in the array
- * @result TRUE if data was able to be pointer to, FALSE if the data wasn't able to be pointed to, usually because the iterator is already beyond the length of the dynamic array
+ * @return TRUE if data was able to be pointer to, FALSE if the data wasn't able to be pointed to, usually because the iterator is already beyond the length of the dynamic array
  */
 VCORE_API b8 iterator_next(iterator* iter, void** dataPointer);
 
 /*!
  * @brief Gets the index of the last item returned in the function iterator_next
  * @param iter Pointer to iterator
- * @result The index of the last item returned in iterator next. If iterator is at the final element, returns the final index. U64_MAX if the iterator is resting at the beginning of the dynamic array.
+ * @return The index of the last item returned in iterator next. If iterator is at the final element, returns the final index. U64_MAX if the iterator is resting at the beginning of the dynamic array.
  */
 VCORE_API u64 iterator_index_of_last_Item(iterator* iter);
