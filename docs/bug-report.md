@@ -16,6 +16,8 @@ Bugs that need a GPU, a window or `input.c` have no test. Their entries say so.
 
 ---
 
+Tiers are defined in `docs/agents/triage-labels.md` (labels `tier-1`, `tier-2`, `tier-3`). Every open item is filed as a GitHub issue with its tier label.
+
 ## Tier 1: Crashes or memory corruption in normal use
 
 ### darray (`src/libraries/core/container/darray.c`), which sits under events, input, map and ECS
