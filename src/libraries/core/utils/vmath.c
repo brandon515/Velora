@@ -406,9 +406,9 @@ b8 perspective_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 botto
   outMatrix->a22 = (2*near)/(top-bottom);
   outMatrix->a13 = (right+left)/(right-left);
   outMatrix->a23 = (top+bottom)/(top-bottom);
-  outMatrix->a33 = (far+near)/(near-far);
+  outMatrix->a33 = far/(near-far);
   outMatrix->a43 = -1;
-  outMatrix->a34 = (2*far*near)/(near-far);
+  outMatrix->a34 = (far*near)/(near-far);
   return TRUE;
 }
 
@@ -423,10 +423,10 @@ b8 orthographic_matrix(f32 near, f32 far, f32 left, f32 right, f32 top, f32 bott
   }
   outMatrix->a11 = 2/(right-left);
   outMatrix->a22 = 2/(top-bottom);
-  outMatrix->a33 = -2/(far-near);
+  outMatrix->a33 = -1/(far-near);
   outMatrix->a14 = -((right+left)/(right-left));
   outMatrix->a24 = -((top+bottom)/(top-bottom));
-  outMatrix->a34 = -((far+near)/(far-near));
+  outMatrix->a34 = -(near/(far-near));
   outMatrix->a44 = 1;
   return TRUE;
 }
