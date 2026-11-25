@@ -31,7 +31,7 @@ u8 vstrcmp(const char* str1, const char* str2){
 
 char* vsubstr(const char* str, u64 startIndex, u64 length){
   u64 strLength = vstrlen(str);
-  if(startIndex >= strLength || startIndex+length >= strLength){
+  if(startIndex >= strLength || startIndex+length > strLength){
     return NULL;
   }
   char* retStr = vallocate(length+1, MEMORY_TAG_STRING);
