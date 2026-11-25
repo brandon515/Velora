@@ -22,7 +22,13 @@ b8 process_json_string(u8 *data, char** out_str, u64 *jsonStrLength){
     if((*lengthArray) == '\\'){
       lengthArray++;
       if((*lengthArray) == 'u'){
-        lengthArray = lengthArray+4;
+        for(int i = 0; i < 4; i++){
+          lengthArray++;
+          if((*lengthArray) == '\0'){
+            VERROR("Unclosed string in json file: %s", data);
+            return FALSE;
+          }
+        }
       }
     }
     lengthArray++;
@@ -152,6 +158,7 @@ b8 identify_json_value(u8* data, json_type *out_type){
   }else if((*data) == 't' || (*data) == 'f'){
     (*out_type) = VELORA_JSON_BOOL;
   }else if((*data) == '-' || ((*data) >= '0' && (*data) <= '9')){
+    (*out_type) = VELORA_JSON_INTEGER;
     u64 index = 0;
     if(data[index] == '-'){
       index++;
@@ -161,8 +168,6 @@ b8 identify_json_value(u8* data, json_type *out_type){
     }
     if(data[index] == '.' || data[index] == 'e' || data[index] == 'E'){
       (*out_type) = VELORA_JSON_DOUBLE;
-    }else{
-      (*out_type) = VELORA_JSON_INTEGER;
     }
   }else if((*data) == 'n'){
     (*out_type) = VELORA_JSON_NULL;
@@ -179,8 +184,15 @@ b8 process_json_array(u8* data, json_value **out_value, u64 *jsonLength, u64 *ou
     return FALSE;
   }
   u64 index = 1; // start after the opening bracket
-  while(data[index] < ' '){
+  while(data[index] <= ' '){
     index++;
+  }
+  if(data[index] == ']'){
+    (*out_value) = NULL;
+    (*jsonLength) = index+1;
+    (*outNumOfItems) = 0;
+
+    return TRUE;
   }
   darray *jsonValues = darray_new(sizeof(json_value));
   while(data[index] != ']'){
@@ -192,7 +204,7 @@ b8 process_json_array(u8* data, json_value **out_value, u64 *jsonLength, u64 *ou
     while(data[index] <= ' '){
       index++;
     }
-    if(identify_json_value(&data[index], &arrayElem.type)){
+    if(identify_json_value(&data[index], &arrayElem.type) == FALSE){
       darray_free(jsonValues);
       return FALSE;
     }
@@ -332,13 +344,13 @@ b8 process_json_object(u8 *data, json_value **out_value, u64 *jsonLength, u64 *o
 b8 import_json_file(const char *uri, json_value *out_value){
   velora_file jsonFile = {0};
   VEL_CHECK(get_file_text(uri, &jsonFile));
-  if(jsonFile.size == 0){
+  if(jsonFile.contents[0] == '\0'){
     VERROR("Attempting to process \'%s\' as JSON when the file is empty", uri);
     free_velora_file(&jsonFile);
     return FALSE;
   }
   u64 lastNonZeroCharIndex = jsonFile.size-1;
-  while(jsonFile.contents[lastNonZeroCharIndex] == 0){
+  while(jsonFile.contents[lastNonZeroCharIndex] <= ' '){
     lastNonZeroCharIndex--;
   }
   if(jsonFile.contents[lastNonZeroCharIndex] != '}'){
@@ -348,7 +360,7 @@ b8 import_json_file(const char *uri, json_value *out_value){
   out_value->type = VELORA_JSON_OBJECT;
   u64 fileSize = 0;
   u64 numOfItems = 0;
-  if(process_json_object(jsonFile.contents, &out_value->data.objectArray, &fileSize, &numOfItems)){
+  if(process_json_object(jsonFile.contents, &out_value->data.objectArray, &fileSize, &numOfItems) == FALSE){
     free_velora_file(&jsonFile);
     return FALSE;
   }
