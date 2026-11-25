@@ -215,6 +215,34 @@ static void test_empty_array_with_space(void) {
   free_json_value(&root);
 }
 
+/*
+ * An empty array must report its own length and zero items. Before, it left
+ * the caller's length unset: in an object the parser reused the key's
+ * length and skipped too far, and inside an array it never advanced and
+ * looped forever.
+ */
+static void test_empty_array_reports_its_length(void) {
+  json_value root;
+  u64 v = 0;
+  REQUIRE(parse("{\"abcdefg\": [], \"n\": 1}", &root), "empty array after a long key parses");
+  CHECK(load_json_unsigned_integer(&root, "n", &v) && v == 1, "value after the empty array");
+  free_json_value(&root);
+
+  REQUIRE(parse("{\"a\": [[], 1]}", &root), "empty array nested in an array parses");
+  json_value* a = &root.data.objectArray[0];
+  REQUIRE(a->type == VELORA_JSON_ARRAY && a->dataSize == 2 * sizeof(json_value), "outer array has two elements");
+  CHECK(a->data.array[0].type == VELORA_JSON_ARRAY && a->data.array[0].dataSize == 0, "first element is an empty array");
+  CHECK(a->data.array[1].type == VELORA_JSON_INTEGER && a->data.array[1].data.integer == 1, "second element is 1");
+  free_json_value(&root);
+
+  REQUIRE(parse("{\"a\": [ [ ] , 2 ]}", &root), "spaced empty array nested in an array parses");
+  a = &root.data.objectArray[0];
+  REQUIRE(a->type == VELORA_JSON_ARRAY && a->dataSize == 2 * sizeof(json_value), "outer array has two elements");
+  CHECK(a->data.array[0].type == VELORA_JSON_ARRAY && a->data.array[0].dataSize == 0, "first element is an empty array");
+  CHECK(a->data.array[1].type == VELORA_JSON_INTEGER && a->data.array[1].data.integer == 2, "second element is 2");
+  free_json_value(&root);
+}
+
 // Tier 2: exponents with an explicit + sign don't parse.
 static void test_exponent_numbers(void) {
   json_value root;
@@ -284,6 +312,7 @@ void vjson_test(void) {
   RUN_TEST_IGNORE_LEAKS(test_object_array);
   RUN_TEST_IGNORE_LEAKS(test_empty_containers);
   RUN_TEST_IGNORE_LEAKS(test_empty_array_with_space);
+  RUN_TEST_IGNORE_LEAKS(test_empty_array_reports_its_length);
   RUN_TEST_IGNORE_LEAKS(test_exponent_numbers);
   RUN_TEST_IGNORE_LEAKS(test_null_in_object);
   RUN_TEST(test_import_then_free_returns_all_memory);
