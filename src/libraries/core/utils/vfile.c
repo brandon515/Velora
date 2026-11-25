@@ -1,8 +1,8 @@
+#include "defines.h"
 #if VPLATFORM_WINDOWS
   #define vftell(f)        _ftelli64(f)
   #define vfseek(f, o, w)  _fseeki64((f), (o), (w))
 #else
-  #define _FILE_OFFSET_BITS 64   // must come before any #include to take effect
   #define vftell(f)        ftello(f)
   #define vfseek(f, o, w)  fseeko((f), (o), (w))
 #endif
@@ -21,7 +21,7 @@ static b8 get_file_size(FILE* file, u64 *out_size){
     VERROR("Failed to get current position of file cursor: %s", strerror(errno));
     return FALSE;
   }
-  if(fseek(file, 0, SEEK_END) != 0){
+  if(vfseek(file, 0, SEEK_END) != 0){
     VERROR("Failed to seek to end of file: %s", strerror(errno));
     return FALSE;
   }
@@ -30,7 +30,7 @@ static b8 get_file_size(FILE* file, u64 *out_size){
     VERROR("Failed to get position of cursor at end of file: %s", strerror(errno));
     return FALSE;
   }
-  if(fseek(file, cur_pos, SEEK_SET)){
+  if(vfseek(file, cur_pos, SEEK_SET)){
     VERROR("Failed to reset position in file after seeking to end: %s", strerror(errno));
     return FALSE;
   }
