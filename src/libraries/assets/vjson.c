@@ -92,7 +92,7 @@ b8 process_json_string(u8 *data, char** out_str, u64 *jsonStrLength){
 }
 
 b8 process_json_integer(u8 *data, i64 *out_value, u64 *jsonNumberLength){
-  if((*data) != '-' && (*data) < '0' && (*data) > '9'){
+  if((*data) != '-' && ((*data) < '0' || (*data) > '9')){
     return FALSE;
   }
   (*jsonNumberLength) = 0;
@@ -117,7 +117,7 @@ b8 process_json_integer(u8 *data, i64 *out_value, u64 *jsonNumberLength){
 }
 
 b8 process_json_float(u8 *data, f64 *out_value, u64 *jsonNumberLength){
-  if((*data) != '-' && (*data) <= '0' && (*data) >= '9'){
+  if((*data) != '-' && ((*data) < '0' || (*data) > '9')){
     return FALSE;
   }
   char scratchStr[1024];
@@ -125,6 +125,10 @@ b8 process_json_float(u8 *data, f64 *out_value, u64 *jsonNumberLength){
   while((data[numberLen] >= '0' && data[numberLen] <= '9') || data[numberLen] == '.' || data[numberLen] == 'e' || data[numberLen] == 'E' || data[numberLen] == '-'){
     scratchStr[numberLen] = data[numberLen];
     numberLen++;
+    if((data[numberLen-1] == 'e' || data[numberLen-1] == 'E') && data[numberLen] == '+'){
+      scratchStr[numberLen] = data[numberLen];
+      numberLen++;
+    }
   }
   (*jsonNumberLength) = numberLen;
   scratchStr[numberLen] = 0;
@@ -177,6 +181,15 @@ b8 identify_json_value(u8* data, json_type *out_type){
   return TRUE;
 }
 
+void free_json_value_darray(darray* jsonValues){
+  iterator it = darray_create_iterator(jsonValues);
+  json_value *curValue;
+  while(iterator_next(&it, (void**)&curValue)){
+    free_json_value(curValue);
+  }
+  darray_free(jsonValues);
+}
+
 b8 process_json_object(u8 *data, json_value **out_value, u64 *jsonLength, u64 *outNumOfItems);
 
 b8 process_json_array(u8* data, json_value **out_value, u64 *jsonLength, u64 *outNumOfItems){
@@ -198,55 +211,73 @@ b8 process_json_array(u8* data, json_value **out_value, u64 *jsonLength, u64 *ou
   while(data[index] != ']'){
     json_value arrayElem = {0};
     if(vinttostr((i64)jsonValues->length, &arrayElem.name) == FALSE){
-      darray_free(jsonValues);
+      free_json_value_darray(jsonValues);
       return FALSE;
     }
     while(data[index] <= ' '){
       index++;
     }
     if(identify_json_value(&data[index], &arrayElem.type) == FALSE){
-      darray_free(jsonValues);
+      free_json_value(&arrayElem);
+      free_json_value_darray(jsonValues);
       return FALSE;
     }
     u64 bytesToIncreaseIndex = 0;
     switch(arrayElem.type){
       case VELORA_JSON_BOOL:
       if(process_json_bool(&data[index], &arrayElem.data.boolean, &bytesToIncreaseIndex) == FALSE){
-        darray_free(jsonValues);
+        free_json_value(&arrayElem);
+        free_json_value_darray(jsonValues);
         return FALSE;
       }
       break;
       case VELORA_JSON_DOUBLE:
       if(process_json_float(&data[index], &arrayElem.data.dFloat, &bytesToIncreaseIndex) == FALSE){
-        darray_free(jsonValues);
+        free_json_value(&arrayElem);
+        free_json_value_darray(jsonValues);
         return FALSE;
       }
       break;
       case VELORA_JSON_INTEGER:
       if(process_json_integer(&data[index], &arrayElem.data.integer, &bytesToIncreaseIndex) == FALSE){
-        darray_free(jsonValues);
+        free_json_value(&arrayElem);
+        free_json_value_darray(jsonValues);
         return FALSE;
       }
       break;
       case VELORA_JSON_STRING:
       if(process_json_string(&data[index], &arrayElem.data.string, &bytesToIncreaseIndex) == FALSE){
-        darray_free(jsonValues);
+        free_json_value(&arrayElem);
+        free_json_value_darray(jsonValues);
         return FALSE;
       }
       arrayElem.dataSize = vstrlen(arrayElem.data.string)+1;
       break;
-      case VELORA_JSON_NULL:
-      break;
+      case VELORA_JSON_NULL:{
+        if(data[index] == 'n' && data[index+1] == 'u' && data[index+2] == 'l' && data[index+3] == 'l'){
+          arrayElem.data.array = NULL;
+          arrayElem.dataSize = 0;
+          bytesToIncreaseIndex = 4;
+        }else{
+          VERROR("Malformed value, expected null");
+          free_json_value(&arrayElem);
+          free_json_value_darray(jsonValues);
+          return FALSE;
+        }
+        break;
+      }
       case VELORA_JSON_ARRAY:
       if(process_json_array(&data[index], &arrayElem.data.array, &bytesToIncreaseIndex, &arrayElem.dataSize) == FALSE){
-        darray_free(jsonValues);
+        free_json_value(&arrayElem);
+        free_json_value_darray(jsonValues);
         return FALSE;
       }
       arrayElem.dataSize *= sizeof(json_value);
       break;
       case VELORA_JSON_OBJECT:
       if(process_json_object(&data[index], &arrayElem.data.objectArray, &bytesToIncreaseIndex, &arrayElem.dataSize) == FALSE){
-        darray_free(jsonValues);
+        free_json_value(&arrayElem);
+        free_json_value_darray(jsonValues);
         return FALSE;
       }
       arrayElem.dataSize *= sizeof(json_value);
@@ -280,12 +311,16 @@ b8 process_json_object(u8 *data, json_value **out_value, u64 *jsonLength, u64 *o
   while(data[index] != '}'){
     json_value objElem = {0};
     u64 amountToMove = 0;
-    VEL_CHECK(process_json_string(&data[index], &objElem.name, &amountToMove));
+    if(process_json_string(&data[index], &objElem.name, &amountToMove) == FALSE){
+      free_json_value_darray(jsonValues);
+      return FALSE;
+    }
     index += amountToMove;
     while(data[index] != ':'){
       if(data[index] == '}' || data[index] == '\0'){
+        free_json_value(&objElem);
         VERROR("Malformed JSON object, label with no value");
-        darray_free(jsonValues);
+        free_json_value_darray(jsonValues);
         return FALSE;
       }
       index++;
@@ -293,35 +328,75 @@ b8 process_json_object(u8 *data, json_value **out_value, u64 *jsonLength, u64 *o
     index++;
     while(data[index] <= ' '){
       if(data[index] == '\0'){
+        free_json_value(&objElem);
         VERROR("Reached the end of the file while trying to process object.");
-        darray_free(jsonValues);
+        free_json_value_darray(jsonValues);
         return FALSE;
       }
       index++;
     }
-    VEL_CHECK(identify_json_value(&data[index], &objElem.type));
+    if(identify_json_value(&data[index], &objElem.type) == FALSE){
+      free_json_value(&objElem);
+      free_json_value_darray(jsonValues);
+      return FALSE;
+    }
     switch(objElem.type){
       case VELORA_JSON_BOOL:
-      VEL_CHECK(process_json_bool(&data[index], &objElem.data.boolean, &amountToMove));
+      if(process_json_bool(&data[index], &objElem.data.boolean, &amountToMove) == FALSE){
+        free_json_value(&objElem);
+        free_json_value_darray(jsonValues);
+        return FALSE;
+      }
       break;
       case VELORA_JSON_DOUBLE:
-      VEL_CHECK(process_json_float(&data[index], &objElem.data.dFloat, &amountToMove));
+      if(process_json_float(&data[index], &objElem.data.dFloat, &amountToMove) == FALSE){
+        free_json_value(&objElem);
+        free_json_value_darray(jsonValues);
+        return FALSE;
+      }
       break;
       case VELORA_JSON_INTEGER:
-      VEL_CHECK(process_json_integer(&data[index], &objElem.data.integer, &amountToMove));
+      if(process_json_integer(&data[index], &objElem.data.integer, &amountToMove) == FALSE){
+        free_json_value(&objElem);
+        free_json_value_darray(jsonValues);
+        return FALSE;
+      }
       break;
       case VELORA_JSON_STRING:
-      VEL_CHECK(process_json_string(&data[index], &objElem.data.string, &amountToMove));
+      if(process_json_string(&data[index], &objElem.data.string, &amountToMove) == FALSE){
+        free_json_value(&objElem);
+        free_json_value_darray(jsonValues);
+        return FALSE;
+      }
       objElem.dataSize = vstrlen(objElem.data.string)+1;
       break;
-      case VELORA_JSON_NULL:
-      break;
+      case VELORA_JSON_NULL:{
+        if(data[index] == 'n' && data[index+1] == 'u' && data[index+2] == 'l' && data[index+3] == 'l'){
+          objElem.data.array = NULL;
+          objElem.dataSize = 0;
+          amountToMove = 4;
+        }else{
+          VERROR("Malformed value, expected null");
+          free_json_value(&objElem);
+          free_json_value_darray(jsonValues);
+          return FALSE;
+        }
+        break;
+      }
       case VELORA_JSON_ARRAY:
-      VEL_CHECK(process_json_array(&data[index], &objElem.data.array, &amountToMove, &objElem.dataSize));
+      if(process_json_array(&data[index], &objElem.data.array, &amountToMove, &objElem.dataSize) == FALSE){
+        free_json_value(&objElem);
+        free_json_value_darray(jsonValues);
+        return FALSE;
+      }
       objElem.dataSize *= sizeof(json_value);
       break;
       case VELORA_JSON_OBJECT:
-      VEL_CHECK(process_json_object(&data[index], &objElem.data.objectArray, &amountToMove, &objElem.dataSize));
+      if(process_json_object(&data[index], &objElem.data.objectArray, &amountToMove, &objElem.dataSize) == FALSE){
+        free_json_value(&objElem);
+        free_json_value_darray(jsonValues);
+        return FALSE;
+      }
       objElem.dataSize *= sizeof(json_value);
       break;
     }
@@ -376,7 +451,7 @@ b8 import_json_file(const char *uri, json_value *out_value){
 
 void free_json_value(json_value *value){
   if(value->type == VELORA_JSON_STRING){
-    vfree(value->data.string, value->dataSize, MEMORY_TAG_JSON);
+    vfree(value->data.string, value->dataSize, MEMORY_TAG_STRING);
   }else if(value->type == VELORA_JSON_ARRAY){
     u64 len = value->dataSize/sizeof(json_value);
     for(int i = 0; i < len; i++){
@@ -389,6 +464,10 @@ void free_json_value(json_value *value){
       free_json_value(&value->data.objectArray[i]);
     }
     vfree(value->data.objectArray, value->dataSize, MEMORY_TAG_JSON);
+  }
+  if(value->name != NULL){
+    vfree(value->name, vstrlen(value->name)+1, MEMORY_TAG_STRING);
+    value->name = NULL;
   }
 }
 
@@ -575,12 +654,16 @@ b8 load_json_float_array(json_value* obj, const char *name, f64 **value, u64 *co
       (*value) = vallocate(arrayLen*sizeof(f64), MEMORY_TAG_JSON);
       (*count) = arrayLen;
       for(int i = 0; i < arrayLen; i++){
-        if(objElem->data.array[i].type != VELORA_JSON_DOUBLE){
+        if(objElem->data.array[i].type == VELORA_JSON_DOUBLE){
+          (*value)[i] = objElem->data.array[i].data.dFloat; 
+        }else if(objElem->data.array[i].type == VELORA_JSON_INTEGER){
+          (*value)[i] = (f64)objElem->data.array[i].data.integer;
+        }else{
           vfree((*value), arrayLen*sizeof(f64), MEMORY_TAG_JSON);
+          (*value) = NULL;
           (*count) = 0;
           return FALSE;
         }
-        (*value)[i] = objElem->data.array[i].data.dFloat;
       }
       return TRUE;
     }
@@ -602,7 +685,7 @@ b8 load_json_string_array(json_value* obj, const char *name, char ***value, u64 
       for(int i = 0; i < arrayLen; i++){
         if(objElem->data.array[i].type != VELORA_JSON_STRING){
           for(int j = 0; j < i; j++){
-            vfree((*value)[i], objElem->data.array[j].dataSize, MEMORY_TAG_STRING);
+            vfree((*value)[j], objElem->data.array[j].dataSize, MEMORY_TAG_STRING);
           }
           vfree((*value), arrayLen*sizeof(char*), MEMORY_TAG_JSON);
           (*count) = 0;
