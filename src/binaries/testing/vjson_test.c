@@ -9,10 +9,6 @@
  * vjson only reads files, so each test writes its JSON to a scratch file in
  * the working directory first. Names start with vt_json_ so they can't clash
  * with the gltf suite when meson runs suites in parallel.
- *
- * Most tests use RUN_TEST_IGNORE_LEAKS because import_json_file currently
- * leaks the file buffer and every value name (bug-report Tier 3), which
- * test_import_then_free_returns_all_memory checks on its own.
  */
 
 #define JSON_PATH "vt_json_input.json"
@@ -288,6 +284,22 @@ static void test_null_in_array(void) {
 }
 
 /*
+ * A value starting with 'n' that isn't "null" must be rejected, and the
+ * parser must free everything it built so far (run with the leak check).
+ */
+static void test_malformed_null_in_object_is_rejected(void) {
+  json_value root;
+  CHECK(parse("{\"a\": 1, \"s\": \"x\", \"b\": nope}", &root) == FALSE, "malformed null in object is rejected");
+  CHECK(parse("{\"a\": nul", &root) == FALSE, "truncated null in object is rejected");
+}
+
+static void test_malformed_null_in_array_is_rejected(void) {
+  json_value root;
+  CHECK(parse("{\"a\": [1, \"x\", nope]}", &root) == FALSE, "malformed null in array is rejected");
+  CHECK(parse("{\"a\": [nul", &root) == FALSE, "truncated null in array is rejected");
+}
+
+/*
  * bug-report #23: the file buffer has no terminator and the scanners have
  * no end-of-buffer check, so truncated input reads past the buffer.
  */
@@ -300,22 +312,24 @@ static void test_truncated_input_fails_cleanly(void) {
 
 void vjson_test(void) {
   RUN_TEST(test_missing_file);
-  RUN_TEST_IGNORE_LEAKS(test_scalars);
-  RUN_TEST_IGNORE_LEAKS(test_getters_reject_wrong_type_or_name);
-  RUN_TEST_IGNORE_LEAKS(test_string_escapes);
-  RUN_TEST_IGNORE_LEAKS(test_nested_object);
-  RUN_TEST_IGNORE_LEAKS(test_whitespace_and_newlines);
-  RUN_TEST_IGNORE_LEAKS(test_integer_arrays);
-  RUN_TEST_IGNORE_LEAKS(test_float_array_of_doubles);
-  RUN_TEST_IGNORE_LEAKS(test_float_array_accepts_integers);
-  RUN_TEST_IGNORE_LEAKS(test_string_array);
-  RUN_TEST_IGNORE_LEAKS(test_object_array);
-  RUN_TEST_IGNORE_LEAKS(test_empty_containers);
-  RUN_TEST_IGNORE_LEAKS(test_empty_array_with_space);
-  RUN_TEST_IGNORE_LEAKS(test_empty_array_reports_its_length);
-  RUN_TEST_IGNORE_LEAKS(test_exponent_numbers);
-  RUN_TEST_IGNORE_LEAKS(test_null_in_object);
+  RUN_TEST(test_scalars);
+  RUN_TEST(test_getters_reject_wrong_type_or_name);
+  RUN_TEST(test_string_escapes);
+  RUN_TEST(test_nested_object);
+  RUN_TEST(test_whitespace_and_newlines);
+  RUN_TEST(test_integer_arrays);
+  RUN_TEST(test_float_array_of_doubles);
+  RUN_TEST(test_float_array_accepts_integers);
+  RUN_TEST(test_string_array);
+  RUN_TEST(test_object_array);
+  RUN_TEST(test_empty_containers);
+  RUN_TEST(test_empty_array_with_space);
+  RUN_TEST(test_empty_array_reports_its_length);
+  RUN_TEST(test_exponent_numbers);
+  RUN_TEST(test_null_in_object);
   RUN_TEST(test_import_then_free_returns_all_memory);
-  RUN_TEST_IGNORE_LEAKS(test_null_in_array);
-  RUN_TEST_IGNORE_LEAKS(test_truncated_input_fails_cleanly);
+  RUN_TEST(test_null_in_array);
+  RUN_TEST(test_malformed_null_in_object_is_rejected);
+  RUN_TEST(test_malformed_null_in_array_is_rejected);
+  RUN_TEST(test_truncated_input_fails_cleanly);
 }
