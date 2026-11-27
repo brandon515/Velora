@@ -77,6 +77,13 @@ u64 get_memory_allocated() {
   return mem_stats.total_allocated;
 }
 
+u64 get_memory_allocated_by_tag(memory_tag tag) {
+  if(tag >= MEMORY_TAG_END_TAG){
+    return 0;
+  }
+  return mem_stats.tagged_allocations[tag];
+}
+
 char* get_memory_usage_str(){
   const u64 kib = 1024;
   const u64 mib = kib * 1024;

@@ -16,10 +16,25 @@
 
 static void run_in_process(void (*fn)(void), b8 check_leaks) {
   u64 before = get_memory_allocated();
+  u64 tags_before[MEMORY_TAG_END_TAG];
+  for(int i = 0; i < MEMORY_TAG_END_TAG; i++) {
+    tags_before[i] = get_memory_allocated_by_tag(i);
+  }
   fn();
   u64 after = get_memory_allocated();
   if(check_leaks) {
     CHECK(after == before, "test leaked memory tracked by vmemory");
+    // A block freed under a different tag than it was allocated with leaves
+    // the total balanced but shifts bytes between tags, so check each tag too.
+    b8 tags_balanced = TRUE;
+    for(int i = 0; i < MEMORY_TAG_END_TAG; i++) {
+      u64 tag_after = get_memory_allocated_by_tag(i);
+      if(tag_after != tags_before[i]) {
+        VERROR("    %s: %lld bytes outstanding", memory_tag_strings[i], (long long)(tag_after - tags_before[i]));
+        tags_balanced = FALSE;
+      }
+    }
+    CHECK(tags_balanced == TRUE, "every memory tag returns to where it started");
   }
 }
 
