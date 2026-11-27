@@ -7,13 +7,12 @@
 #include "core/event.h"
 #include "render/velora_render.h"
 #include "ecs/vecs.h"
+#include "entry_loop.h"
 
 typedef struct _velora_state{
-  b8 is_running;
-  b8 is_suspended;
+  velora_loop_state loop;
   platform_state platform;
   render_state render_state;
-  void *app_data;
   i16 width;
   i16 height;
   f64 last_time;
@@ -25,10 +24,16 @@ const i16 START_POS_y = 0;
 const i16 START_WIDTH = 800;
 const i16 START_HEIGHT = 600;
 
-b8 close_event_handler(event* event, void* state){
-  velora_state* app_state = (velora_state*)state;
-  app_state->is_running = FALSE;
-  return FALSE;
+static void pump_platform_messages(void* context){
+  velora_state* engine_state = (velora_state*)context;
+  platform_pump_messages(&engine_state->platform);
+}
+
+static void render_one_frame(void* context){
+  velora_state* engine_state = (velora_state*)context;
+  render_preframe(&engine_state->render_state);
+  render_frame(&engine_state->render_state);
+  render_postframe(&engine_state->render_state);
 }
 
 int main(int argc, char* argv[]){
@@ -36,11 +41,8 @@ int main(int argc, char* argv[]){
   initialize_logging();
   initiate_event_system();
   velora_state *engine_state = vallocate(sizeof(velora_state), MEMORY_TAG_APPLICATION);
-  engine_state->is_running = TRUE;
-  engine_state->is_suspended = FALSE;
   engine_state->width = START_WIDTH;
   engine_state->height = START_HEIGHT;
-  engine_state->app_data = NULL;
   if(platform_startup(
     &engine_state->platform, 
     NAME,
@@ -59,26 +61,21 @@ int main(int argc, char* argv[]){
 
   initilize_entity_component_system();
 
-  register_listener(ENGINE_CLOSE_GAME, close_event_handler, engine_state);
   register_listener(ENGINE_WINDOW_RESIZE, resize_handler, &engine_state->render_state);// defined in the renderer code
 
-  if(velora_init(&engine_state->app_data, argc, argv) == FALSE){
-    VFATAL("Application unable to start");
+  velora_app_callbacks app = {
+    .init = velora_init,
+    .frame = velora_frame,
+    .exit = velora_exit,
+  };
+  velora_frame_hooks hooks = {
+    .context = engine_state,
+    .pump_messages = pump_platform_messages,
+    .render = render_one_frame,
+  };
+  if(velora_run_application(&engine_state->loop, &app, &hooks, argc, argv) == FALSE){
     return -3;
   }
-
-  while(engine_state->is_running){
-    engine_state->is_running = velora_frame(engine_state->app_data);
-    platform_pump_messages(&engine_state->platform);
-    pump_events(99.9f);
-    if(engine_state->is_suspended == FALSE){
-      render_preframe(&engine_state->render_state);
-      render_frame(&engine_state->render_state);
-      render_postframe(&engine_state->render_state);
-    }
-  }
-
-  velora_exit(engine_state->app_data);
   // Shut down the renderer before the platform: the Vulkan surface and
   // swapchain reference the X11 display/window, so destroying them after
   // XCloseDisplay would dereference freed memory and segfault.

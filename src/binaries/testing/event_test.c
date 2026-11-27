@@ -299,13 +299,14 @@ void event_test(void) {
   RUN_TEST(test_deregister);
   RUN_TEST(test_fire_unlistened_type_frees_data);
   RUN_TEST(test_pump_delivers_each_event_once_in_order);
-  RUN_TEST(test_fire_with_no_listeners_frees_data);
-  RUN_TEST(test_pump_over_time_limit_does_not_repeat_events);
-  RUN_TEST(test_pump_over_time_limit_does_not_double_free);
+  RUN_TEST_KNOWN_BUG(test_fire_with_no_listeners_frees_data, 33);
+  RUN_TEST_KNOWN_BUG(test_pump_over_time_limit_does_not_repeat_events, 31);
+  RUN_TEST_KNOWN_BUG(test_pump_over_time_limit_does_not_double_free, 31);
   // These two grow the system's darrays on purpose (that growth is the bug
   // they look for), which RUN_TEST's leak check would count as a leak.
-  RUN_TEST_IGNORE_LEAKS(test_event_queued_by_handler_is_delivered_later);
-  RUN_TEST_IGNORE_LEAKS(test_listener_registered_by_handler);
+  RUN_TEST_KNOWN_BUG_WITH(test_event_queued_by_handler_is_delivered_later, 32, KNOWN_BUG_IGNORE_LEAKS);
+  // Without a sanitizer this use-after-free sometimes passes and sometimes fails.
+  RUN_TEST_KNOWN_BUG_WITH(test_listener_registered_by_handler, 32, KNOWN_BUG_SANITIZER_ONLY | KNOWN_BUG_IGNORE_LEAKS);
   RUN_TEST_IGNORE_LEAKS(test_restart_after_shutdown);
   shutdown_event_system();
 }

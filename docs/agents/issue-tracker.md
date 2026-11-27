@@ -25,7 +25,9 @@ Every bug issue body has these sections:
 - **Where**: the tier (see `triage-labels.md`) and the file and line.
 - **Expected**: what the code should do, written so it can be checked: the exact return value, output, memory state or behaviour. Quote the relevant code, or the header or spec it should match.
 - **Actual**: what the code does now and why, with the exact values the test sees (for example `vinttostr(INT64_MIN)` returns `"-"`). Say what goes wrong for a caller in normal use.
-- **Test**: the one test that fails, as `suite / test_name` in `src/binaries/testing/<suite>_test.c`, and how to run it (`velora_tests <suite>`). Say if it only fails under the ASan/UBSan build. If no unit test can reach the code (a window, GPU or `main()` is needed), give numbered manual steps that end in one check, and state the expected and current result of that check.
+- **Test**: the one test that fails, as `suite / test_name` in `src/binaries/testing/<suite>_test.c`, and how to run it (`velora_tests --failures <suite>`). Say if it only fails under the ASan/UBSan build. If no unit test can reach the code (a window or GPU is needed), give numbered manual steps that end in one check, and state the expected and current result of that check.
+
+After filing, register the test with `RUN_TEST_KNOWN_BUG(test_name, <issue>)`, or `RUN_TEST_KNOWN_BUG_WITH(..., KNOWN_BUG_SANITIZER_ONLY)` if only ASan/UBSan sees it. CI stays green while the bug is open. The fix turns the test into an XPASS failure, so the fixing PR switches it to `RUN_TEST` and closes the issue (`.github/scripts/check-known-bugs.sh` fails CI for markers on closed issues).
 
 Labels: `bug`, `needs-triage`, one `tier-*` label and the `lib: *` label of the library the code is in.
 

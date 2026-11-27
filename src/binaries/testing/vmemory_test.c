@@ -2,6 +2,10 @@
 #include "test_framework.h"
 #include "core/memory/vmemory.h"
 
+#ifndef __STDC_NO_THREADS__
+#include <threads.h>
+#endif
+
 #define MEMORY_SIZE 128
 
 static void test_set_copy_zero(void) {
@@ -91,10 +95,53 @@ static void test_reallocate_keeps_contents(void) {
   vfree(block, MEMORY_SIZE * 64, MEMORY_TAG_APPLICATION);
 }
 
+#ifndef __STDC_NO_THREADS__
+#define COUNTER_THREADS 8
+#define COUNTER_ROUNDS 100000
+
+static int allocate_and_free_repeatedly(void* unused) {
+  for(int i = 0; i < COUNTER_ROUNDS; i++) {
+    void* block = vallocate(40, MEMORY_TAG_GLTF);
+    vfree(block, 40, MEMORY_TAG_GLTF);
+  }
+  return 0;
+}
+
+/*
+ * vgltf frees blocks from its worker threads, so vmemory's counters must stay
+ * right when several threads allocate and free at once. Every thread frees
+ * everything it allocates, so both counters must end where they started.
+ */
+static void test_counters_balance_across_threads(void) {
+  u64 total_before = get_memory_allocated();
+  u64 tag_before = get_memory_allocated_by_tag(MEMORY_TAG_GLTF);
+  thrd_t threads[COUNTER_THREADS];
+  int started = 0;
+  for(int i = 0; i < COUNTER_THREADS; i++) {
+    if(thrd_create(&threads[i], allocate_and_free_repeatedly, NULL) == thrd_success) {
+      started++;
+    }
+  }
+  REQUIRE(started == COUNTER_THREADS, "every thread starts");
+  for(int i = 0; i < started; i++) {
+    thrd_join(threads[i], NULL);
+  }
+  i64 total_drift = (i64)(get_memory_allocated() - total_before);
+  if(total_drift != 0) {
+    VERROR("    total is off by %lld bytes after %d threads x %d allocate/free pairs", (long long)total_drift, COUNTER_THREADS, COUNTER_ROUNDS);
+  }
+  CHECK(get_memory_allocated() == total_before, "the total is back where it started");
+  CHECK(get_memory_allocated_by_tag(MEMORY_TAG_GLTF) == tag_before, "the GLTF tag is back where it started");
+}
+#endif
+
 void vmemory_test(void) {
   RUN_TEST(test_set_copy_zero);
   RUN_TEST(test_allocation_tracking);
   RUN_TEST(test_move_overlapping);
   RUN_TEST(test_vallocate_zeroes);
   RUN_TEST(test_reallocate_keeps_contents);
+#ifndef __STDC_NO_THREADS__
+  RUN_TEST(test_counters_balance_across_threads);
+#endif
 }

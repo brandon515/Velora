@@ -108,6 +108,21 @@ jobs:
       - name: Run tests
         run: meson test -C build --print-errorlogs --no-rebuild
 
+  # Every test marked RUN_TEST_KNOWN_BUG names an issue. Once that issue is
+  # closed the marker is stale: the test should be a plain RUN_TEST again.
+  known-bugs:
+    name: Known-bug tests point at open issues
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check issue states
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/check-known-bugs.sh
+
   shaders:
     name: Shader validation
     runs-on: ubuntu-24.04
