@@ -158,9 +158,7 @@ b8 extract_gltf_accessor(json_value* accessor, void *out_ptr){
   out_acc->offset = 0;
   load_json_unsigned_integer(accessor, "byteOffset", &out_acc->offset);
   VEL_CHECK_MSG(load_json_unsigned_integer(accessor, "componentType", &out_acc->componentType), "Accessor had malformed or non-existent componentType variable");
-  u64 normalizedBool = FALSE;
-  load_json_unsigned_integer(accessor, "normalized", &normalizedBool);
-  out_acc->normalized = normalizedBool;
+  load_json_boolean(accessor, "normalized", &out_acc->normalized);
   VEL_CHECK_MSG(load_json_unsigned_integer(accessor, "count", &out_acc->count), "Accessor had a malformed or non-existent variable");
   VEL_CHECK_MSG(load_json_string(accessor, "type", &out_acc->type), "Accessor had a malformed or non-existent variable");
   out_acc->max = NULL;
@@ -310,9 +308,8 @@ b8 extract_gltf_material(json_value* material, void *out_ptr){
   }
   out_material->alphaCutoff = 0.5f;
   load_json_float(material, "alphaCutoff", &out_material->alphaCutoff);
-  u64 doubleSidedTrueFalse = FALSE;
-  load_json_unsigned_integer(material, "doubleSided", &doubleSidedTrueFalse);
-  out_material->doubleSided = doubleSidedTrueFalse;
+  load_json_boolean(material, "doubleSided", &out_material->doubleSided);
+  
   return TRUE;
 }
 
