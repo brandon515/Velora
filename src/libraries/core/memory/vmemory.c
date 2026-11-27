@@ -13,6 +13,13 @@ typedef struct _mem_stats{
 
 static memory_stats mem_stats;
 
+// The counters are shared by every thread that allocates (vgltf frees from its
+// worker threads), so every update and read is atomic. Relaxed ordering is
+// enough: they are statistics and order nothing else.
+#define STAT_ADD(counter, amount) __atomic_fetch_add(&(counter), (amount), __ATOMIC_RELAXED)
+#define STAT_SUB(counter, amount) __atomic_fetch_sub(&(counter), (amount), __ATOMIC_RELAXED)
+#define STAT_READ(counter) __atomic_load_n(&(counter), __ATOMIC_RELAXED)
+
 void initialize_memory(){
   mem_stats.total_allocated = 0;
   for(int i = 0; i < MEMORY_TAG_END_TAG; i++){
@@ -31,8 +38,8 @@ void* vallocate(u64 size, memory_tag tag){
   void* ret_block = platform_allocate(size, FALSE);
   platform_zero_memory(ret_block, size);
 
-  mem_stats.total_allocated += size;
-  mem_stats.tagged_allocations[tag] += size;
+  STAT_ADD(mem_stats.total_allocated, size);
+  STAT_ADD(mem_stats.tagged_allocations[tag], size);
   return ret_block;
 }
 
@@ -41,17 +48,17 @@ void* vreallocate(void *block, u64 old_size, u64 new_size, memory_tag tag){
   if(retPoint == NULL){
     return NULL;
   }
-  mem_stats.total_allocated -= old_size;
-  mem_stats.tagged_allocations[tag] -= old_size;
-  mem_stats.total_allocated += new_size;
-  mem_stats.tagged_allocations[tag] += new_size;
+  STAT_SUB(mem_stats.total_allocated, old_size);
+  STAT_SUB(mem_stats.tagged_allocations[tag], old_size);
+  STAT_ADD(mem_stats.total_allocated, new_size);
+  STAT_ADD(mem_stats.tagged_allocations[tag], new_size);
   return retPoint;
 }
 
 void vfree(void* block, u64 size, memory_tag tag){
   platform_free(block, FALSE);
-  mem_stats.total_allocated -= size;
-  mem_stats.tagged_allocations[tag] -= size;
+  STAT_SUB(mem_stats.total_allocated, size);
+  STAT_SUB(mem_stats.tagged_allocations[tag], size);
 }
 
 void* vzero_memory(void* block, u64 size){
@@ -74,14 +81,14 @@ void* vmove_memory(void* dest, const void* src, u64 size){
 }
 
 u64 get_memory_allocated() {
-  return mem_stats.total_allocated;
+  return STAT_READ(mem_stats.total_allocated);
 }
 
 u64 get_memory_allocated_by_tag(memory_tag tag) {
   if(tag >= MEMORY_TAG_END_TAG){
     return 0;
   }
-  return mem_stats.tagged_allocations[tag];
+  return STAT_READ(mem_stats.tagged_allocations[tag]);
 }
 
 char* get_memory_usage_str(){
@@ -94,14 +101,15 @@ char* get_memory_usage_str(){
   u64 offset = strlen(buffer);
   for(int i = 0; i < MEMORY_TAG_END_TAG; i++){
     char size_desc[4] = "Xib";
-    float amount = mem_stats.tagged_allocations[i];
-    if(mem_stats.tagged_allocations[i] > gib){
+    u64 bytes = STAT_READ(mem_stats.tagged_allocations[i]);
+    float amount = bytes;
+    if(bytes > gib){
       size_desc[0] = 'g';
       amount /= gib;
-    }else if(mem_stats.tagged_allocations[i] > mib){
+    }else if(bytes > mib){
       size_desc[0] = 'm';
       amount /= mib;
-    }else if(mem_stats.tagged_allocations[i] > kib){
+    }else if(bytes > kib){
       size_desc[0] = 'k';
       amount /= kib;
     }else{
