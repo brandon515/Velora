@@ -1335,7 +1335,7 @@ b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream)
       return FALSE;
     }
     if(curAcc.offset + (dataStride*i)+scratchStream.dataSize > curView.size){
-      VERROR("GLTF Accessor went beyond the bounds of the buffer view. Buffer view size %llu, attempted access at %llu", curView.size, curView.offset+(dataStride*i)+scratchStream.dataSize);
+      VERROR("GLTF Accessor went beyond the bounds of the buffer view. Buffer view size %llu, attempted access at %llu", curView.size, curAcc.offset+(dataStride*i)+scratchStream.dataSize);
       gltf_free_stream(scratchStream);
       return FALSE;
     }
