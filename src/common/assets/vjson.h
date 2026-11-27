@@ -79,6 +79,15 @@ typedef struct _json_value{
  */
  VASSETS_API b8 load_json_string(json_value* obj, const char *name, char **value);
 
+ /**
+ * @brief Loads the json value into the provided variable
+ * @param obj A json_value that uses the object type in the union
+ * @param name The name of the variable in the json object
+ * @param value A pointer to where the boolean value is to be placed
+ * @return FALSE if obj isn't a VELORA_JSON_OBJECT type, the retrived value isn't VELORA_JSON_BOOL, or if any pointer is NULL. TRUE otherwise
+ */
+ VASSETS_API b8 load_json_boolean(json_value* obj, const char *name, b8 *value);
+
 /**
  * @brief Loads the json value into the provided variable
  * @param obj A json_value that uses the object type in the union
