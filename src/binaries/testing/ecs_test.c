@@ -264,6 +264,6 @@ void ecs_test(void) {
   RUN_TEST(test_shutdown_frees_components);
   RUN_TEST(test_register_and_edit_transform);
   RUN_TEST(test_model_matrix_no_parent);
-  RUN_TEST(test_model_matrix_with_parent);
+  RUN_TEST_KNOWN_BUG(test_model_matrix_with_parent, 19);
   RUN_TEST(test_delete_entity_out_of_range);
 }

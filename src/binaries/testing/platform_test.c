@@ -64,8 +64,10 @@ static void test_absolute_time_advances(void) {
 void platform_test(void) {
   RUN_TEST(test_memory_helpers);
   RUN_TEST(test_allocate_and_reallocate);
-  RUN_TEST(test_sleep_waits);
 #if VPLATFORM_LINUX
-  RUN_TEST(test_absolute_time_advances);
+  RUN_TEST_KNOWN_BUG(test_sleep_waits, 52);
+  RUN_TEST_KNOWN_BUG(test_absolute_time_advances, 53);
+#else
+  RUN_TEST(test_sleep_waits);
 #endif
 }

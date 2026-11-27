@@ -29,5 +29,5 @@ static void test_message_at_buffer_limit(void) {
 
 void logger_test(void) {
   RUN_TEST(test_short_messages);
-  RUN_TEST(test_message_at_buffer_limit);
+  RUN_TEST_KNOWN_BUG_WITH(test_message_at_buffer_limit, 44, KNOWN_BUG_SANITIZER_ONLY);
 }

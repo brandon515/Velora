@@ -25,7 +25,10 @@
       "command": "meson compile -C builddir",
       "problemMatcher": {
         "base": "$gcc",
-        "fileLocation": ["relative", "${workspaceFolder}/builddir"]
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}/builddir"
+        ]
       },
       "group": {
         "kind": "build",
@@ -48,7 +51,10 @@
       "command": "meson test -C builddir --print-errorlogs",
       "problemMatcher": {
         "base": "$gcc",
-        "fileLocation": ["relative", "${workspaceFolder}/builddir"]
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}/builddir"
+        ]
       },
       "group": {
         "kind": "test",
@@ -68,7 +74,10 @@
       },
       "problemMatcher": {
         "base": "$gcc",
-        "fileLocation": ["relative", "${workspaceFolder}/build-asan"]
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}/build-asan"
+        ]
       },
       "group": "test"
     },
@@ -82,6 +91,17 @@
       },
       "problemMatcher": [],
       "group": "test"
+    },
+    {
+      "type": "shell",
+      "label": "Show failing tests",
+      "detail": "Build velora_tests and print only the failing tests, their output and the summary",
+      "command": "meson compile -C builddir velora_tests && ./builddir/src/binaries/testing/velora_tests --failures",
+      "windows": {
+        "command": "meson compile -C builddir velora_tests; if ($?) { .\\builddir\\src\\binaries\\testing\\velora_tests.exe --failures }"
+      },
+      "problemMatcher": [],
+      "group": "test"
     }
   ],
   "inputs": [
@@ -90,8 +110,19 @@
       "type": "pickString",
       "description": "Test suite to run",
       "options": [
-        "vmemory", "darray", "map", "event", "vstring", "vmath",
-        "vfile", "vjson", "vgltf", "logger", "platform", "ecs"
+        "vmemory",
+        "darray",
+        "map",
+        "event",
+        "vstring",
+        "vmath",
+        "vfile",
+        "vjson",
+        "vgltf",
+        "logger",
+        "platform",
+        "ecs",
+        "entry"
       ]
     }
   ]

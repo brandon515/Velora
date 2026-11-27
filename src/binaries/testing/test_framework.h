@@ -21,6 +21,13 @@
 extern u64 g_test_failures;
 extern u64 g_test_checks;
 
+// Name of the suite that is running, for the summary. Set by test_entry.c.
+extern const char* g_test_suite;
+
+// --failures: print only the tests that failed (with their output) and the
+// summary. Output is captured per test on Linux only.
+extern b8 g_test_failures_only;
+
 #define CHECK(expr, msg) \
   do { \
     g_test_checks++; \
@@ -75,6 +82,39 @@ void run_test_case(const char* name, void (*fn)(void), b8 check_leaks);
  * that leak is fixed.
  */
 #define RUN_TEST_IGNORE_LEAKS(fn) run_test_case(#fn, fn, FALSE)
+
+/*
+ * Runs one test case that fails today because of the open GitHub issue
+ * `issue`. Write the test as if the bug were fixed.
+ *
+ * - The test fails: reported as XFAIL and doesn't fail the suite.
+ * - The test passes: reported as XPASS and fails the suite. The bug is fixed,
+ *   so switch the test to RUN_TEST and close the issue.
+ *
+ * Known-bug tests only run on Linux, where each one is isolated in a forked
+ * process. Elsewhere they are reported as SKIP, because a crash in-process
+ * would stop the whole suite. CI's known-bugs job checks that every issue
+ * named in one is still open.
+ */
+#define RUN_TEST_KNOWN_BUG(fn, issue) run_known_bug_case(#fn, fn, issue, 0)
+
+/* RUN_TEST_KNOWN_BUG with any of the KNOWN_BUG_* flags below, OR-ed together. */
+#define RUN_TEST_KNOWN_BUG_WITH(fn, issue, flags) run_known_bug_case(#fn, fn, issue, flags)
+
+// Only ASan/UBSan can see the bug (a silent overflow, a use-after-free that
+// may or may not show, undefined behaviour). The test runs only in sanitizer
+// builds and is a SKIP elsewhere, where it can pass with the bug present.
+#define KNOWN_BUG_SANITIZER_ONLY 0x1
+// Skip the vmemory leak check, as RUN_TEST_IGNORE_LEAKS does.
+#define KNOWN_BUG_IGNORE_LEAKS 0x2
+
+void run_known_bug_case(const char* name, void (*fn)(void), u64 issue, u32 flags);
+
+/*
+ * Prints the XPASS, FAIL, XFAIL and SKIP results of every test case run so
+ * far, one line each. Called by test_entry.c after the last suite.
+ */
+void print_test_summary(void);
 
 /*
  * Writes size bytes of data to path, replacing any existing file.

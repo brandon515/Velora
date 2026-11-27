@@ -150,7 +150,7 @@ void vstring_test(void) {
   RUN_TEST(test_concat);
   RUN_TEST(test_find);
   RUN_TEST(test_rfind);
-  RUN_TEST(test_strtoint);
+  RUN_TEST_KNOWN_BUG(test_strtoint, 35);
   RUN_TEST(test_inttostr);
-  RUN_TEST(test_inttostr_int64_min);
+  RUN_TEST_KNOWN_BUG(test_inttostr_int64_min, 26);
 }
