@@ -7,7 +7,7 @@
 #include "core/event.h"
 #include "render/velora_render.h"
 #include "ecs/vecs.h"
-#include "entry_loop.h"
+#include "entry/entry_loop.h"
 
 typedef struct _velora_state{
   velora_loop_state loop;

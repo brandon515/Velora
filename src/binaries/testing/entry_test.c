@@ -2,7 +2,7 @@
 #include "test_framework.h"
 
 #include "core/event.h"
-#include "entry_loop.h"
+#include "entry/entry_loop.h"
 
 /*
  * Drives the engine's main loop (src/libraries/entry/entry_loop.c) with a
