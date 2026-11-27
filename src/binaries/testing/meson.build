@@ -24,7 +24,7 @@ endif
 velora_tests = executable('velora_tests',
   out_test_files + out_core_files + out_assets_files + out_ecs_files + out_entry_loop_files,
   dependencies: [m_dep, platform_deps],
-  include_directories: [inc, entry_inc],
+  include_directories: inc,
   link_language: 'c',
   c_args: test_c_args,
   link_args: ['-g'],

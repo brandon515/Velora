@@ -4,7 +4,7 @@ A small game engine written in C, with a Vulkan renderer. It runs on Linux (X11)
 
 ## Layout
 
-Public headers live in `src/common/`. Implementations live in `src/libraries/`, with one directory per library.
+All library headers, public and private, live in `src/common/`, with one directory per library. Library implementations (`.c` files only) live in `src/libraries/`, with one directory per library.
 
 | Library | Kind | What it holds |
 | ------- | ---- | ------------- |
@@ -15,7 +15,7 @@ Public headers live in `src/common/`. Implementations live in `src/libraries/`, 
 | `velora_render` | shared | The render frontend: meshes and materials, calling into the backend |
 | `velora_entry` | static | `main()` and the main loop. It calls the application's `velora_init`, `velora_frame` and `velora_exit` (`entry/entry.h`) |
 
-Executables are in `src/binaries/`:
+Executables are in `src/binaries/`. Each directory there is a self-contained sub-project with all of its own files, headers included:
 
 - `engine` (`game/`): the game application. Right now it loads `Cube.gltf` (from `assets/`) and renders it.
 - `lib_test` (`lib_test/`): a scratch program that links every library.
