@@ -175,6 +175,91 @@ static void test_non_float_vector_accessor(void) {
   }
 }
 
+// #40: JOINTS_0 may also be unsigned short VEC4. Read as vec4 the indices are widened to float.
+static void test_u16_vec4_joints(void) {
+  u16 joints[8] = {0, 1, 2, 300, 4, 5, 6, 65535};
+  fake_gltf f;
+  fake_init(&f, joints, sizeof(joints), GLTF_U16, "VEC4", 2);
+  gltf_data_stream stream = {0};
+  REQUIRE(gltf_get_stream(&f.gltf, 0, &stream) == TRUE, "unsigned short VEC4 accessor can be streamed");
+  CHECK(stream.dataSize == 4 * sizeof(u16) && stream.count == 2, "8 bytes per element");
+  gltf_free_stream(stream);
+  vec4 out[2] = {0};
+  REQUIRE(gltf_accessor_get_vec4_array(&f.gltf, 0, out) == TRUE, "unsigned short VEC4 reads as vec4");
+  CHECK(out[0].x == 0 && out[0].w == 300, "first element widened to float");
+  CHECK(out[1].x == 4 && out[1].w == 65535, "second element widened to float");
+}
+
+// #40: WEIGHTS_0 may be normalized unsigned byte VEC4, so c / 255 becomes the float value.
+static void test_normalized_u8_vec4_weights(void) {
+  u8 weights[8] = {255, 0, 0, 0, 128, 127, 0, 0};
+  fake_gltf f;
+  fake_init(&f, weights, sizeof(weights), GLTF_U8, "VEC4", 2);
+  f.accessors[0].normalized = TRUE;
+  vec4 out[2] = {0};
+  REQUIRE(gltf_accessor_get_vec4_array(&f.gltf, 0, out) == TRUE, "normalized unsigned byte VEC4 reads as vec4");
+  CHECK_NEAR(out[0].x, 1.0, 1e-6, "255 maps to 1.0");
+  CHECK_NEAR(out[0].y, 0.0, 1e-6, "0 maps to 0.0");
+  CHECK_NEAR(out[1].x, 128.0 / 255.0, 1e-6, "128 maps to 128/255");
+  CHECK_NEAR(out[1].y, 127.0 / 255.0, 1e-6, "127 maps to 127/255");
+}
+
+// #40: TEXCOORD_0 may be normalized unsigned short VEC2, so c / 65535 becomes the float value.
+static void test_normalized_u16_vec2_texcoords(void) {
+  u16 uvs[4] = {0, 65535, 32768, 16384};
+  fake_gltf f;
+  fake_init(&f, uvs, sizeof(uvs), GLTF_U16, "VEC2", 2);
+  f.accessors[0].normalized = TRUE;
+  vec2 out[2] = {0};
+  REQUIRE(gltf_accessor_get_vec2_array(&f.gltf, 0, out) == TRUE, "normalized unsigned short VEC2 reads as vec2");
+  CHECK_NEAR(out[0].x, 0.0, 1e-6, "0 maps to 0.0");
+  CHECK_NEAR(out[0].y, 1.0, 1e-6, "65535 maps to 1.0");
+  CHECK_NEAR(out[1].x, 32768.0 / 65535.0, 1e-6, "32768 maps to 32768/65535");
+  CHECK_NEAR(out[1].y, 16384.0 / 65535.0, 1e-6, "16384 maps to 16384/65535");
+}
+
+// #40: signed normalized values map to max(c / 127, -1), so both -128 and -127 become -1.0.
+static void test_normalized_i8_vec2(void) {
+  i8 data[4] = {-128, 127, -127, 0};
+  fake_gltf f;
+  fake_init(&f, data, sizeof(data), GLTF_I8, "VEC2", 2);
+  f.accessors[0].normalized = TRUE;
+  vec2 out[2] = {0};
+  REQUIRE(gltf_accessor_get_vec2_array(&f.gltf, 0, out) == TRUE, "normalized signed byte VEC2 reads as vec2");
+  CHECK_NEAR(out[0].x, -1.0, 1e-6, "-128 clamps to -1.0");
+  CHECK_NEAR(out[0].y, 1.0, 1e-6, "127 maps to 1.0");
+  CHECK_NEAR(out[1].x, -1.0, 1e-6, "-127 maps to -1.0");
+  CHECK_NEAR(out[1].y, 0.0, 1e-6, "0 maps to 0.0");
+}
+
+// #40: an interleaved u8 VEC4 with byteStride 8 takes 4 bytes per element and skips the padding.
+static void test_strided_u8_vec4(void) {
+  u8 data[16] = {
+    1, 2, 3, 4,     99, 99, 99, 99,  // element 0, then padding
+    5, 6, 7, 8,     99, 99, 99, 99,  // element 1, then padding
+  };
+  fake_gltf f;
+  fake_init(&f, data, sizeof(data), GLTF_U8, "VEC4", 2);
+  f.views[0].stride = 8;
+  gltf_data_stream stream = {0};
+  REQUIRE(gltf_get_stream(&f.gltf, 0, &stream) == TRUE, "strided unsigned byte VEC4 can be streamed");
+  CHECK(stream.dataSize == 4 && stream.count == 2, "4 bytes per element despite stride 8");
+  CHECK(stream.data[0] == 1 && stream.data[3] == 4, "first element read");
+  CHECK(stream.data[4] == 5 && stream.data[7] == 8, "second element read from the stride, not the padding");
+  gltf_free_stream(stream);
+}
+
+// #40: matrices stay float-only. Non-float matrices need column padding (spec 3.6.2.4), which isn't supported.
+static void test_non_float_matrix_rejected(void) {
+  u8 data[64] = {0};
+  fake_gltf f;
+  fake_init(&f, data, sizeof(data), GLTF_U8, "MAT4", 1);
+  u64 size = 0;
+  CHECK(gltf_accessor_get_element_size(&f.gltf, 0, &size, NULL) == FALSE, "unsigned byte MAT4 is rejected");
+  mat4 out = {0};
+  CHECK(gltf_accessor_get_mat4_array(&f.gltf, 0, &out) == FALSE, "unsigned byte MAT4 is not read as mat4");
+}
+
 // --- file import tests ---
 
 #define BIN_PATH "vt_gltf_data.bin"
@@ -346,6 +431,12 @@ void vgltf_test(void) {
   RUN_TEST(test_wrong_type_rejected);
   RUN_TEST(test_index_arrays_widen_to_u32);
   RUN_TEST(test_non_float_vector_accessor);
+  RUN_TEST(test_u16_vec4_joints);
+  RUN_TEST(test_normalized_u8_vec4_weights);
+  RUN_TEST(test_normalized_u16_vec2_texcoords);
+  RUN_TEST(test_normalized_i8_vec2);
+  RUN_TEST(test_strided_u8_vec4);
+  RUN_TEST(test_non_float_matrix_rejected);
   // The JSON parser under import_gltf leaks (Tier 3), checked separately below.
   RUN_TEST_IGNORE_LEAKS(test_import_basic_model);
   RUN_TEST_IGNORE_LEAKS(test_missing_gltf_file);
