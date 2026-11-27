@@ -579,7 +579,7 @@ b8 load_json_float(json_value* obj, const char *name, f64 *value){
 }
 
 b8 load_json_boolean(json_value* obj, const char *name, b8 *value){
-  if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_BOOL){
+  if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT){
     return FALSE;
   }
   u64 len = obj->dataSize/sizeof(json_value);
