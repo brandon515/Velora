@@ -740,10 +740,6 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     return FALSE;
   }
 
-  darray* threadIds = darray_new(sizeof(thrd_t));
-  u64 threadCount = 0;
-  char* uriPath = get_file_path(uri);
-
   json_value jsonValue = {0};
   load_json_object(&gltfJson, "asset", &jsonValue);
   VEL_CHECK(extract_gltf_asset(&jsonValue, &out_gltf->asset));
@@ -755,6 +751,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   if(load_json_string_array(&gltfJson, "extensionsRequired", &extensionsRequired, &extentionCount) == TRUE){
     if(check_extension_validity(extensionsRequired, extentionCount) == FALSE){
       VERROR("GLTF File %s requires unsupported extension(s), unable to be imported", uri);
+      free_json_value(&gltfJson);
       return FALSE;
     }
     for(int i = 0; i < extentionCount; i++){
@@ -775,7 +772,12 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     vfree(extensionsUsed, sizeof(char*)*extentionCount, MEMORY_TAG_JSON);
   }
 
-  VEL_CHECK(start_import_str_thread(
+  darray* threadIds = darray_new(sizeof(thrd_t));
+  u64 threadCount = 0;
+  char* uriPath = get_file_path(uri);
+  b8 retVal = TRUE;
+
+  if(start_import_str_thread(
     sizeof(gltf_buffer), 
     &out_gltf->bufferCount, 
     (void**)&out_gltf->buffers, 
@@ -785,27 +787,27 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     uriPath,
     threadIds,
     &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_buffer_view), 
     &out_gltf->bufferViewCount, 
     (void**)&out_gltf->bufferViews, 
     "bufferViews", 
     extract_gltf_buffer_view, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_accessor), 
     &out_gltf->accessorCount, 
     (void**)&out_gltf->accessors, 
     "accessors", 
     extract_gltf_accessor, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_str_thread(
+  if(start_import_str_thread(
     sizeof(gltf_image), 
     &out_gltf->imageCount, 
     (void**)&out_gltf->images, 
@@ -815,90 +817,89 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     uriPath,
     threadIds,
     &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_texture), 
     &out_gltf->textureCount, 
     (void**)&out_gltf->textures, 
     "textures", 
     extract_gltf_texture, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_material), 
     &out_gltf->materialCount, 
     (void**)&out_gltf->materials, 
     "materials", 
     extract_gltf_material, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_mesh), 
     &out_gltf->meshCount, 
     (void**)&out_gltf->meshes, 
     "meshes", 
     extract_gltf_mesh, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_animation), 
     &out_gltf->animationCount, 
     (void**)&out_gltf->animations, 
     "animations", 
     extract_gltf_animation, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_camera), 
     &out_gltf->cameraCount, 
     (void**)&out_gltf->cameras, 
     "cameras", 
     extract_gltf_camera, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
   
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_skin), 
     &out_gltf->skinCount, 
     (void**)&out_gltf->skins, 
     "skins", 
     extract_gltf_skin, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_sampler), 
     &out_gltf->samplerCount, 
     (void**)&out_gltf->samplers, 
     "samplers", 
     extract_gltf_sampler, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_node), 
     &out_gltf->nodeCount, 
     (void**)&out_gltf->nodes, 
     "nodes", 
     extract_gltf_node, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  VEL_CHECK(start_import_thread(
+  if(start_import_thread(
     sizeof(gltf_scene), 
     &out_gltf->sceneCount, 
     (void**)&out_gltf->scenes, 
     "scenes", 
     extract_gltf_scene, 
     &gltfJson,threadIds, &threadCount
-  ));
+  )){retVal = FALSE;}
 
-  b8 retVal = TRUE;
   iterator threadIt = darray_create_iterator(threadIds);
   thrd_t *curThread;
   while(iterator_next(&threadIt, (void**)&curThread)){
@@ -932,7 +933,7 @@ void free_gltf_buffer_view(gltf_buffer_view* buf){
 }
 
 void free_gltf_accessor(gltf_accessor* acc){
-  vfree(acc->type, vstrlen(acc->type)+1, MEMORY_TAG_GLTF);
+  vfree(acc->type, vstrlen(acc->type)+1, MEMORY_TAG_STRING);
   if(acc->max_count != 0){
     vfree(acc->max, acc->max_count*sizeof(gltf_value), MEMORY_TAG_GLTF);
   }
@@ -1082,10 +1083,10 @@ void free_gltf_sampler(gltf_sampler *out_sampler){
 
 void free_gltf_node(gltf_node *out_node){
   if(out_node->children != NULL){
-    vfree(out_node->children, sizeof(u64)*out_node->childCount, MEMORY_TAG_GLTF);
+    vfree(out_node->children, sizeof(u64)*out_node->childCount, MEMORY_TAG_JSON);
   }
   if(out_node->weights != NULL){
-    vfree(out_node->weights, sizeof(f64)*out_node->weightCount, MEMORY_TAG_GLTF);
+    vfree(out_node->weights, sizeof(f64)*out_node->weightCount, MEMORY_TAG_JSON);
   }
   if(out_node->name != NULL){
     vfree(out_node->name, vstrlen(out_node->name)+1, MEMORY_TAG_STRING);
@@ -1094,10 +1095,10 @@ void free_gltf_node(gltf_node *out_node){
 
 void free_gltf_scene(gltf_scene *out_scene){
   if(out_scene->nodes != NULL){
-    vfree(out_scene->nodes, sizeof(u64)*out_scene->nodeCount, MEMORY_TAG_GLTF);
+    vfree(out_scene->nodes, sizeof(u64)*out_scene->nodeCount, MEMORY_TAG_JSON);
   }
   if(out_scene->name != NULL){
-    vfree(out_scene->name, vstrlen(out_scene->name)+1, MEMORY_TAG_GLTF);
+    vfree(out_scene->name, vstrlen(out_scene->name)+1, MEMORY_TAG_STRING);
   }
 }
 
