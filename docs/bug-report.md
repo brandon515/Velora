@@ -50,9 +50,9 @@ Tiers are defined in `docs/agents/triage-labels.md` (labels `tier-1`, `tier-2`, 
 15. **Open.** **`update_descriptor_sets` (~1765)** declares `VkDescriptorBufferInfo skinBufferInfo[SKIN_BUFFER_COUNT]` on the stack. That's 65536 entries, about 1.5 MB, which overflows the 1 MB Windows stack. That 65536-entry uniform-buffer binding is also far above typical device limits, and the dynamic-indexing features it needs are never enabled.
 
 ### glTF (`src/libraries/core/utils/vgltf.c`)
-16. ✔ **Open.** **`thrd_t threadIds[512]`:** the importer creates one thread per glTF object with no limit, so a model with more than 512 objects writes past the stack array. Test: `vgltf / test_more_than_512_objects` (crashes).
-17. ✔ **Open.** **Accessor `byteOffset` is ignored** in `gltf_get_stream`, so every interleaved or shared bufferView returns the wrong data. Tests: `vgltf / test_accessor_byte_offset`, `vgltf / test_interleaved_attributes`.
-18. **Open.** **No size checks:**
+16. ✔ **Fixed.** **`thrd_t threadIds[512]`:** the importer creates one thread per glTF object with no limit, so a model with more than 512 objects writes past the stack array. The thread IDs are now kept in a darray (commit 5fe0b80). Test: `vgltf / test_more_than_512_objects`.
+17. ✔ **Fixed.** **Accessor `byteOffset` is ignored** in `gltf_get_stream`, so every interleaved or shared bufferView returns the wrong data (commit a5e3dc4). Tests: `vgltf / test_accessor_byte_offset`, `vgltf / test_interleaved_attributes`.
+18. **Fixed.** **No size checks** (commits a5e3dc4, dde70a2):
     - `extract_gltf_buffer` copies `byteLength` bytes without comparing it to the .bin size. Test: `vgltf / test_bin_shorter_than_byte_length` (heap-buffer-overflow).
     - `gltf_get_stream` checks reads against the buffer instead of the buffer view. Test: `vgltf / test_accessor_past_view_rejected`.
 
@@ -86,8 +86,8 @@ Tiers are defined in `docs/agents/triage-labels.md` (labels `tier-1`, `tier-2`, 
     - `load_json_float_array` rejects integers (`[0,0,0,1]`), so glTF transforms and colours silently fall back to defaults. Tests: `vjson / test_float_array_accepts_integers`, `vgltf / test_integer_node_values`.
     - `1e+20` doesn't parse. Test: `vjson / test_exponent_numbers`.
     - `[ ]` with a space inside doesn't parse. Test: `vjson / test_empty_array_with_space`.
-- **Open. glTF booleans** (`normalized`, `doubleSided`) are read as integers, so they always come out FALSE. Test: `vgltf / test_accessor_normalized_flag` (only `normalized` is tested).
-- **Open. Non-float vector accessors** such as JOINTS_0 (unsigned byte VEC4) are rejected. Test: `vgltf / test_non_float_vector_accessor`.
+- **Fixed. glTF booleans** (`normalized`, `doubleSided`) are read as integers, so they always come out FALSE. They're now read with `load_json_boolean` (commits 58a3259, 41a0ab7). Test: `vgltf / test_accessor_normalized_flag` (only `normalized` is tested).
+- **Fixed. Non-float vector accessors** such as JOINTS_0 (unsigned byte VEC4) are rejected. The vector getters now convert integer components to float, normalizing them where the accessor says so. Non-float matrices are still rejected. Tests: `vgltf / test_non_float_vector_accessor`, `test_u16_vec4_joints`, `test_normalized_u8_vec4_weights`, `test_normalized_u16_vec2_texcoords`, `test_normalized_i8_vec2`, `test_strided_u8_vec4`, `test_non_float_matrix_rejected`, `test_import_full_model`.
 - **Open. The projection matrices** (perspective and orthographic) map depth to OpenGL's [-1,1], but the renderer is Vulkan, which expects [0,1]. Tests: `vmath / test_perspective_depth_range`, `test_orthographic_depth_range`.
 - **Open. The depth buffer** is shared between frames in flight without a write-after-write dependency. Not tested.
 - **Open. `VASSERT_MSG`** takes 1 argument when assertions are disabled and 2 when enabled, so builds with assertions disabled fail. It can't be tested while `asserts.h` turns on `VASSERTIONS_ENABLED` unconditionally.
@@ -95,8 +95,8 @@ Tiers are defined in `docs/agents/triage-labels.md` (labels `tier-1`, `tier-2`, 
 - **Open. `logger.c:36`:** `sprintf` of the level prefix plus a message of up to 31999 characters into a 32000-byte buffer overflows `out_message`. Test: `logger / test_message_at_buffer_limit`. It fails under ASan; the release build doesn't detect it.
 
 ## Tier 3: Leaks and resource cleanup (lower priority)
-- **Open. vjson:** the input file is never freed, and value names are never freed. When a parse fails, `VEL_CHECK` also leaks the partly built darray. Test: `vjson / test_import_then_free_returns_all_memory`. Most other JSON and glTF tests skip the leak check until this is fixed; see `RUN_TEST_IGNORE_LEAKS`.
-- **Open. vgltf:** `uriPath` is never freed. Test: `vgltf / test_import_then_free_returns_all_memory`.
+- **Fixed. vjson:** the input file is never freed, and value names are never freed. When a parse fails, `VEL_CHECK` also leaks the partly built darray. Test: `vjson / test_import_then_free_returns_all_memory`. The JSON and glTF tests now all run with the leak check.
+- **Fixed. vgltf:** `uriPath` is never freed. The same pass also fixed the `threadIds` darray, every failure path in `import_gltf` and the extractors (a failed import now frees everything and leaves the object zeroed), and blocks freed under the wrong memory tag or size. The test framework now checks every memory tag as well as the total. Tests: `vgltf / test_import_then_free_returns_all_memory`, `test_import_full_model`, and the `*_rejected` import tests.
 - **Open. `vfile.c`:**
     - The buffer leaks on a short read. Not tested.
     - `get_file_path` returns the literal `"./"` for a bare file name, so callers can't free its result safely. The header says it returns NULL. Test: `vfile / test_get_file_path_of_bare_name_is_freeable`.
@@ -117,7 +117,7 @@ These were not in the original review. None are fixed.
 27. **Tier 2, `matrix_vec4_multiply` (and the vec2/vec3 versions, `vmath.c` `matrix_vec_multiply`):** these index the matrix as row-major while `mat4` is column-major, so they compute Mᵀ·v. Applying `translation_matrix` through `matrix_vec4_multiply` doesn't move the point. Nothing calls these yet. Test: `vmath / test_matrix_vec4_multiply`.
 28. **Tier 2, `vinttostr(INT64_MIN)` (`vstring.c:109`):** `scratchValue *= -1` overflows a signed integer, which is undefined behaviour. Test: `vstring / test_inttostr_int64_min` (UBSan).
 29. **Tier 3, `load_json_string_array` failure path (`vjson.c:530`):** the cleanup loop frees `(*value)[i]` instead of `(*value)[j]`. That frees the same (NULL) slot over and over and leaks every string already copied. vmemory's byte count still balances because the sizes come from `[j]`, so no vmemory-based test can catch it. Not tested.
-30. **Tier 2, glTF header/source mismatch:** `vgltf.h:332` declares `gltf_accessor_get_element_size_type`, but `vgltf.c` defines `gltf_accessor_get_element_size`. Code that calls the declared name fails to link. Not tested, because a test calling it would break the build.
+30. **Fixed (commit f648edf). Tier 2, glTF header/source mismatch:** `vgltf.h:332` declares `gltf_accessor_get_element_size_type`, but `vgltf.c` defines `gltf_accessor_get_element_size`. Code that calls the declared name fails to link. Not tested, because a test calling it would break the build.
 31. **Tier 3, Win32 timer depends on the window:** `platform_get_absolute_time` (`platform_win32.c:190`) multiplies by `clock_frequency`, which is only set in `platform_startup`. Before a window exists, the timer returns 0. Not tested; `test_absolute_time_advances` runs on Linux only for this reason.
 32. **Tier 3, dead input checks in the JSON number parsers:** `process_json_integer` tests `c < '0' && c > '9'` and `process_json_float` tests `c <= '0' && c >= '9'`. Neither condition can ever be true, so neither function rejects bad input itself. `identify_json_value` currently filters the input first, so this is harmless today. Not tested.
 
