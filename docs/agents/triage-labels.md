@@ -26,4 +26,4 @@ Every bug issue also gets exactly one tier label. The tier says how bad the bug 
 
 Fix order follows the tiers: `tier-1` before `tier-2` before `tier-3`, unless a lower-tier bug is blocking a higher-tier fix or hiding it. For example, the Linux `platform_get_absolute_time` returning 0 hides a `pump_events` bug.
 
-When you file a new bug, give it `bug`, `needs-triage` and a tier label. If you can't tell the tier yet, leave the tier label off and let triage decide.
+When you file a new bug, follow **Filing a bug** in `issue-tracker.md` (one issue per failing test, with expected and actual results), and give it `bug`, `needs-triage` and a tier label. If you can't tell the tier yet, leave the tier label off and let triage decide.

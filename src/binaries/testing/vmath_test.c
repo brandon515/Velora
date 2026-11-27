@@ -86,7 +86,7 @@ static void test_scaling_matrix(void) {
   CHECK_VEC4(apply(s, point(1, 1, 1)), point(2, 3, 4), "scaling scales each axis");
 }
 
-// bug-report #19: rotation_matrix is transposed, so quaternions rotate the wrong way.
+// Issue #17: rotation_matrix is transposed, so quaternions rotate the wrong way.
 static void test_rotation_matrix_z_90(void) {
   mat4 r = rotation_matrix(axis_angle(0, 0, 1, 90));
   CHECK_VEC4(apply(r, point(1, 0, 0)), point(0, 1, 0), "+90 degrees about Z takes X to Y");
@@ -144,7 +144,7 @@ static void test_matrix_multiply_identity(void) {
   CHECK(same, "multiplying by identity changes nothing");
 }
 
-// Not in the bug report: matrix_vec4_multiply computes M^T*v, so it ignores translation.
+// Issue #25: matrix_vec4_multiply computes M^T*v, so it ignores translation.
 static void test_matrix_vec4_multiply(void) {
   mat4 t = translation_matrix((vec3){{10, 20, 30}});
   CHECK_VEC4(matrix_vec4_multiply(t, point(1, 2, 3)), point(11, 22, 33), "matrix_vec4_multiply applies a translation");
@@ -157,7 +157,7 @@ static void test_model_matrix_without_rotation(void) {
   CHECK_VEC4(apply(m, point(1, 1, 1)), point(3, 5, 7), "model matrix scales then translates");
 }
 
-// Depends on bug-report #19 (rotation_matrix).
+// Depends on issue #17 (rotation_matrix).
 static void test_model_matrix_order(void) {
   mat4 m = model_matrix((vec3){{1, 0, 0}}, axis_angle(0, 0, 1, 90), (vec3){{2, 2, 2}});
   CHECK_VEC4(apply(m, point(1, 0, 0)), point(1, 2, 0), "model matrix scales, then rotates, then translates");
@@ -188,7 +188,7 @@ static void test_decompose_round_trip(void) {
 }
 
 /*
- * bug-report #20: rotation_to_quat's fallback branches (taken when w is near
+ * Issue #18: rotation_to_quat's fallback branches (taken when w is near
  * 0, i.e. rotations near 180 degrees) add where they should subtract for w.
  */
 static void test_decompose_180_degree_rotation(void) {

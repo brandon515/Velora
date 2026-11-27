@@ -91,7 +91,7 @@ static void test_insert_front_small_array(void) {
 }
 
 // index == length is "at" the end, not "beyond" it, so it should append.
-// map_set_item relies on this when replacing the last key (bug-report #4).
+// map_set_item relies on this when replacing the last key.
 static void test_insert_at_length_appends(void) {
   darray* arr = make_sequence(3);
   u64 v = 99;
@@ -224,7 +224,7 @@ static void test_mixed_operations(void) {
 }
 
 /*
- * bug-report #5: every darray function copies the whole array through a
+ * Issue #8: every darray function copies the whole array through a
  * stack buffer of cap*stride bytes, so a big array overflows the stack.
  * 12 elements of 1 MiB means copying 8+ MiB through the stack when the
  * array grows, more than the default 8 MiB Linux (or 1 MiB Windows) stack.

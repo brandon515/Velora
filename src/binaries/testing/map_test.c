@@ -71,7 +71,7 @@ static void test_replace_middle_key(void) {
   map_free(map);
 }
 
-// bug-report #4: replacing the last key went through darray_insert at
+// Regression: replacing the last key went through darray_insert at
 // index == length, which used to fail, set map->data to NULL and leak.
 static void test_replace_last_key(void) {
   int_map* map = map_new(sizeof(u64));

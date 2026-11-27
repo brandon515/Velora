@@ -136,7 +136,7 @@ static void test_inttostr(void) {
   check_inttostr(9223372036854775807LL, "9223372036854775807");
 }
 
-// Not in the bug report: negating INT64_MIN overflows (undefined behaviour, caught by UBSan).
+// Issue #26: negating INT64_MIN overflows (undefined behaviour, caught by UBSan).
 static void test_inttostr_int64_min(void) {
   check_inttostr((-9223372036854775807LL) - 1, "-9223372036854775808");
 }
