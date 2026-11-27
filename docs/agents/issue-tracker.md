@@ -14,6 +14,21 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
+## Filing a bug
+
+GitHub issues are the only place bugs are tracked. Don't keep bug lists or bug reports in files in the repo, and don't refer to bugs by anything other than their issue number (in code comments, write `Issue #42:`).
+
+**One issue per failing test.** If a bug review turns up several problems, even in the same function, file one issue for each. If one fix needs several tests, file the issue for one test and list the others as related issues.
+
+Every bug issue body has these sections:
+
+- **Where**: the tier (see `triage-labels.md`) and the file and line.
+- **Expected**: what the code should do, written so it can be checked: the exact return value, output, memory state or behaviour. Quote the relevant code, or the header or spec it should match.
+- **Actual**: what the code does now and why, with the exact values the test sees (for example `vinttostr(INT64_MIN)` returns `"-"`). Say what goes wrong for a caller in normal use.
+- **Test**: the one test that fails, as `suite / test_name` in `src/binaries/testing/<suite>_test.c`, and how to run it (`velora_tests <suite>`). Say if it only fails under the ASan/UBSan build. If no unit test can reach the code (a window, GPU or `main()` is needed), give numbered manual steps that end in one check, and state the expected and current result of that check.
+
+Labels: `bug`, `needs-triage`, one `tier-*` label and the `lib: *` label of the library the code is in.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_

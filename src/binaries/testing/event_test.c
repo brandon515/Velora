@@ -254,7 +254,7 @@ static void test_listener_registered_by_handler(void) {
 }
 
 /*
- * Not in the bug report: shutdown_event_system frees the queue and listener
+ * Issue #23: shutdown_event_system frees the queue and listener
  * arrays but leaves the pointers set, so initiate_event_system afterwards
  * keeps using freed memory. Kept last because on platforms without per-test
  * isolation it leaves the event system broken.

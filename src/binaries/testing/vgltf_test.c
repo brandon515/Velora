@@ -64,7 +64,7 @@ static void test_buffer_view_offset(void) {
   CHECK(out.x == 7 && out.y == 8 && out.z == 9, "view offset honoured");
 }
 
-// bug-report #17: the accessor's own byteOffset is ignored.
+// Issue #15: the accessor's own byteOffset is ignored.
 static void test_accessor_byte_offset(void) {
   f32 data[6] = {1, 2, 3, 4, 5, 6};
   fake_gltf f;
@@ -75,7 +75,7 @@ static void test_accessor_byte_offset(void) {
   CHECK(out.x == 4 && out.y == 5 && out.z == 6, "accessor byteOffset honoured");
 }
 
-// bug-report #17: interleaved position/normal attributes sharing one strided view.
+// Issue #15: interleaved position/normal attributes sharing one strided view.
 static void test_interleaved_attributes(void) {
   f32 data[12] = {
     1, 2, 3,  10, 20, 30,  // vertex 0: position, normal
@@ -94,7 +94,7 @@ static void test_interleaved_attributes(void) {
   CHECK(nrm[0].x == 10 && nrm[0].z == 30 && nrm[1].x == 40 && nrm[1].z == 60, "normals read from their byteOffset");
 }
 
-// bug-report #18: reads are checked against the buffer, not the buffer view.
+// Issue #16: reads are checked against the buffer, not the buffer view.
 static void test_accessor_past_view_rejected(void) {
   f32 data[6] = {1, 2, 3, 4, 5, 6};
   fake_gltf f;
@@ -393,7 +393,7 @@ static void test_import_then_free_returns_all_memory(void) {
 }
 
 /*
- * bug-report #18: the buffer copy trusts byteLength, so a .bin shorter than
+ * Issue #16: the buffer copy trusts byteLength, so a .bin shorter than
  * it claims is read past its end. Import should fail instead.
  */
 static void test_bin_shorter_than_byte_length(void) {
@@ -530,7 +530,7 @@ static void test_data_uri_buffer_rejected(void) {
 }
 
 /*
- * bug-report #16: import_gltf starts one thread per object into a
+ * Issue #14: import_gltf starts one thread per object into a
  * thrd_t[512] on the stack with no bounds check.
  */
 static void test_more_than_512_objects(void) {

@@ -61,7 +61,7 @@ static void test_attach_rejects_out_of_range_entity(void) {
 }
 
 /*
- * bug-report #3: attaching a component for an entity whose id is lower than
+ * Regression: attaching a component for an entity whose id is lower than
  * one already in the list goes through darray_insert.
  */
 static void test_attach_out_of_order_ids(void) {
@@ -109,7 +109,7 @@ static void test_create_new_entity(void) {
   shutdown_entity_component_system();
 }
 
-// bug-report #6: delete_component passed the element buffer instead of the darray.
+// Regression: delete_component passed the element buffer instead of the darray.
 static void test_delete_component(void) {
   initilize_entity_component_system();
   for(u64 e = 0; e < 5; e++) {
@@ -132,7 +132,7 @@ static void test_delete_component(void) {
   shutdown_entity_component_system();
 }
 
-// bug-report #7: delete_entity used i where it meant j.
+// Regression: delete_entity used i where it meant j.
 static void test_delete_entity(void) {
   initilize_entity_component_system();
   for(u64 e = 0; e < 4; e++) {
@@ -168,7 +168,7 @@ static void test_delete_component_then_entity(void) {
   shutdown_entity_component_system();
 }
 
-// Not in the bug report: delete_entity indexes entities[] before checking the id is in range.
+// Issue #24: delete_entity indexes entities[] before checking the id is in range.
 static void test_delete_entity_out_of_range(void) {
   initilize_entity_component_system();
   CHECK(delete_entity(VELORA_MAX_OBJECTS) == FALSE, "delete_entity rejects an id past VELORA_MAX_OBJECTS");
@@ -227,7 +227,7 @@ static void test_model_matrix_no_parent(void) {
 }
 
 /*
- * bug-report #21: transform_get_model_matrix combines parent and child in
+ * Issue #19: transform_get_model_matrix combines parent and child in
  * the wrong order. A child 1 unit along X under a parent scaled by 2 should
  * sit 2 units along X in world space; local*parent puts it at 1.
  */

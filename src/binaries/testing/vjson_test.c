@@ -255,7 +255,7 @@ static void test_exponent_numbers(void) {
   }
 }
 
-// bug-report #22: a null value in an object skips the wrong number of bytes.
+// Issue #20: a null value in an object skips the wrong number of bytes.
 static void test_null_in_object(void) {
   json_value root;
   CHECK(parse("{\"a\": null, \"b\": 5}", &root) == TRUE, "object with a null value parses");
@@ -273,7 +273,7 @@ static void test_import_then_free_returns_all_memory(void) {
 }
 
 /*
- * bug-report #22: a null array element never advances the index, so the
+ * Issue #20: a null array element never advances the index, so the
  * parser loops until memory runs out. Crash/timeout tests are kept at the
  * end of the suite.
  */
@@ -300,7 +300,7 @@ static void test_malformed_null_in_array_is_rejected(void) {
 }
 
 /*
- * bug-report #23: the file buffer has no terminator and the scanners have
+ * Issue #21: the file buffer has no terminator and the scanners have
  * no end-of-buffer check, so truncated input reads past the buffer.
  */
 static void test_truncated_input_fails_cleanly(void) {

@@ -45,10 +45,10 @@ static void test_sleep_waits(void) {
 
 #if VPLATFORM_LINUX
 /*
- * bug-report Tier 2 note: platform_get_absolute_time returns 0 on Linux,
- * which hides the pump_events bug and breaks any timing. (On Windows the
+ * Issue #53: platform_get_absolute_time returns 0 on Linux,
+ * which hides the pump_events bug (#31) and breaks any timing. (On Windows the
  * clock is only initialised by platform_startup, which needs a window, so
- * this runs on Linux only.)
+ * this runs on Linux only: issue #29.)
  */
 static void test_absolute_time_advances(void) {
   f64 t0 = platform_get_absolute_time();
