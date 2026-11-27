@@ -53,7 +53,7 @@ b8 extract_gltf_buffer(json_value* buffer, void* out_ptr, const char* uriPath){
   vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
   
   b8 retVal = TRUE;
-  if(bufferContents.size < out_buffer->size){
+  if(bufferContents.size >= out_buffer->size){
     vcopy_memory(out_buffer->buffer, bufferContents.contents, out_buffer->size);
   }else{
     VERROR("GLTF buffer size doesn't match the actual size of the buffer file, file size: %llu, buffer size: %llu", bufferContents.size, out_buffer->size);
