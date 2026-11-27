@@ -1,8 +1,6 @@
 ## Source layout
 
-Every library header (`.h`) goes in `src/common/<library>/`, including private ones used by a single library. `src/libraries/` holds only `.c` sources and `meson.build` files. Include library headers by their path under `src/common/` (for example `#include "assets/stb_image.h"`); don't add `include_directories('.')` for a library directory.
-
-`src/binaries/<binary>/` is different: each one is a self-contained sub-project that holds every file that goes into that binary, headers included (for example `testing/test_framework.h`).
+Each `src/binaries/<binary>/` is a self-contained sub-project that holds every file for that binary, headers included. Library headers go in `src/common/` (enforced by the `header-layout` meson test).
 
 ## Agent skills
 
