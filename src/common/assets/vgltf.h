@@ -329,7 +329,7 @@ VASSETS_API void free_gltf(gltf_object* out_gltf);
  * @param outType A pointer to the gltf_data_type enum, not used if NULL
  * @return FALSE if the accIndex is out of range of the gltf accessors, TRUE otherwise
  */
-VASSETS_API b8 gltf_accessor_get_element_size_type(gltf_object* gltf, u64 accIndex, u64 *outSize, gltf_data_type *outType);
+VASSETS_API b8 gltf_accessor_get_element_size(gltf_object* gltf, u64 accIndex, u64 *outSize, gltf_data_type *outType);
 
 /**
  * @brief Frees the memory that the gltf_object uses but not the pointer itself
