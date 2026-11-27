@@ -38,29 +38,35 @@ b8 extract_gltf_buffer(json_value* buffer, void* out_ptr, const char* uriPath){
     if(isDataUri == TRUE){
       //TODO: Support data URIs
       VWARN("Unsupported data URI in buffer");
+      vfree(bufferUri, vstrlen(bufferUri)+1, MEMORY_TAG_STRING);
       return FALSE;
     }
   }
-  VEL_CHECK(load_json_unsigned_integer(buffer, "byteLength", &out_buffer->size));
+  if(load_json_unsigned_integer(buffer, "byteLength", &out_buffer->size) == FALSE){
+    VERROR("Buffer in GLTF File has no byteLength");
+    vfree(bufferUri, vstrlen(bufferUri)+1, MEMORY_TAG_STRING);
+    return FALSE;
+  }
   // Doesn't matter if this is false, the name is optional;
   out_buffer->name = NULL;
   load_json_string(buffer, "name", &out_buffer->name);
+  // On failure the name and buffer are left in place, import_gltf frees them through free_gltf
   out_buffer->buffer = vallocate(out_buffer->size, MEMORY_TAG_GLTF);
   char * fullUri = vconcat(uriPath, bufferUri);
   vfree(bufferUri, vstrlen(bufferUri)+1, MEMORY_TAG_STRING);
   velora_file bufferContents = {0};
-  VEL_CHECK_MSG(get_file_contents(fullUri, &bufferContents), "Unable to get contents of buffer file with URI %s", fullUri);
+  if(get_file_contents(fullUri, &bufferContents) == FALSE){
+    VERROR("Unable to get contents of buffer file with URI %s", fullUri);
+    vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
+    return FALSE;
+  }
   vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
-  
+
   b8 retVal = TRUE;
   if(bufferContents.size >= out_buffer->size){
     vcopy_memory(out_buffer->buffer, bufferContents.contents, out_buffer->size);
   }else{
     VERROR("GLTF buffer size doesn't match the actual size of the buffer file, file size: %llu, buffer size: %llu", bufferContents.size, out_buffer->size);
-    if(out_buffer->name != NULL){
-      vfree(out_buffer->name, vstrlen(out_buffer->name)+1, MEMORY_TAG_STRING);
-    }
-    vfree(out_buffer->buffer, out_buffer->size, MEMORY_TAG_GLTF);
     retVal = FALSE;
   }
   free_velora_file(&bufferContents);
@@ -180,9 +186,15 @@ b8 extract_gltf_image(json_value* image, void *out_ptr, const char* uriPath){
   char *uri = NULL;
   if(load_json_string(image, "uri", &uri) == TRUE){
     char *fullUri = vconcat(uriPath, uri);
-    VEL_CHECK_MSG(import_pixels(fullUri, &out_image->uriData), "Unable to import pixel data from %s", fullUri);
-    vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
     vfree(uri, vstrlen(uri)+1, MEMORY_TAG_STRING);
+    b8 pixelsImported = import_pixels(fullUri, &out_image->uriData);
+    if(pixelsImported == FALSE){
+      VERROR("Unable to import pixel data from %s", fullUri);
+    }
+    vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
+    if(pixelsImported == FALSE){
+      return FALSE;
+    }
     // This value is optionally definied when URI is defined
     out_image->mimeType = NULL;
     load_json_string(image, "mimeType", &out_image->mimeType);
@@ -491,7 +503,7 @@ b8 extract_gltf_camera(json_value *camera, void *out_ptr){
     extract_gltf_camera_orthographic(&cameraData, &out_camera->orthographic);
   }else{
     VERROR("GLTF Camera had illegal type %s", out_camera->type);
-    vfree(out_camera->type, vstrlen(out_camera->type)+1, MEMORY_TAG_STRING);
+    // type is left in place, import_gltf frees it through free_gltf
     return FALSE;
   }
   load_json_string(camera, "name", &out_camera->name);
@@ -551,6 +563,7 @@ b8 extract_gltf_node(json_value *node, void *out_ptr){
   if(load_json_float_array(node, "matrix", &floatArray, &floatCount) == TRUE){
     if(floatCount != 16){
       VERROR("Matrix in GLTF Node doesn't have 16 floats");
+      vfree(floatArray, sizeof(f64)*floatCount, MEMORY_TAG_JSON);
       return FALSE;
     }
     for(int i = 0; i < floatCount; i++){
@@ -569,6 +582,7 @@ b8 extract_gltf_node(json_value *node, void *out_ptr){
   if(load_json_float_array(node, "rotation", &floatArray, &floatCount) == TRUE){
     if(floatCount != 4){
       VERROR("Rotations quat in GLTF Node doesn't have 4 floats");
+      vfree(floatArray, sizeof(f64)*floatCount, MEMORY_TAG_JSON);
       return FALSE;
     }
     for(int i = 0; i < floatCount; i++){
@@ -584,6 +598,7 @@ b8 extract_gltf_node(json_value *node, void *out_ptr){
   if(load_json_float_array(node, "scale", &floatArray, &floatCount) == TRUE){
     if(floatCount != 3){
       VERROR("Scale in GLTF Node doesn't have 3 floats");
+      vfree(floatArray, sizeof(f64)*floatCount, MEMORY_TAG_JSON);
       return FALSE;
     }
     for(int i = 0; i < floatCount; i++){
@@ -599,6 +614,7 @@ b8 extract_gltf_node(json_value *node, void *out_ptr){
   if(load_json_float_array(node, "translation", &floatArray, &floatCount) == TRUE){
     if(floatCount != 3){
       VERROR("Translation in GLTF Node doesn't have 3 floats");
+      vfree(floatArray, sizeof(f64)*floatCount, MEMORY_TAG_JSON);
       return FALSE;
     }
     for(int i = 0; i < floatCount; i++){
@@ -637,13 +653,14 @@ typedef struct _thread_data{
 }thread_data;
 int import_thread(void* data){
   thread_data *bufData = (thread_data*)data;
+  b8 result;
   if(bufData->str != NULL){
-    VEL_CHECK(bufData->processFuncStr(bufData->in, bufData->out, bufData->str));
+    result = bufData->processFuncStr(bufData->in, bufData->out, bufData->str);
   }else{
-    VEL_CHECK(bufData->processFunc(bufData->in, bufData->out));
+    result = bufData->processFunc(bufData->in, bufData->out);
   }
   vfree(data, sizeof(thread_data), MEMORY_TAG_GLTF);
-  return TRUE;
+  return result;
 }
 #endif
 
@@ -695,9 +712,11 @@ b8 start_import_str_thread(u64 objStride, u64 *objCount, void** out, const char 
       u8 thrdRes = thrd_create(&threadID, import_thread, threadData);
       if(thrdRes == thrd_nomem){
         VERROR("GLTF file not able to be imported, not enough memory for another thread");
+        vfree(threadData, sizeof(thread_data), MEMORY_TAG_GLTF);
         return FALSE;
       }else if(thrdRes == thrd_error){
         VERROR("GLTF file not able to be imported, unspecified error");
+        vfree(threadData, sizeof(thread_data), MEMORY_TAG_GLTF);
         return FALSE;
       }
       darray_push(threadIds, &threadID);
@@ -717,9 +736,11 @@ b8 start_import_thread(u64 objStride, u64 *objCount, void** out, const char *jso
       u8 thrdRes = thrd_create(&threadID, import_thread, threadData);
       if(thrdRes == thrd_nomem){
         VERROR("GLTF file not able to be imported, not enough memory for another thread");
+        vfree(threadData, sizeof(thread_data), MEMORY_TAG_GLTF);
         return FALSE;
       }else if(thrdRes == thrd_error){
         VERROR("GLTF file not able to be imported, unspecified error");
+        vfree(threadData, sizeof(thread_data), MEMORY_TAG_GLTF);
         return FALSE;
       }
       darray_push(threadIds, &threadID);
@@ -734,6 +755,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   VFATAL("Compiler doesn't support C11 threads, this is needed to import GLTF Files");
   return FALSE;
   #endif
+  vzero_memory(out_gltf, sizeof(gltf_object));
   json_value gltfJson = {0};
   if(import_json_file(uri, &gltfJson) == FALSE){
     VERROR("Unable to read GLTF file %s", uri);
@@ -742,22 +764,31 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
 
   json_value jsonValue = {0};
   load_json_object(&gltfJson, "asset", &jsonValue);
-  VEL_CHECK(extract_gltf_asset(&jsonValue, &out_gltf->asset));
+  if(extract_gltf_asset(&jsonValue, &out_gltf->asset) == FALSE){
+    VERROR("GLTF File %s has no asset version, unable to be imported", uri);
+    free_json_value(&gltfJson);
+    free_gltf(out_gltf);
+    vzero_memory(out_gltf, sizeof(gltf_object));
+    return FALSE;
+  }
   out_gltf->scene = U64_MAX;
   load_json_unsigned_integer(&gltfJson, "scene", &out_gltf->scene);
 
   char **extensionsRequired = NULL;
   u64 extentionCount = 0;
   if(load_json_string_array(&gltfJson, "extensionsRequired", &extensionsRequired, &extentionCount) == TRUE){
-    if(check_extension_validity(extensionsRequired, extentionCount) == FALSE){
-      VERROR("GLTF File %s requires unsupported extension(s), unable to be imported", uri);
-      free_json_value(&gltfJson);
-      return FALSE;
-    }
+    b8 extensionsValid = check_extension_validity(extensionsRequired, extentionCount);
     for(int i = 0; i < extentionCount; i++){
       vfree(extensionsRequired[i], vstrlen(extensionsRequired[i])+1, MEMORY_TAG_STRING);
     }
     vfree(extensionsRequired, sizeof(char*)*extentionCount, MEMORY_TAG_JSON);
+    if(extensionsValid == FALSE){
+      VERROR("GLTF File %s requires unsupported extension(s), unable to be imported", uri);
+      free_json_value(&gltfJson);
+      free_gltf(out_gltf);
+      vzero_memory(out_gltf, sizeof(gltf_object));
+      return FALSE;
+    }
   }
 
   char **extensionsUsed = NULL;
@@ -787,7 +818,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     uriPath,
     threadIds,
     &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_thread(
     sizeof(gltf_buffer_view), 
@@ -796,7 +827,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "bufferViews", 
     extract_gltf_buffer_view, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_thread(
     sizeof(gltf_accessor), 
@@ -805,7 +836,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "accessors", 
     extract_gltf_accessor, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_str_thread(
     sizeof(gltf_image), 
@@ -817,7 +848,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     uriPath,
     threadIds,
     &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_thread(
     sizeof(gltf_texture), 
@@ -826,7 +857,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "textures", 
     extract_gltf_texture, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_thread(
     sizeof(gltf_material), 
@@ -835,7 +866,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "materials", 
     extract_gltf_material, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_thread(
     sizeof(gltf_mesh), 
@@ -844,7 +875,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "meshes", 
     extract_gltf_mesh, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_thread(
     sizeof(gltf_animation), 
@@ -853,7 +884,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "animations", 
     extract_gltf_animation, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_thread(
     sizeof(gltf_camera), 
@@ -862,7 +893,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "cameras", 
     extract_gltf_camera, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
   
   if(start_import_thread(
     sizeof(gltf_skin), 
@@ -871,7 +902,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "skins", 
     extract_gltf_skin, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_thread(
     sizeof(gltf_sampler), 
@@ -880,7 +911,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "samplers", 
     extract_gltf_sampler, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_thread(
     sizeof(gltf_node), 
@@ -889,7 +920,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "nodes", 
     extract_gltf_node, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
   if(start_import_thread(
     sizeof(gltf_scene), 
@@ -898,12 +929,13 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     "scenes", 
     extract_gltf_scene, 
     &gltfJson,threadIds, &threadCount
-  )){retVal = FALSE;}
+  ) == FALSE){retVal = FALSE;}
 
+  // Every thread that started has to be joined before the JSON it reads from is freed
   iterator threadIt = darray_create_iterator(threadIds);
   thrd_t *curThread;
   while(iterator_next(&threadIt, (void**)&curThread)){
-    int result;
+    int result = FALSE;
     if(thrd_join((*curThread), &result) == thrd_error && retVal == TRUE){
       VERROR("Unable to load GLTF file %s, thread was not able to be joined", uri);
       retVal = FALSE;
@@ -916,11 +948,17 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   darray_free(threadIds);
   free_json_value(&gltfJson);
   vfree(uriPath, vstrlen(uriPath)+1, MEMORY_TAG_STRING);
+  if(retVal == FALSE){
+    free_gltf(out_gltf);
+    vzero_memory(out_gltf, sizeof(gltf_object));
+  }
   return retVal;
 }
 
 void free_gltf_buffer(gltf_buffer* buf){
-  vfree(buf->buffer, buf->size, MEMORY_TAG_GLTF);
+  if(buf->buffer != NULL){
+    vfree(buf->buffer, buf->size, MEMORY_TAG_GLTF);
+  }
   if(buf->name != NULL){
     vfree(buf->name, vstrlen(buf->name)+1, MEMORY_TAG_STRING);
   }
@@ -933,7 +971,9 @@ void free_gltf_buffer_view(gltf_buffer_view* buf){
 }
 
 void free_gltf_accessor(gltf_accessor* acc){
-  vfree(acc->type, vstrlen(acc->type)+1, MEMORY_TAG_STRING);
+  if(acc->type != NULL){
+    vfree(acc->type, vstrlen(acc->type)+1, MEMORY_TAG_STRING);
+  }
   if(acc->max_count != 0){
     vfree(acc->max, acc->max_count*sizeof(gltf_value), MEMORY_TAG_GLTF);
   }
@@ -998,12 +1038,14 @@ void free_gltf_mesh_primitive(gltf_mesh_primitive *prim){
 }
 
 void free_gltf_mesh(gltf_mesh *mesh){
-  for(int i = 0; i < mesh->primitiveCount; i++){
-    free_gltf_mesh_primitive(&mesh->primitives[i]);
+  if(mesh->primitives != NULL){
+    for(int i = 0; i < mesh->primitiveCount; i++){
+      free_gltf_mesh_primitive(&mesh->primitives[i]);
+    }
+    vfree(mesh->primitives, sizeof(gltf_mesh_primitive)*mesh->primitiveCount, MEMORY_TAG_GLTF);
   }
-  vfree(mesh->primitives, sizeof(gltf_mesh_primitive)*mesh->primitiveCount, MEMORY_TAG_GLTF);
   if(mesh->weights != NULL){
-    vfree(mesh->weights, sizeof(f64)*mesh->weightCount, MEMORY_TAG_GLTF);
+    vfree(mesh->weights, sizeof(f64)*mesh->weightCount, MEMORY_TAG_JSON);
   }
   if(mesh->name != NULL){
     vfree(mesh->name, vstrlen(mesh->name)+1, MEMORY_TAG_STRING);
@@ -1018,7 +1060,7 @@ void free_gltf_animation_sampler(gltf_animation_sampler *out_sampler){
 
 void free_gltf_animation_channel_target(gltf_animation_channel_target *out_target){
   if(out_target->path != NULL){
-    vfree(out_target->path, vstrlen(out_target->path)+1, MEMORY_TAG_GLTF);
+    vfree(out_target->path, vstrlen(out_target->path)+1, MEMORY_TAG_STRING);
   }
 }
 
@@ -1031,7 +1073,7 @@ void free_gltf_animation(gltf_animation *out_animation){
     for(int i = 0; i < out_animation->channelCount; i++){
       free_gltf_animation_channel(&out_animation->channels[i]);
     }
-    vfree(out_animation->channels, sizeof(gltf_animation)*out_animation->channelCount, MEMORY_TAG_GLTF);
+    vfree(out_animation->channels, sizeof(gltf_animation_channel)*out_animation->channelCount, MEMORY_TAG_GLTF);
   }
   if(out_animation->samplers != NULL){
     for(int i = 0; i < out_animation->samplerCount; i++){
@@ -1055,7 +1097,7 @@ void free_gltf_camera(gltf_camera *out_camera){
 
 void free_gltf_skin(gltf_skin *out_skin){
   if(out_skin->joints != NULL){
-    vfree(out_skin->joints, out_skin->jointCount*sizeof(u64), MEMORY_TAG_GLTF);
+    vfree(out_skin->joints, out_skin->jointCount*sizeof(u64), MEMORY_TAG_JSON);
   }
   if(out_skin->name != NULL){
     vfree(out_skin->name, vstrlen(out_skin->name)+1, MEMORY_TAG_STRING);
@@ -1072,7 +1114,9 @@ void free_gltf_asset(gltf_asset *out_asset){
   if(out_asset->minVersion != NULL){
     vfree(out_asset->minVersion, vstrlen(out_asset->minVersion)+1, MEMORY_TAG_STRING);
   }
-  vfree(out_asset->version, vstrlen(out_asset->version)+1, MEMORY_TAG_STRING);
+  if(out_asset->version != NULL){
+    vfree(out_asset->version, vstrlen(out_asset->version)+1, MEMORY_TAG_STRING);
+  }
 }
 
 void free_gltf_sampler(gltf_sampler *out_sampler){
@@ -1217,72 +1261,88 @@ void free_gltf(gltf_object* out_gltf){
 #define GLTF_U32 5125
 #define GLTF_FLOAT 5126*/
 
-b8 gltf_accessor_get_element_size(gltf_object* gltf, u64 accIndex, u64 *outSize, gltf_data_type *outType){
+// Maps a GLTF componentType to its gltf_data_type and size in bytes
+static b8 gltf_component_info(u64 componentType, gltf_data_type *outType, u64 *outSize){
+  switch (componentType){
+    case GLTF_I8:    (*outType) = GLTF_TYPE_I8;    (*outSize) = sizeof(i8);  return TRUE;
+    case GLTF_U8:    (*outType) = GLTF_TYPE_U8;    (*outSize) = sizeof(u8);  return TRUE;
+    case GLTF_I16:   (*outType) = GLTF_TYPE_I16;   (*outSize) = sizeof(i16); return TRUE;
+    case GLTF_U16:   (*outType) = GLTF_TYPE_U16;   (*outSize) = sizeof(u16); return TRUE;
+    case GLTF_I32:   (*outType) = GLTF_TYPE_I32;   (*outSize) = sizeof(i32); return TRUE;
+    case GLTF_U32:   (*outType) = GLTF_TYPE_U32;   (*outSize) = sizeof(u32); return TRUE;
+    case GLTF_FLOAT: (*outType) = GLTF_TYPE_FLOAT; (*outSize) = sizeof(f32); return TRUE;
+    default: return FALSE;
+  }
+}
+
+// Maps a GLTF accessor type string to its shape and the number of components in each element
+static b8 gltf_shape_info(const char *type, gltf_data_type *outShape, u64 *outComponents){
+  if(type == NULL){
+    return FALSE;
+  }
+  if(vstrcmp(type, "MAT2")){
+    (*outShape) = GLTF_TYPE_MAT2D;
+    (*outComponents) = 4;
+  }else if(vstrcmp(type, "MAT3")){
+    (*outShape) = GLTF_TYPE_MAT3D;
+    (*outComponents) = 9;
+  }else if(vstrcmp(type, "MAT4")){
+    (*outShape) = GLTF_TYPE_MAT4D;
+    (*outComponents) = 16;
+  }else if(vstrcmp(type, "VEC2")){
+    (*outShape) = GLTF_TYPE_VECTOR2D;
+    (*outComponents) = 2;
+  }else if(vstrcmp(type, "VEC3")){
+    (*outShape) = GLTF_TYPE_VECTOR3D;
+    (*outComponents) = 3;
+  }else if(vstrcmp(type, "VEC4")){
+    (*outShape) = GLTF_TYPE_VECTOR4D;
+    (*outComponents) = 4;
+  }else if(vstrcmp(type, "SCALAR")){
+    (*outComponents) = 1;
+    return TRUE; // The shape of a SCALAR is its component type, the caller fills it in
+  }else{
+    return FALSE;
+  }
+  return TRUE;
+}
+
+static b8 gltf_accessor_get_layout(gltf_object* gltf, u64 accIndex, gltf_data_type *outType, gltf_data_type *outComponentType, u64 *outComponentCount, u64 *outSize){
   if(accIndex >= gltf->accessorCount){
     VERROR("GLTF accessor index %llu is out of bounds, max index is %llu", accIndex, gltf->accessorCount-1);
     return FALSE;
   }
   gltf_accessor curAcc = gltf->accessors[accIndex];
-  if(vstrcmp(curAcc.type, "SCALAR") == FALSE && curAcc.componentType != GLTF_FLOAT){
-    VERROR("Velora doesn't support GLTF files that have vectors or matricies that aren't floats");
+  gltf_data_type componentType = 0;
+  u64 componentSize = 0;
+  if(gltf_component_info(curAcc.componentType, &componentType, &componentSize) == FALSE){
+    VERROR("GLTF accessor %llu has invalid component type", accIndex);
     return FALSE;
   }
-  gltf_data_type scratchType = 0;
-  u64 scratchSize = 0;
-  if(vstrcmp(curAcc.type, "MAT2")){
-    scratchType = GLTF_TYPE_MAT2D;
-    scratchSize = sizeof(mat2);
-  }else if(vstrcmp(curAcc.type, "MAT3")){
-    scratchType = GLTF_TYPE_MAT3D;
-    scratchSize = sizeof(mat3);
-  }else if(vstrcmp(curAcc.type, "MAT4")){
-    scratchType = GLTF_TYPE_MAT4D;
-    scratchSize = sizeof(mat4);
-  }else if(vstrcmp(curAcc.type, "VEC2")){
-    scratchType = GLTF_TYPE_VECTOR2D;
-    scratchSize = sizeof(vec2);
-  }else if(vstrcmp(curAcc.type, "VEC3")){
-    scratchType = GLTF_TYPE_VECTOR3D;
-    scratchSize = sizeof(vec3);
-  }else if(vstrcmp(curAcc.type, "VEC4")){
-    scratchType = GLTF_TYPE_VECTOR4D;
-    scratchSize = sizeof(vec4);
-  }else if(vstrcmp(curAcc.type, "SCALAR")){
-    switch (curAcc.componentType){
-      case GLTF_I8:
-        scratchType = GLTF_TYPE_I8;
-        scratchSize = sizeof(i8);
-      break;
-      case GLTF_U8:
-        scratchType = GLTF_TYPE_U8;
-        scratchSize = sizeof(u8);
-      break;
-      case GLTF_I16:
-        scratchType = GLTF_TYPE_I16;
-        scratchSize = sizeof(i16);
-      break;
-      case GLTF_U16:
-        scratchType = GLTF_TYPE_U16;
-        scratchSize = sizeof(u16);
-      break;
-      case GLTF_I32:
-        scratchType = GLTF_TYPE_I32;
-        scratchSize = sizeof(i32);
-      break;
-      case GLTF_U32:
-        scratchType = GLTF_TYPE_U32;
-        scratchSize = sizeof(u32);
-      break;
-      case GLTF_FLOAT:
-        scratchType = GLTF_TYPE_FLOAT;
-        scratchSize = sizeof(f32);
-      break;
-      default:
-        VERROR("GLTF accessor %llu has invalid component type", accIndex);
-        return FALSE;
-      break;
-    }
+  gltf_data_type shape = componentType;
+  u64 componentCount = 0;
+  if(gltf_shape_info(curAcc.type, &shape, &componentCount) == FALSE){
+    VERROR("GLTF accessor %llu has invalid type %s", accIndex, curAcc.type == NULL ? "(none)" : curAcc.type);
+    return FALSE;
   }
+  // Non-float matrices pad each column to 4 bytes (spec 3.6.2.4), that layout isn't supported
+  if((shape == GLTF_TYPE_MAT2D || shape == GLTF_TYPE_MAT3D || shape == GLTF_TYPE_MAT4D) && componentType != GLTF_TYPE_FLOAT){
+    VERROR("Velora doesn't support GLTF files that have matricies that aren't floats");
+    return FALSE;
+  }
+  (*outType) = shape;
+  (*outComponentType) = componentType;
+  (*outComponentCount) = componentCount;
+  (*outSize) = componentSize*componentCount;
+  return TRUE;
+}
+
+b8 gltf_accessor_get_element_size(gltf_object* gltf, u64 accIndex, u64 *outSize, gltf_data_type *outType){
+  gltf_data_type scratchType = 0;
+  gltf_data_type componentType = 0;
+  u64 componentCount = 0;
+  u64 scratchSize = 0;
+  VEL_CHECK(gltf_accessor_get_layout(gltf, accIndex, &scratchType, &componentType, &componentCount, &scratchSize));
   if(outSize != NULL){
     (*outSize) = scratchSize;
   }
@@ -1318,8 +1378,13 @@ b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream)
   }
   gltf_data_stream scratchStream = {0};
   gltf_buffer curBuf = gltf->buffers[curView.bufferIndex];
+  if(curView.offset + curView.size > curBuf.size){
+    VERROR("GLTF buffer view goes beyond the buffer. Buffer size: %llu, attempted access at %llu", curBuf.size, (curView.offset+curView.size));
+    return FALSE;
+  }
   scratchStream.count = curAcc.count;
-  VEL_CHECK(gltf_accessor_get_element_size(gltf, accIndex, &scratchStream.dataSize, &scratchStream.type));
+  scratchStream.normalized = curAcc.normalized;
+  VEL_CHECK(gltf_accessor_get_layout(gltf, accIndex, &scratchStream.type, &scratchStream.componentType, &scratchStream.componentCount, &scratchStream.dataSize));
   scratchStream.data = vallocate(scratchStream.dataSize*scratchStream.count, MEMORY_TAG_GLTF);
   u64 totalBufferOffset = curView.offset + curAcc.offset;
   u8 *buffer = curBuf.buffer + totalBufferOffset;
@@ -1328,11 +1393,6 @@ b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream)
     dataStride = curView.stride;
   }
   for(int i = 0; i < curAcc.count; i++){
-    if(curView.offset + curView.size > curBuf.size){
-      VERROR("GLTF buffer view goes beyond the buffer. Buffer size: %llu, attempted access at %llu", curBuf.size, (curView.offset+curView.size));
-      gltf_free_stream(scratchStream);
-      return FALSE;
-    }
     if(curAcc.offset + (dataStride*i)+scratchStream.dataSize > curView.size){
       VERROR("GLTF Accessor went beyond the bounds of the buffer view. Buffer view size %llu, attempted access at %llu", curView.size, curAcc.offset+(dataStride*i)+scratchStream.dataSize);
       gltf_free_stream(scratchStream);
@@ -1342,6 +1402,66 @@ b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream)
   }
   vcopy_memory(outStream, &scratchStream, sizeof(scratchStream));
   return TRUE;
+}
+
+// Reads one component and converts it to f32, normalizing it as the glTF spec defines if needed
+static f32 gltf_component_to_f32(const u8 *data, gltf_data_type componentType, b8 normalized){
+  switch(componentType){
+    case GLTF_TYPE_U8: {
+      u8 value = data[0];
+      return normalized ? value/255.0f : (f32)value;
+    }
+    case GLTF_TYPE_I8: {
+      i8 value = (i8)data[0];
+      if(normalized){
+        f32 ret = value/127.0f;
+        return ret < -1.0f ? -1.0f : ret;
+      }
+      return (f32)value;
+    }
+    case GLTF_TYPE_U16: {
+      u16 value;
+      vcopy_memory(&value, data, sizeof(value));
+      return normalized ? value/65535.0f : (f32)value;
+    }
+    case GLTF_TYPE_I16: {
+      i16 value;
+      vcopy_memory(&value, data, sizeof(value));
+      if(normalized){
+        f32 ret = value/32767.0f;
+        return ret < -1.0f ? -1.0f : ret;
+      }
+      return (f32)value;
+    }
+    case GLTF_TYPE_U32: {
+      u32 value;
+      vcopy_memory(&value, data, sizeof(value));
+      return (f32)value;
+    }
+    case GLTF_TYPE_I32: {
+      i32 value;
+      vcopy_memory(&value, data, sizeof(value));
+      return (f32)value;
+    }
+    default: {
+      f32 value;
+      vcopy_memory(&value, data, sizeof(value));
+      return value;
+    }
+  }
+}
+
+// Writes every component of the stream into outFloats, which holds count*componentCount floats
+static void gltf_stream_to_floats(gltf_data_stream *stream, f32 *outFloats){
+  if(stream->componentType == GLTF_TYPE_FLOAT){
+    vcopy_memory(outFloats, stream->data, stream->dataSize*stream->count);
+    return;
+  }
+  u64 componentSize = stream->dataSize/stream->componentCount;
+  u64 total = stream->count*stream->componentCount;
+  for(u64 i = 0; i < total; i++){
+    outFloats[i] = gltf_component_to_f32(stream->data+(i*componentSize), stream->componentType, stream->normalized);
+  }
 }
 
 b8 gltf_accessor_get_u32_array(gltf_object* gltf, u64 accIndex, u32 *outArray){
@@ -1371,7 +1491,7 @@ b8 gltf_accessor_get_vec2_array(gltf_object* gltf, u64 accIndex, vec2 *outArray)
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
   if(scratchStream.type == GLTF_TYPE_VECTOR2D){
-    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+    gltf_stream_to_floats(&scratchStream, (f32*)outArray);
   }else{
     VERROR("Accessor %llu is not pointing to a 2D Vector type", accIndex);
     gltf_free_stream(scratchStream);
@@ -1385,7 +1505,7 @@ b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec3 *outArray)
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
   if(scratchStream.type == GLTF_TYPE_VECTOR3D){
-    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+    gltf_stream_to_floats(&scratchStream, (f32*)outArray);
   }else{
     VERROR("Accessor %llu is not pointing to a 3D Vector type", accIndex);
     gltf_free_stream(scratchStream);
@@ -1399,7 +1519,7 @@ b8 gltf_accessor_get_vec4_array(gltf_object* gltf, u64 accIndex, vec4 *outArray)
   gltf_data_stream scratchStream = {0};
   VEL_CHECK(gltf_get_stream(gltf, accIndex, &scratchStream));
   if(scratchStream.type == GLTF_TYPE_VECTOR4D){
-    vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
+    gltf_stream_to_floats(&scratchStream, (f32*)outArray);
   }else{
     VERROR("Accessor %llu is not pointing to a 4D Vector type", accIndex);
     gltf_free_stream(scratchStream);
@@ -1475,7 +1595,7 @@ b8 gltf_accessor_get_i16_array(gltf_object* gltf, u64 accIndex, i16 *outArray){
   if(scratchStream.type == GLTF_TYPE_I8){
     i8 *arr = (i8*)scratchStream.data;
     for(int i = 0; i < scratchStream.count; i++){
-      outArray[i] = (u8)arr[i];
+      outArray[i] = (i16)arr[i];
     }
   }else if(scratchStream.type == GLTF_TYPE_I16){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
@@ -1494,7 +1614,7 @@ b8 gltf_accessor_get_i32_array(gltf_object* gltf, u64 accIndex, i32 *outArray){
   if(scratchStream.type == GLTF_TYPE_I8){
     i8 *arr = (i8*)scratchStream.data;
     for(int i = 0; i < scratchStream.count; i++){
-      outArray[i] = (u8)arr[i];
+      outArray[i] = (i32)arr[i];
     }
   }else if(scratchStream.type == GLTF_TYPE_I16){
     i16 *arr = (i16*)scratchStream.data;

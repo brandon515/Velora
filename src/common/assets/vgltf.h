@@ -301,7 +301,10 @@ typedef enum _gltf_data_type{
 }gltf_data_type;
 
 typedef struct _gltf_data_stream{
-  gltf_data_type type;
+  gltf_data_type type; // The shape of an element (VECTOR*, MAT*), or the component type for SCALAR accessors
+  gltf_data_type componentType; // The type of each component, always one of GLTF_TYPE_U8 through GLTF_TYPE_FLOAT
+  u64 componentCount; // The number of components in an element, 1 for SCALAR, 4 for VEC4, 16 for MAT4, etc.
+  b8 normalized; // Whether integer components map to [0,1] (unsigned) or [-1,1] (signed) when read as floats
   u64 dataSize; //The size, in bytes, of an individual element of the data array
   u64 count;
   u8 *data;
@@ -310,7 +313,7 @@ typedef struct _gltf_data_stream{
 /**
  * @brief imports the gltf file into a usable file
  * @param uri The filename of the gltf file
- * @param out_gltf A gltf_object variable to be filled with the data pointed at by the URI
+ * @param out_gltf A gltf_object variable to be filled with the data pointed at by the URI. It is zeroed first, and on failure everything that was loaded into it is freed, so free_gltf is only needed after a successful import
  * @return FALSE if the file doesn't exist or the file isn't valid JSON, TRUE otherwise
  */
 VASSETS_API b8 import_gltf(const char *uri, gltf_object *out_gltf);
@@ -361,6 +364,7 @@ VASSETS_API b8 gltf_accessor_get_u32_array(gltf_object* gltf, u64 accIndex, u32 
 
 /**
  * @brief Packes the data from the accessor into a vec2 array
+ * Float components are copied as they are. Integer components are converted to f32: normalized ones map to [0,1] (unsigned) or [-1,1] (signed) as the glTF spec defines, and the rest (such as JOINTS_n indices) are widened as whole numbers.
  * @param gltf The gltf object to pull the stream from
  * @param accIndex The index of the accessor to pull data from
  * @param outArray The stream being created. The data pointer is allocated outside the function.
@@ -370,6 +374,7 @@ VASSETS_API b8 gltf_accessor_get_vec2_array(gltf_object* gltf, u64 accIndex, vec
 
 /**
  * @brief Packes the data from the accessor into a vec3 array
+ * Float components are copied as they are. Integer components are converted to f32: normalized ones map to [0,1] (unsigned) or [-1,1] (signed) as the glTF spec defines, and the rest (such as JOINTS_n indices) are widened as whole numbers.
  * @param gltf The gltf object to pull the stream from
  * @param accIndex The index of the accessor to pull data from
  * @param outArray The stream being created. The data pointer is allocated outside the function.
@@ -379,6 +384,7 @@ VASSETS_API b8 gltf_accessor_get_vec3_array(gltf_object* gltf, u64 accIndex, vec
 
 /**
  * @brief Packes the data from the accessor into a vec4 array
+ * Float components are copied as they are. Integer components are converted to f32: normalized ones map to [0,1] (unsigned) or [-1,1] (signed) as the glTF spec defines, and the rest (such as JOINTS_n indices) are widened as whole numbers.
  * @param gltf The gltf object to pull the stream from
  * @param accIndex The index of the accessor to pull data from
  * @param outArray The stream being created. The data pointer is allocated outside the function.
