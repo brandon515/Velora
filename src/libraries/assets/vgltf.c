@@ -1,5 +1,6 @@
 #include "assets/vgltf.h"
 #include "assets/vjson.h"
+#include "core/container/darray.h"
 #include "core/utils/vfile.h"
 #include "core/memory/vmemory.h"
 #include "core/logger.h"
@@ -676,13 +677,14 @@ thread_data* fill_thread_data(json_value *in, void *out, processFunc func){
   return ret_dat;
 }
 
-b8 start_import_str_thread(u64 objStride, u64 *objCount, void** out, const char *jsonName, processFuncStr func, json_value *gltfJson, const char* uriPath, thrd_t *threadIds, u64 *threadCount){
+b8 start_import_str_thread(u64 objStride, u64 *objCount, void** out, const char *jsonName, processFuncStr func, json_value *gltfJson, const char* uriPath, darray *threadIds, u64 *threadCount){
   json_value *jsonObj = NULL;
   if(load_json_object_array(gltfJson, jsonName, &jsonObj, objCount) == TRUE){
     (*out) = vallocate(objStride*(*objCount), MEMORY_TAG_GLTF);
     for(int i = 0; i < (*objCount); i++){
       thread_data *threadData = fill_thread_str_data(&jsonObj[i], (*out)+(objStride*i), func, uriPath);
-      u8 thrdRes = thrd_create(threadIds+(*threadCount), import_thread, threadData);
+      thrd_t threadID;
+      u8 thrdRes = thrd_create(&threadID, import_thread, threadData);
       if(thrdRes == thrd_nomem){
         VERROR("GLTF file not able to be imported, not enough memory for another thread");
         return FALSE;
@@ -690,19 +692,21 @@ b8 start_import_str_thread(u64 objStride, u64 *objCount, void** out, const char 
         VERROR("GLTF file not able to be imported, unspecified error");
         return FALSE;
       }
+      darray_push(threadIds, &threadID);
       (*threadCount)++;
     }
   }
   return TRUE;
 }
 
-b8 start_import_thread(u64 objStride, u64 *objCount, void** out, const char *jsonName, processFunc func, json_value *gltfJson, thrd_t *threadIds, u64 *threadCount){
+b8 start_import_thread(u64 objStride, u64 *objCount, void** out, const char *jsonName, processFunc func, json_value *gltfJson, darray *threadIds, u64 *threadCount){
   json_value *jsonObj = NULL;
   if(load_json_object_array(gltfJson, jsonName, &jsonObj, objCount) == TRUE){
     (*out) = vallocate(objStride*(*objCount), MEMORY_TAG_GLTF);
     for(int i = 0; i < (*objCount); i++){
       thread_data *threadData = fill_thread_data(&jsonObj[i], (*out)+(objStride*i), func);
-      u8 thrdRes = thrd_create(threadIds+(*threadCount), import_thread, threadData);
+      thrd_t threadID;
+      u8 thrdRes = thrd_create(&threadID, import_thread, threadData);
       if(thrdRes == thrd_nomem){
         VERROR("GLTF file not able to be imported, not enough memory for another thread");
         return FALSE;
@@ -710,6 +714,7 @@ b8 start_import_thread(u64 objStride, u64 *objCount, void** out, const char *jso
         VERROR("GLTF file not able to be imported, unspecified error");
         return FALSE;
       }
+      darray_push(threadIds, &threadID);
       (*threadCount)++;
     }
   }
@@ -727,7 +732,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     return FALSE;
   }
 
-  thrd_t threadIds[512];
+  darray* threadIds = darray_new(sizeof(thrd_t));
   u64 threadCount = 0;
   char* uriPath = get_file_path(uri);
 
@@ -886,9 +891,11 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
   ));
 
   b8 retVal = TRUE;
-  for(int i = 0; i < threadCount; i++){
+  iterator threadIt = darray_create_iterator(threadIds);
+  thrd_t *curThread;
+  while(iterator_next(&threadIt, (void**)&curThread)){
     int result;
-    if(thrd_join(threadIds[i], &result) == thrd_error && retVal == TRUE){
+    if(thrd_join((*curThread), &result) == thrd_error && retVal == TRUE){
       VERROR("Unable to load GLTF file %s, thread was not able to be joined", uri);
       retVal = FALSE;
     }
