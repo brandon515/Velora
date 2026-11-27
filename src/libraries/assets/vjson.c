@@ -578,6 +578,20 @@ b8 load_json_float(json_value* obj, const char *name, f64 *value){
   return FALSE;
 }
 
+b8 load_json_boolean(json_value* obj, const char *name, b8 *value){
+  if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT){
+    return FALSE;
+  }
+  u64 len = obj->dataSize/sizeof(json_value);
+  for(int i = 0; i < len; i++){
+    if(obj->data.objectArray[i].type == VELORA_JSON_BOOL && vstrcmp(obj->data.objectArray[i].name, name) == TRUE){
+      (*value) = obj->data.objectArray[i].data.boolean;
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 b8 load_json_object(json_value* obj, const char *name, json_value *value){
   if(obj == NULL || name == NULL || value == NULL || obj->type != VELORA_JSON_OBJECT){
     return FALSE;

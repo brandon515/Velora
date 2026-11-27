@@ -60,3 +60,10 @@ VCORE_API char* get_memory_usage_str();
  * @return Number of bytes outstanding across every memory tag
  */
 VCORE_API u64 get_memory_allocated();
+
+/*!
+ * @brief Bytes currently allocated under one memory tag and not yet freed
+ * @param tag The memory tag to report on
+ * @return Number of bytes outstanding for that tag, or 0 for an out of range tag
+ */
+VCORE_API u64 get_memory_allocated_by_tag(memory_tag tag);

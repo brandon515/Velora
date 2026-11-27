@@ -160,7 +160,7 @@ static void test_index_arrays_widen_to_u32(void) {
   CHECK(gltf_accessor_get_u32_array(&f.gltf, 0, out) == FALSE, "float accessor is not read as indices");
 }
 
-// Tier 2: vector accessors that aren't floats (e.g. JOINTS_0 as unsigned byte VEC4) are rejected.
+// #40: vector accessors that aren't floats (e.g. JOINTS_0 as unsigned byte VEC4) can be read.
 static void test_non_float_vector_accessor(void) {
   u8 joints[8] = {0, 1, 2, 3, 4, 5, 6, 7};
   fake_gltf f;
@@ -173,6 +173,104 @@ static void test_non_float_vector_accessor(void) {
     CHECK(stream.data[4] == 4 && stream.data[7] == 7, "joint indices read back");
     gltf_free_stream(stream);
   }
+}
+
+// #40: JOINTS_0 may also be unsigned short VEC4. Read as vec4 the indices are widened to float.
+static void test_u16_vec4_joints(void) {
+  u16 joints[8] = {0, 1, 2, 300, 4, 5, 6, 65535};
+  fake_gltf f;
+  fake_init(&f, joints, sizeof(joints), GLTF_U16, "VEC4", 2);
+  gltf_data_stream stream = {0};
+  REQUIRE(gltf_get_stream(&f.gltf, 0, &stream) == TRUE, "unsigned short VEC4 accessor can be streamed");
+  CHECK(stream.dataSize == 4 * sizeof(u16) && stream.count == 2, "8 bytes per element");
+  gltf_free_stream(stream);
+  vec4 out[2] = {0};
+  REQUIRE(gltf_accessor_get_vec4_array(&f.gltf, 0, out) == TRUE, "unsigned short VEC4 reads as vec4");
+  CHECK(out[0].x == 0 && out[0].w == 300, "first element widened to float");
+  CHECK(out[1].x == 4 && out[1].w == 65535, "second element widened to float");
+}
+
+// #40: WEIGHTS_0 may be normalized unsigned byte VEC4, so c / 255 becomes the float value.
+static void test_normalized_u8_vec4_weights(void) {
+  u8 weights[8] = {255, 0, 0, 0, 128, 127, 0, 0};
+  fake_gltf f;
+  fake_init(&f, weights, sizeof(weights), GLTF_U8, "VEC4", 2);
+  f.accessors[0].normalized = TRUE;
+  vec4 out[2] = {0};
+  REQUIRE(gltf_accessor_get_vec4_array(&f.gltf, 0, out) == TRUE, "normalized unsigned byte VEC4 reads as vec4");
+  CHECK_NEAR(out[0].x, 1.0, 1e-6, "255 maps to 1.0");
+  CHECK_NEAR(out[0].y, 0.0, 1e-6, "0 maps to 0.0");
+  CHECK_NEAR(out[1].x, 128.0 / 255.0, 1e-6, "128 maps to 128/255");
+  CHECK_NEAR(out[1].y, 127.0 / 255.0, 1e-6, "127 maps to 127/255");
+}
+
+// #40: TEXCOORD_0 may be normalized unsigned short VEC2, so c / 65535 becomes the float value.
+static void test_normalized_u16_vec2_texcoords(void) {
+  u16 uvs[4] = {0, 65535, 32768, 16384};
+  fake_gltf f;
+  fake_init(&f, uvs, sizeof(uvs), GLTF_U16, "VEC2", 2);
+  f.accessors[0].normalized = TRUE;
+  vec2 out[2] = {0};
+  REQUIRE(gltf_accessor_get_vec2_array(&f.gltf, 0, out) == TRUE, "normalized unsigned short VEC2 reads as vec2");
+  CHECK_NEAR(out[0].x, 0.0, 1e-6, "0 maps to 0.0");
+  CHECK_NEAR(out[0].y, 1.0, 1e-6, "65535 maps to 1.0");
+  CHECK_NEAR(out[1].x, 32768.0 / 65535.0, 1e-6, "32768 maps to 32768/65535");
+  CHECK_NEAR(out[1].y, 16384.0 / 65535.0, 1e-6, "16384 maps to 16384/65535");
+}
+
+// #40: signed normalized values map to max(c / 127, -1), so both -128 and -127 become -1.0.
+static void test_normalized_i8_vec2(void) {
+  i8 data[4] = {-128, 127, -127, 0};
+  fake_gltf f;
+  fake_init(&f, data, sizeof(data), GLTF_I8, "VEC2", 2);
+  f.accessors[0].normalized = TRUE;
+  vec2 out[2] = {0};
+  REQUIRE(gltf_accessor_get_vec2_array(&f.gltf, 0, out) == TRUE, "normalized signed byte VEC2 reads as vec2");
+  CHECK_NEAR(out[0].x, -1.0, 1e-6, "-128 clamps to -1.0");
+  CHECK_NEAR(out[0].y, 1.0, 1e-6, "127 maps to 1.0");
+  CHECK_NEAR(out[1].x, -1.0, 1e-6, "-127 maps to -1.0");
+  CHECK_NEAR(out[1].y, 0.0, 1e-6, "0 maps to 0.0");
+}
+
+// #40: an interleaved u8 VEC4 with byteStride 8 takes 4 bytes per element and skips the padding.
+static void test_strided_u8_vec4(void) {
+  u8 data[16] = {
+    1, 2, 3, 4,     99, 99, 99, 99,  // element 0, then padding
+    5, 6, 7, 8,     99, 99, 99, 99,  // element 1, then padding
+  };
+  fake_gltf f;
+  fake_init(&f, data, sizeof(data), GLTF_U8, "VEC4", 2);
+  f.views[0].stride = 8;
+  gltf_data_stream stream = {0};
+  REQUIRE(gltf_get_stream(&f.gltf, 0, &stream) == TRUE, "strided unsigned byte VEC4 can be streamed");
+  CHECK(stream.dataSize == 4 && stream.count == 2, "4 bytes per element despite stride 8");
+  CHECK(stream.data[0] == 1 && stream.data[3] == 4, "first element read");
+  CHECK(stream.data[4] == 5 && stream.data[7] == 8, "second element read from the stride, not the padding");
+  gltf_free_stream(stream);
+}
+
+// #40: matrices stay float-only. Non-float matrices need column padding (spec 3.6.2.4), which isn't supported.
+static void test_non_float_matrix_rejected(void) {
+  u8 data[64] = {0};
+  fake_gltf f;
+  fake_init(&f, data, sizeof(data), GLTF_U8, "MAT4", 1);
+  u64 size = 0;
+  CHECK(gltf_accessor_get_element_size(&f.gltf, 0, &size, NULL) == FALSE, "unsigned byte MAT4 is rejected");
+  mat4 out = {0};
+  CHECK(gltf_accessor_get_mat4_array(&f.gltf, 0, &out) == FALSE, "unsigned byte MAT4 is not read as mat4");
+}
+
+// Signed bytes keep their sign when widened to i16 or i32.
+static void test_i8_widens_with_sign(void) {
+  i8 data[3] = {-1, -128, 127};
+  fake_gltf f;
+  fake_init(&f, data, sizeof(data), GLTF_I8, "SCALAR", 3);
+  i16 out16[3] = {0};
+  REQUIRE(gltf_accessor_get_i16_array(&f.gltf, 0, out16) == TRUE, "i8 accessor reads as i16");
+  CHECK(out16[0] == -1 && out16[1] == -128 && out16[2] == 127, "i8 values keep their sign as i16");
+  i32 out32[3] = {0};
+  REQUIRE(gltf_accessor_get_i32_array(&f.gltf, 0, out32) == TRUE, "i8 accessor reads as i32");
+  CHECK(out32[0] == -1 && out32[1] == -128 && out32[2] == 127, "i8 values keep their sign as i32");
 }
 
 // --- file import tests ---
@@ -282,7 +380,7 @@ static void test_accessor_normalized_flag(void) {
   free_gltf(&gltf);
 }
 
-// Tier 3: import_gltf leaks uriPath, and the JSON it parses leaks its names and file buffer.
+// import_gltf followed by free_gltf returns every byte. RUN_TEST also checks each memory tag.
 static void test_import_then_free_returns_all_memory(void) {
   REQUIRE(write_model(k_basic_gltf, k_positions, sizeof(k_positions)), "write model files");
   u64 before = get_memory_allocated();
@@ -307,6 +405,128 @@ static void test_bin_shorter_than_byte_length(void) {
   b8 ok = import_gltf(GLTF_PATH, &gltf);
   remove_model();
   CHECK(ok == FALSE, "buffer whose byteLength exceeds the .bin size is rejected");
+  CHECK(gltf.buffers == NULL && gltf.bufferCount == 0 && gltf.asset.version == NULL, "a failed import leaves the object empty");
+}
+
+/*
+ * Touches every object type the importer allocates for (names, defaults,
+ * morph targets, skins, animations, cameras...). RUN_TEST checks the total
+ * and each memory tag, so a block freed under the wrong tag or size fails.
+ * The skinning accessors also cover #40 through a real import.
+ */
+static const char* k_full_gltf =
+  "{\"asset\": {\"version\": \"2.0\", \"generator\": \"velora tests\", \"copyright\": \"none\", \"minVersion\": \"2.0\"},"
+  " \"extensionsUsed\": [\"VT_unknown_extension\"],"
+  " \"scene\": 0,"
+  " \"scenes\": [{\"name\": \"main\", \"nodes\": [0]}],"
+  " \"nodes\": ["
+  "   {\"name\": \"root\", \"mesh\": 0, \"skin\": 0, \"children\": [1], \"weights\": [0.5]},"
+  "   {\"name\": \"joint\", \"camera\": 0, \"matrix\": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]}"
+  " ],"
+  " \"meshes\": [{\"name\": \"mesh\", \"weights\": [0.5], \"primitives\": [{"
+  "   \"attributes\": {\"POSITION\": 0, \"JOINTS_0\": 1, \"WEIGHTS_0\": 2, \"TEXCOORD_0\": 0, \"COLOR_0\": 0},"
+  "   \"material\": 0, \"targets\": [{\"POSITION\": 0}]}]}],"
+  " \"skins\": [{\"name\": \"skin\", \"joints\": [0, 1]}],"
+  " \"animations\": [{\"name\": \"anim\","
+  "   \"channels\": [{\"sampler\": 0, \"target\": {\"node\": 1, \"path\": \"translation\"}}],"
+  "   \"samplers\": [{\"input\": 3, \"output\": 0}]}],"
+  " \"cameras\": [{\"name\": \"cam\", \"type\": \"perspective\", \"perspective\": {\"yfov\": 1.0, \"znear\": 0.1}}],"
+  " \"materials\": [{\"name\": \"mat\", \"alphaMode\": \"BLEND\", \"emissiveFactor\": [1, 0, 0],"
+  "   \"pbrMetallicRoughness\": {\"baseColorFactor\": [1, 1, 1, 1]}}, {}],"
+  " \"samplers\": [{\"name\": \"smp\"}],"
+  " \"textures\": [{\"name\": \"tex\", \"source\": 0, \"sampler\": 0}],"
+  " \"buffers\": [{\"name\": \"buf\", \"uri\": \"" BIN_PATH "\", \"byteLength\": 48}],"
+  " \"bufferViews\": [{\"name\": \"view\", \"buffer\": 0, \"byteLength\": 48}],"
+  " \"accessors\": ["
+  "   {\"name\": \"positions\", \"bufferView\": 0, \"componentType\": 5126, \"count\": 2, \"type\": \"VEC3\"},"
+  "   {\"name\": \"joints\", \"bufferView\": 0, \"byteOffset\": 24, \"componentType\": 5121, \"count\": 2, \"type\": \"VEC4\"},"
+  "   {\"name\": \"weights\", \"bufferView\": 0, \"byteOffset\": 32, \"componentType\": 5121, \"normalized\": true, \"count\": 2, \"type\": \"VEC4\"},"
+  "   {\"name\": \"times\", \"bufferView\": 0, \"byteOffset\": 40, \"componentType\": 5126, \"count\": 2, \"type\": \"SCALAR\", \"max\": [1.0], \"min\": [0.0]}"
+  " ]}";
+
+static void write_full_bin(u8 bin[48]) {
+  const f32 positions[6] = {1, 2, 3, 4, 5, 6};
+  const u8 joints[8] = {0, 1, 0, 0, 1, 0, 0, 0};
+  const u8 weights[8] = {255, 0, 0, 0, 128, 127, 0, 0};
+  const f32 times[2] = {0, 1};
+  memcpy(bin, positions, sizeof(positions));
+  memcpy(bin + 24, joints, sizeof(joints));
+  memcpy(bin + 32, weights, sizeof(weights));
+  memcpy(bin + 40, times, sizeof(times));
+}
+
+static void test_import_full_model(void) {
+  u8 bin[48];
+  write_full_bin(bin);
+  REQUIRE(write_model(k_full_gltf, bin, sizeof(bin)), "write model files");
+  gltf_object gltf = {0};
+  b8 ok = import_gltf(GLTF_PATH, &gltf);
+  remove_model();
+  REQUIRE(ok == TRUE, "full model imports");
+  CHECK(gltf.meshCount == 1 && gltf.meshes[0].primitiveCount == 1 && gltf.meshes[0].primitives[0].morphCount == 1, "mesh with a morph target");
+  CHECK(gltf.skinCount == 1 && gltf.skins[0].jointCount == 2, "skin joints");
+  CHECK(gltf.animationCount == 1 && gltf.animations[0].channelCount == 1 && gltf.animations[0].samplerCount == 1, "animation channel and sampler");
+  CHECK(gltf.cameraCount == 1 && gltf.materialCount == 2 && gltf.textureCount == 1 && gltf.samplerCount == 1, "camera, materials, texture, sampler");
+
+  gltf_mesh_primitive prim = gltf.meshes[0].primitives[0];
+  REQUIRE(prim.attributes.jointCount == 1 && prim.attributes.weightCount == 1, "primitive has JOINTS_0 and WEIGHTS_0");
+  vec4 joints[2] = {0};
+  REQUIRE(gltf_accessor_get_vec4_array(&gltf, prim.attributes.joints[0], joints) == TRUE, "imported JOINTS_0 reads as vec4");
+  CHECK(joints[0].x == 0 && joints[0].y == 1 && joints[1].x == 1, "joint indices");
+  vec4 weights[2] = {0};
+  REQUIRE(gltf_accessor_get_vec4_array(&gltf, prim.attributes.weights[0], weights) == TRUE, "imported WEIGHTS_0 reads as vec4");
+  CHECK_NEAR(weights[0].x, 1.0, 1e-6, "weight 255 maps to 1.0");
+  CHECK_NEAR(weights[1].x + weights[1].y, 1.0, 1e-6, "weights 128 and 127 sum to 1.0");
+  free_gltf(&gltf);
+}
+
+// Fails after buffers, views and accessors are already loaded, so all of them must be cleaned up.
+static void test_bad_node_matrix_rejected(void) {
+  const char* json =
+    "{\"asset\": {\"version\": \"2.0\", \"generator\": \"velora tests\"},"
+    " \"buffers\": [{\"name\": \"buf\", \"uri\": \"" BIN_PATH "\", \"byteLength\": 24}],"
+    " \"bufferViews\": [{\"buffer\": 0, \"byteLength\": 24}],"
+    " \"accessors\": [{\"bufferView\": 0, \"componentType\": 5126, \"count\": 2, \"type\": \"VEC3\", \"max\": [4, 5, 6]}],"
+    " \"nodes\": [{\"name\": \"ok\", \"children\": [1]}, {\"name\": \"bad\", \"matrix\": [1, 0, 0]}]}";
+  REQUIRE(write_model(json, k_positions, sizeof(k_positions)), "write model files");
+  gltf_object gltf = {0};
+  b8 ok = import_gltf(GLTF_PATH, &gltf);
+  remove_model();
+  CHECK(ok == FALSE, "node matrix without 16 floats is rejected");
+  CHECK(gltf.nodes == NULL && gltf.accessors == NULL, "a failed import leaves the object empty");
+}
+
+static void test_illegal_camera_type_rejected(void) {
+  const char* json =
+    "{\"asset\": {\"version\": \"2.0\"},"
+    " \"cameras\": [{\"name\": \"cam\", \"type\": \"fisheye\"}]}";
+  REQUIRE(write_model(json, k_positions, sizeof(k_positions)), "write model files");
+  gltf_object gltf = {0};
+  b8 ok = import_gltf(GLTF_PATH, &gltf);
+  remove_model();
+  CHECK(ok == FALSE, "camera with an unknown type is rejected");
+}
+
+static void test_missing_bin_file_rejected(void) {
+  const char* json =
+    "{\"asset\": {\"version\": \"2.0\"},"
+    " \"buffers\": [{\"name\": \"buf\", \"uri\": \"vt_gltf_missing.bin\", \"byteLength\": 24}]}";
+  REQUIRE(write_model(json, k_positions, sizeof(k_positions)), "write model files");
+  gltf_object gltf = {0};
+  b8 ok = import_gltf(GLTF_PATH, &gltf);
+  remove_model();
+  CHECK(ok == FALSE, "buffer whose .bin doesn't exist is rejected");
+}
+
+static void test_data_uri_buffer_rejected(void) {
+  const char* json =
+    "{\"asset\": {\"version\": \"2.0\"},"
+    " \"buffers\": [{\"uri\": \"data:application/octet-stream;base64,AAAA\", \"byteLength\": 3}]}";
+  REQUIRE(write_model(json, k_positions, sizeof(k_positions)), "write model files");
+  gltf_object gltf = {0};
+  b8 ok = import_gltf(GLTF_PATH, &gltf);
+  remove_model();
+  CHECK(ok == FALSE, "data URI buffer is rejected (not supported yet)");
 }
 
 /*
@@ -346,14 +566,25 @@ void vgltf_test(void) {
   RUN_TEST(test_wrong_type_rejected);
   RUN_TEST(test_index_arrays_widen_to_u32);
   RUN_TEST(test_non_float_vector_accessor);
-  // The JSON parser under import_gltf leaks (Tier 3), checked separately below.
-  RUN_TEST_IGNORE_LEAKS(test_import_basic_model);
-  RUN_TEST_IGNORE_LEAKS(test_missing_gltf_file);
-  RUN_TEST_IGNORE_LEAKS(test_missing_asset_version_rejected);
-  RUN_TEST_IGNORE_LEAKS(test_required_extension_rejected);
-  RUN_TEST_IGNORE_LEAKS(test_integer_node_values);
-  RUN_TEST_IGNORE_LEAKS(test_accessor_normalized_flag);
+  RUN_TEST(test_u16_vec4_joints);
+  RUN_TEST(test_normalized_u8_vec4_weights);
+  RUN_TEST(test_normalized_u16_vec2_texcoords);
+  RUN_TEST(test_normalized_i8_vec2);
+  RUN_TEST(test_strided_u8_vec4);
+  RUN_TEST(test_non_float_matrix_rejected);
+  RUN_TEST(test_i8_widens_with_sign);
+  RUN_TEST(test_import_basic_model);
+  RUN_TEST(test_missing_gltf_file);
+  RUN_TEST(test_missing_asset_version_rejected);
+  RUN_TEST(test_required_extension_rejected);
+  RUN_TEST(test_integer_node_values);
+  RUN_TEST(test_accessor_normalized_flag);
   RUN_TEST(test_import_then_free_returns_all_memory);
-  RUN_TEST_IGNORE_LEAKS(test_bin_shorter_than_byte_length);
-  RUN_TEST_IGNORE_LEAKS(test_more_than_512_objects);
+  RUN_TEST(test_bin_shorter_than_byte_length);
+  RUN_TEST(test_import_full_model);
+  RUN_TEST(test_bad_node_matrix_rejected);
+  RUN_TEST(test_illegal_camera_type_rejected);
+  RUN_TEST(test_missing_bin_file_rejected);
+  RUN_TEST(test_data_uri_buffer_rejected);
+  RUN_TEST(test_more_than_512_objects);
 }
