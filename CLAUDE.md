@@ -4,6 +4,8 @@
 
 Issues are tracked in GitHub Issues for `brandon515/Velora` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
+Filing a bug: one issue per failing test, with Expected and Actual sections, and the test marked `RUN_TEST_KNOWN_BUG`. See `docs/agents/issue-tracker.md#filing-a-bug`.
+
 ### Triage labels
 
 Uses the five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.

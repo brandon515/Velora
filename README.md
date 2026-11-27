@@ -17,7 +17,7 @@ Public headers live in `src/common/`. Implementations live in `src/libraries/`, 
 
 Executables are in `src/binaries/`:
 
-- `engine` (`game/`): the game application. Right now it loads `Cube.gltf` and renders it.
+- `engine` (`game/`): the game application. Right now it loads `Cube.gltf` (from `assets/`) and renders it.
 - `lib_test` (`lib_test/`): a scratch program that links every library.
 - `velora_tests` (`testing/`): the unit tests.
 
@@ -33,7 +33,9 @@ meson compile -C builddir
 meson install -C builddir   # copies engine, lib_test, shaders and the libraries into bin/
 ```
 
-The install step puts the executables and compiled shaders in `bin/` and the shared libraries in `bin/plugins/`. Run the game from inside `bin/`, because it loads shaders and models from the working directory. The model files (`Cube.gltf`, `Cube.bin`, its textures, `DefaultTexture.png`) are not in the repository. Put them in `bin/` yourself.
+The install step puts the executables, compiled shaders and the files in `assets/` in `bin/`, and the shared libraries in `bin/plugins/`. Run the game from inside `bin/`, because it loads shaders and models from the working directory.
+
+`assets/` holds the game's default cube and the renderer's fallback texture (`DefaultTexture.png`). `tools/make_cube_assets.py` generates all of them, so edit the script and rerun it rather than editing the files.
 
 ## Tests
 
@@ -42,15 +44,18 @@ meson compile -C builddir velora_tests
 meson test -C builddir                                   # every suite
 meson test -C builddir vgltf                             # one suite
 ./builddir/src/binaries/testing/velora_tests vgltf       # one suite, printing each check
+./builddir/src/binaries/testing/velora_tests --failures  # only failing tests and their output, then a summary
 ```
 
-The tests compile the core, assets and ECS sources directly, so they need no GPU or window. On Linux each test case runs in its own forked process, so a crash only fails that test. Memory errors are only caught reliably in a sanitizer build:
+The tests compile the core, assets and ECS sources and the engine's main loop directly, so they need no GPU or window. On Linux each test case runs in its own forked process, so a crash only fails that test. Memory errors are only caught reliably in a sanitizer build:
 
 ```sh
 meson setup build-asan -Dbuildtype=debug -Db_sanitize=address,undefined -Db_lundef=false
 ```
 
-CI (`.github/workflows/ci.yml`) runs the tests on Linux (sanitizer and release builds) and on Windows. It also does a full Linux build, validates the shaders, and runs clang-tidy and clang-format as advisory checks.
+A test for an open bug is marked `RUN_TEST_KNOWN_BUG(test, issue)`, so it shows as XFAIL and the suite still passes. When the bug is fixed the test shows as XPASS and fails the suite, which is the signal to switch it to `RUN_TEST` and close the issue. See `src/binaries/testing/test_framework.h`.
+
+CI (`.github/workflows/ci.yml`) runs the tests on Linux (sanitizer and release builds) and on Windows, and checks that every known-bug test names an open issue. It also does a full Linux build, validates the shaders, and runs clang-tidy and clang-format as advisory checks.
 
 ## Docs
 
