@@ -51,9 +51,20 @@ b8 extract_gltf_buffer(json_value* buffer, void* out_ptr, const char* uriPath){
   velora_file bufferContents = {0};
   VEL_CHECK_MSG(get_file_contents(fullUri, &bufferContents), "Unable to get contents of buffer file with URI %s", fullUri);
   vfree(fullUri, vstrlen(fullUri)+1, MEMORY_TAG_STRING);
-  vcopy_memory(out_buffer->buffer, bufferContents.contents, out_buffer->size);
+  
+  b8 retVal = TRUE;
+  if(bufferContents.size < out_buffer->size){
+    vcopy_memory(out_buffer->buffer, bufferContents.contents, out_buffer->size);
+  }else{
+    VERROR("GLTF buffer size doesn't match the actual size of the buffer file, file size: %llu, buffer size: %llu", bufferContents.size, out_buffer->size);
+    if(out_buffer->name != NULL){
+      vfree(out_buffer->name, vstrlen(out_buffer->name)+1, MEMORY_TAG_STRING);
+    }
+    vfree(out_buffer->buffer, out_buffer->size, MEMORY_TAG_GLTF);
+    retVal = FALSE;
+  }
   free_velora_file(&bufferContents);
-  return TRUE;
+  return retVal;
 }
 
 b8 extract_gltf_buffer_view(json_value* buffer_view, void* out_ptr){
@@ -1311,14 +1322,20 @@ b8 gltf_get_stream(gltf_object* gltf, u64 accIndex, gltf_data_stream *outStream)
   scratchStream.count = curAcc.count;
   VEL_CHECK(gltf_accessor_get_element_size(gltf, accIndex, &scratchStream.dataSize, &scratchStream.type));
   scratchStream.data = vallocate(scratchStream.dataSize*scratchStream.count, MEMORY_TAG_GLTF);
-  u8 *buffer = curBuf.buffer + curView.offset;
+  u64 totalBufferOffset = curView.offset + curAcc.offset;
+  u8 *buffer = curBuf.buffer + totalBufferOffset;
   u64 dataStride = scratchStream.dataSize;
   if(curView.stride != 0){
     dataStride = curView.stride;
   }
   for(int i = 0; i < curAcc.count; i++){
-    if(curView.offset+(dataStride*i)+scratchStream.dataSize > curBuf.size){
-      VERROR("GLTF Accessor went beyond the bounds of the buffer. Buffer size %llu, attempted access at %llu", curBuf.size, curView.offset+(dataStride*i)+scratchStream.dataSize);
+    if(curView.offset + curView.size > curBuf.size){
+      VERROR("GLTF buffer view goes beyond the buffer. Buffer size: %llu, attempted access at %llu", curBuf.size, (curView.offset+curView.size));
+      gltf_free_stream(scratchStream);
+      return FALSE;
+    }
+    if(curAcc.offset + (dataStride*i)+scratchStream.dataSize > curView.size){
+      VERROR("GLTF Accessor went beyond the bounds of the buffer view. Buffer view size %llu, attempted access at %llu", curView.size, curView.offset+(dataStride*i)+scratchStream.dataSize);
       gltf_free_stream(scratchStream);
       return FALSE;
     }
