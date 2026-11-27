@@ -912,6 +912,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
       retVal = FALSE;
     }
   }
+  darray_free(threadIds);
   free_json_value(&gltfJson);
   vfree(uriPath, vstrlen(uriPath)+1, MEMORY_TAG_STRING);
   return retVal;
