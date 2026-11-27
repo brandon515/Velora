@@ -676,28 +676,44 @@ thread_data* fill_thread_data(json_value *in, void *out, processFunc func){
   return ret_dat;
 }
 
-void start_import_str_thread(u64 objStride, u64 *objCount, void** out, const char *jsonName, processFuncStr func, json_value *gltfJson, const char* uriPath, thrd_t *threadIds, u64 *threadCount){
+b8 start_import_str_thread(u64 objStride, u64 *objCount, void** out, const char *jsonName, processFuncStr func, json_value *gltfJson, const char* uriPath, thrd_t *threadIds, u64 *threadCount){
   json_value *jsonObj = NULL;
   if(load_json_object_array(gltfJson, jsonName, &jsonObj, objCount) == TRUE){
     (*out) = vallocate(objStride*(*objCount), MEMORY_TAG_GLTF);
     for(int i = 0; i < (*objCount); i++){
       thread_data *threadData = fill_thread_str_data(&jsonObj[i], (*out)+(objStride*i), func, uriPath);
-      thrd_create(threadIds+(*threadCount), import_thread, threadData);
+      u8 thrdRes = thrd_create(threadIds+(*threadCount), import_thread, threadData);
+      if(thrdRes == thrd_nomem){
+        VERROR("GLTF file not able to be imported, not enough memory for another thread");
+        return FALSE;
+      }else if(thrdRes == thrd_error){
+        VERROR("GLTF file not able to be imported, unspecified error");
+        return FALSE;
+      }
       (*threadCount)++;
     }
   }
+  return TRUE;
 }
 
-void start_import_thread(u64 objStride, u64 *objCount, void** out, const char *jsonName, processFunc func, json_value *gltfJson, thrd_t *threadIds, u64 *threadCount){
+b8 start_import_thread(u64 objStride, u64 *objCount, void** out, const char *jsonName, processFunc func, json_value *gltfJson, thrd_t *threadIds, u64 *threadCount){
   json_value *jsonObj = NULL;
   if(load_json_object_array(gltfJson, jsonName, &jsonObj, objCount) == TRUE){
     (*out) = vallocate(objStride*(*objCount), MEMORY_TAG_GLTF);
     for(int i = 0; i < (*objCount); i++){
       thread_data *threadData = fill_thread_data(&jsonObj[i], (*out)+(objStride*i), func);
-      thrd_create(threadIds+(*threadCount), import_thread, threadData);
+      u8 thrdRes = thrd_create(threadIds+(*threadCount), import_thread, threadData);
+      if(thrdRes == thrd_nomem){
+        VERROR("GLTF file not able to be imported, not enough memory for another thread");
+        return FALSE;
+      }else if(thrdRes == thrd_error){
+        VERROR("GLTF file not able to be imported, unspecified error");
+        return FALSE;
+      }
       (*threadCount)++;
     }
   }
+  return TRUE;
 }
 
 b8 import_gltf(const char *uri, gltf_object *out_gltf){
@@ -746,7 +762,7 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     vfree(extensionsUsed, sizeof(char*)*extentionCount, MEMORY_TAG_JSON);
   }
 
-  start_import_str_thread(
+  VEL_CHECK(start_import_str_thread(
     sizeof(gltf_buffer), 
     &out_gltf->bufferCount, 
     (void**)&out_gltf->buffers, 
@@ -756,27 +772,27 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     uriPath,
     threadIds,
     &threadCount
-  );
+  ));
 
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_buffer_view), 
     &out_gltf->bufferViewCount, 
     (void**)&out_gltf->bufferViews, 
     "bufferViews", 
     extract_gltf_buffer_view, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
 
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_accessor), 
     &out_gltf->accessorCount, 
     (void**)&out_gltf->accessors, 
     "accessors", 
     extract_gltf_accessor, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
 
-  start_import_str_thread(
+  VEL_CHECK(start_import_str_thread(
     sizeof(gltf_image), 
     &out_gltf->imageCount, 
     (void**)&out_gltf->images, 
@@ -786,95 +802,98 @@ b8 import_gltf(const char *uri, gltf_object *out_gltf){
     uriPath,
     threadIds,
     &threadCount
-  );
+  ));
 
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_texture), 
     &out_gltf->textureCount, 
     (void**)&out_gltf->textures, 
     "textures", 
     extract_gltf_texture, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
 
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_material), 
     &out_gltf->materialCount, 
     (void**)&out_gltf->materials, 
     "materials", 
     extract_gltf_material, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
 
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_mesh), 
     &out_gltf->meshCount, 
     (void**)&out_gltf->meshes, 
     "meshes", 
     extract_gltf_mesh, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
 
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_animation), 
     &out_gltf->animationCount, 
     (void**)&out_gltf->animations, 
     "animations", 
     extract_gltf_animation, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
 
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_camera), 
     &out_gltf->cameraCount, 
     (void**)&out_gltf->cameras, 
     "cameras", 
     extract_gltf_camera, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
   
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_skin), 
     &out_gltf->skinCount, 
     (void**)&out_gltf->skins, 
     "skins", 
     extract_gltf_skin, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
 
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_sampler), 
     &out_gltf->samplerCount, 
     (void**)&out_gltf->samplers, 
     "samplers", 
     extract_gltf_sampler, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
 
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_node), 
     &out_gltf->nodeCount, 
     (void**)&out_gltf->nodes, 
     "nodes", 
     extract_gltf_node, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
 
-  start_import_thread(
+  VEL_CHECK(start_import_thread(
     sizeof(gltf_scene), 
     &out_gltf->sceneCount, 
     (void**)&out_gltf->scenes, 
     "scenes", 
     extract_gltf_scene, 
     &gltfJson,threadIds, &threadCount
-  );
+  ));
 
   b8 retVal = TRUE;
   for(int i = 0; i < threadCount; i++){
     int result;
-    thrd_join(threadIds[i], &result);
+    if(thrd_join(threadIds[i], &result) == thrd_error && retVal == TRUE){
+      VERROR("Unable to load GLTF file %s, thread was not able to be joined", uri);
+      retVal = FALSE;
+    }
     if(result == FALSE && retVal == TRUE){
-      VERROR("Unable to load gltf file %s", uri);
+      VERROR("Unable to load GLTF file %s", uri);
       retVal = FALSE;
     }
   }
@@ -1433,7 +1452,7 @@ b8 gltf_accessor_get_i16_array(gltf_object* gltf, u64 accIndex, i16 *outArray){
   if(scratchStream.type == GLTF_TYPE_I8){
     i8 *arr = (i8*)scratchStream.data;
     for(int i = 0; i < scratchStream.count; i++){
-      outArray[i] = arr[i];
+      outArray[i] = (u8)arr[i];
     }
   }else if(scratchStream.type == GLTF_TYPE_I16){
     vcopy_memory(outArray, scratchStream.data, scratchStream.dataSize*scratchStream.count);
@@ -1452,7 +1471,7 @@ b8 gltf_accessor_get_i32_array(gltf_object* gltf, u64 accIndex, i32 *outArray){
   if(scratchStream.type == GLTF_TYPE_I8){
     i8 *arr = (i8*)scratchStream.data;
     for(int i = 0; i < scratchStream.count; i++){
-      outArray[i] = arr[i];
+      outArray[i] = (u8)arr[i];
     }
   }else if(scratchStream.type == GLTF_TYPE_I16){
     i16 *arr = (i16*)scratchStream.data;
