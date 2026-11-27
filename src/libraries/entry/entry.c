@@ -78,7 +78,7 @@ int main(int argc, char* argv[]){
     }
   }
 
-  velora_exit(engine_state);
+  velora_exit(engine_state->app_data);
   // Shut down the renderer before the platform: the Vulkan surface and
   // swapchain reference the X11 display/window, so destroying them after
   // XCloseDisplay would dereference freed memory and segfault.
