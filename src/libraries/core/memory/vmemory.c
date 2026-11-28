@@ -5,10 +5,13 @@
 
 #include <stdio.h>
 #include <string.h>
+#ifndef __STDC_NO_ATOMICS__
+#include <stdatomic.h>
+#endif
 
 typedef struct _mem_stats{
-  u64 total_allocated;
-  u64 tagged_allocations[MEMORY_TAG_END_TAG];
+  au64 total_allocated;
+  au64 tagged_allocations[MEMORY_TAG_END_TAG];
 } memory_stats;
 
 static memory_stats mem_stats;
@@ -16,9 +19,15 @@ static memory_stats mem_stats;
 // The counters are shared by every thread that allocates (vgltf frees from its
 // worker threads), so every update and read is atomic. Relaxed ordering is
 // enough: they are statistics and order nothing else.
+#ifdef __STDC_NO_ATOMICS__
 #define STAT_ADD(counter, amount) __atomic_fetch_add(&(counter), (amount), __ATOMIC_RELAXED)
 #define STAT_SUB(counter, amount) __atomic_fetch_sub(&(counter), (amount), __ATOMIC_RELAXED)
 #define STAT_READ(counter) __atomic_load_n(&(counter), __ATOMIC_RELAXED)
+#else
+#define STAT_ADD(counter, amount) atomic_fetch_add_explicit(&(counter), (amount), memory_order_relaxed)
+#define STAT_SUB(counter, amount) atomic_fetch_sub_explicit(&(counter), (amount), memory_order_relaxed)
+#define STAT_READ(counter) atomic_load_explicit(&(counter), memory_order_relaxed)
+#endif
 
 void initialize_memory(){
   mem_stats.total_allocated = 0;
