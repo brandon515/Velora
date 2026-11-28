@@ -20,6 +20,48 @@ typedef double f64;
 typedef int b32;
 typedef char b8;
 
+#ifdef __STDC_NO_ATOMICS__
+// Unsigned int types.
+typedef u8 au8;
+typedef u16 au16;
+typedef u32 au32;
+typedef u64 au64;
+
+// Signed int types.
+typedef i8 ai8;
+typedef i16 ai16;
+typedef i32 ai32;
+typedef i64 ai64;
+
+// Floating point types
+typedef f32 af32;
+typedef f64 af64;
+
+// Boolean types
+typedef b32 ab32;
+typedef b8 ab8;
+#else
+// Unsigned int types.
+typedef _Atomic(u8) au8;
+typedef _Atomic(u16) au16;
+typedef _Atomic(u32) au32;
+typedef _Atomic(u64) au64;
+
+// Signed int types.
+typedef _Atomic(i8)ai8;
+typedef _Atomic(i16) ai16;
+typedef _Atomic(i32) ai32;
+typedef _Atomic(i64) ai64;
+
+// Floating point types
+typedef _Atomic(f32) af32;
+typedef _Atomic(f64) af64;
+
+// Boolean types
+typedef _Atomic(b32) ab32;
+typedef _Atomic(b8) ab8;
+#endif
+
 // Properly define static assertions.
 #if defined(__clang__) || defined(__gcc__)
 #define STATIC_ASSERT _Static_assert
