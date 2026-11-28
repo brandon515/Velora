@@ -17,26 +17,22 @@ VCORE_API b8 platform_load_library(const char* libURI, platform_library* outLib)
 VCORE_API b8 platform_free_library(platform_library* library);
 VCORE_API platform_proc platform_get_function(platform_library* library, const char* funcName);
 
-#if VPLATFORM_LINUX
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-typedef struct _platform_state{
-  Display *dis;
-  Window win;
-  XIM xim;
-  XIC xic;
-  Atom wm_delete_window;
-  u32 width, height;
-  u32 mouseX, mouseY;
+typedef struct _platform_state {
+  void *internal_state;
 } platform_state;
-#elif VPLATFORM_WINDOWS
-#include <Windows.h>
-#include <windowsx.h>
-typedef struct platform_state{
-  HINSTANCE instance;
-  HWND window;
-} platform_state;
-#endif
+
+typedef enum _platform_window_kind {
+  PLATFORM_WINDOW_XLIB,
+  PLATFORM_WINDOW_WIN32,
+} platform_window_kind;
+
+typedef struct _platform_native_window {
+  platform_window_kind kind;
+  union {
+    struct {void* display; u64 window;} xlib;
+    struct {void* hinstance; void* hwnd;} win32;
+  };
+} platform_native_window;
 
 typedef enum log_level {
   LOG_LEVEL_FATAL = 0,
@@ -59,6 +55,9 @@ VCORE_API b8 platform_startup(
 VCORE_API void platform_shutdown(platform_state* plat_state);
 
 VCORE_API b8 platform_pump_messages(platform_state* plat_state);
+
+VCORE_API b8 platform_get_native_window(const platform_state* state, platform_native_window *out_window);
+VCORE_API b8 platform_get_window_size(const platform_state* state, u32* out_width, u32* out_height);
 
 VCORE_API void* platform_allocate(u64 size, b8 aligned);
 VCORE_API void platform_free(void* block, b8 aligned);
