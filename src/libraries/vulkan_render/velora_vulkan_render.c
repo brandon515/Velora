@@ -1992,7 +1992,7 @@ b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_stat
     VERROR("Attempted to create a window for an unsupported platform backend");
     return FALSE;
   }
-  platform_get_window_size(plat_internal_state, &outDim->width, &outDim->height);
+  VEL_CHECK(platform_get_window_size(plat_internal_state, &outDim->width, &outDim->height));
   return TRUE;
 }
 #elif VPLATFORM_LINUX
@@ -2014,7 +2014,7 @@ b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_stat
     VERROR("Attempted to create a window for an unsupported platform backend");
     return FALSE;
   }
-  platform_get_window_size(plat_internal_state, &outDim->width, &outDim->height);
+  VEL_CHECK(platform_get_window_size(plat_internal_state, &outDim->width, &outDim->height));
   return TRUE;
 }
 #endif //VPLATFORM_*
