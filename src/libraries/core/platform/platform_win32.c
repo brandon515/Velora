@@ -1,9 +1,8 @@
-#include "core/platform/platform.h"
 #include "defines.h"
-#include "core/asserts.h"
 
 #if VPLATFORM_WINDOWS
-
+#include "core/platform/platform.h"
+#include "core/asserts.h"
 #include "core/logger.h"
 #include "core/event.h"
 #include "core/memory/vmemory.h"
@@ -12,6 +11,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <Windows.h>
+#include <windowsx.h>
+typedef struct windows_state{
+  HINSTANCE instance;
+  HWND window;
+} windows_state;
 
 static f64 clock_frequency;
 static LARGE_INTEGER start_time;
@@ -25,7 +31,9 @@ i32 x,
 i32 y,
 i32 width,
 i32 height){
-  state->instance = GetModuleHandleA(0);
+  state->internal_state = vallocate(sizeof(windows_state), MEMORY_TAG_GAME);
+  windows_state* wState = (windows_state*)state->internal_state;
+  wState->instance = GetModuleHandleA(0);
 
   const char class_name[] = "Velora Window Class";
 
@@ -34,7 +42,7 @@ i32 height){
     .lpfnWndProc = windows_message_handler,
     .cbClsExtra = 0,
     .cbWndExtra = 0,
-    .hInstance = state->instance,
+    .hInstance = wState->instance,
     .hIcon = LoadImage(NULL, IDI_APPLICATION, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED),
     .hCursor = LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED),
     .lpszClassName = class_name,
@@ -62,7 +70,7 @@ i32 height){
   u32 window_width = border_rect.right-border_rect.left;
   u32 window_height = border_rect.bottom-border_rect.top;
 
-  state->window = CreateWindowExA(
+  wState->window = CreateWindowExA(
     window_ex_style,
     class_name,
     application_name,
@@ -70,11 +78,11 @@ i32 height){
     window_x,window_y,window_width,window_height,
     NULL, // parent window
     NULL, // menu
-    state->instance,
+    wState->instance,
     NULL //additional application data
   );
 
-  if(state->window == NULL){
+  if(wState->window == NULL){
     MessageBoxA(0, "Window was not able to be created", "Error", MB_ICONEXCLAMATION | MB_OK);
     VFATAL("Unable to create the game window");
 
@@ -84,7 +92,7 @@ i32 height){
   b8 should_activate = TRUE;
   i32 show_window_command_flags = should_activate ? SW_SHOW : SW_SHOWNOACTIVATE;
 
-  ShowWindow(state->window, show_window_command_flags);
+  ShowWindow(wState->window, show_window_command_flags);
 
   LARGE_INTEGER freq;
   QueryPerformanceFrequency(&freq);
@@ -95,10 +103,38 @@ i32 height){
 }
 
 void platform_shutdown(platform_state* state){
-  if(state->window){
-    DestroyWindow(state->window);
-    state->window = 0;
+  windows_state *wState = (windows_state*)state->internal_state;
+  if(wState->window){
+    DestroyWindow(wState->window);
+    wState->window = 0;
   }
+  vfree(state->internal_state, sizeof(windows_state), MEMORY_TAG_GAME);
+  state->internal_state = NULL;
+}
+
+b8 platform_get_native_window(const platform_state* state, platform_native_window *out_window){
+  if(state->internal_state == NULL){
+    VERROR("Attempted to get native window before platform startup");
+    return FALSE;
+  }
+  windows_state *wState = (windows_state*)state->internal_state;
+  out_window->kind = PLATFORM_WINDOW_WIN32;
+  out_window->win32.hinstance = wState->instance;
+  out_window->win32.hwnd = wState->window;
+  return TRUE;
+}
+
+b8 platform_get_window_size(const platform_state* state, u32* out_width, u32* out_height){
+  if(state->internal_state == NULL){
+    VERROR("Attempted to get window size but platform hasn't been started yet");
+    return FALSE;
+  }
+  windows_state *wState = (windows_state*)state->internal_state;
+  RECT winSize;
+  GetClientRect(wState->window, &winSize);
+  (*out_height) = winSize.bottom;
+  (*out_width) = winSize.right;
+  return TRUE;
 }
 
 void* platform_allocate(u64 size, b8 aligned){

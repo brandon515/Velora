@@ -1,6 +1,8 @@
+#include "defines.h"
+
+#if VPLATFORM_LINUX
 #include "core/memory/vmemory.h"
 #include "core/platform/platform.h"
-#include "defines.h"
 #include "core/event.h"
 #include "core/logger.h"
 
@@ -12,6 +14,16 @@
 
 #include <dlfcn.h>
 
+typedef struct _linux_state{
+  Display *dis;
+  Window win;
+  XIM xim;
+  XIC xic;
+  Atom wm_delete_window;
+  u32 width, height;
+  u32 mouseX, mouseY;
+} linux_state;
+
 b8 platform_startup(
 platform_state* state,
 const char* application_name,
@@ -19,10 +31,14 @@ i32 x,
 i32 y,
 i32 width,
 i32 height){
+  state->internal_state = vallocate(sizeof(linux_state), MEMORY_TAG_GAME);
+  linux_state* lState = (linux_state*)state->internal_state;
   XInitThreads();
-  state->dis = XOpenDisplay(NULL);
-  if(state->dis == NULL){
+  lState->dis = XOpenDisplay(NULL);
+  if(lState->dis == NULL){
     platform_console_write("Unable to connect to XLib display server", LOG_LEVEL_FATAL);
+    vfree(state->internal_state, sizeof(linux_state), MEMORY_TAG_GAME);
+    state->internal_state = NULL;
     return FALSE;
   }
 
@@ -30,10 +46,10 @@ i32 height){
   long visualMask = VisualScreenMask;
   int numberofVisuals;
   XVisualInfo visInfoTemplate = {};
-  visInfoTemplate.screen = DefaultScreen(state->dis);
-  XVisualInfo *visualInfo = XGetVisualInfo(state->dis, visualMask, &visInfoTemplate, &numberofVisuals);
+  visInfoTemplate.screen = DefaultScreen(lState->dis);
+  XVisualInfo *visualInfo = XGetVisualInfo(lState->dis, visualMask, &visInfoTemplate, &numberofVisuals);
   
-  Colormap colormap = XCreateColormap(state->dis, RootWindow(state->dis, visInfoTemplate.screen), visualInfo->visual, AllocNone);
+  Colormap colormap = XCreateColormap(lState->dis, RootWindow(lState->dis, visInfoTemplate.screen), visualInfo->visual, AllocNone);
 
   // Note: ResizeRedirectMask is intentionally NOT selected. Selecting it makes
   // X11 redirect (suppress) resize requests so the window never actually
@@ -48,27 +64,50 @@ i32 height){
   windowAttributes.border_pixel = 0;
   windowAttributes.event_mask = event_mask;
 
-  //int whiteColor = WhitePixel(state->dis, DefaultScreen(state->dis));
-  state->win = XCreateWindow(state->dis, RootWindow(state->dis, visInfoTemplate.screen), x, y, width, height, 0,
+  //int whiteColor = WhitePixel(lState->dis, DefaultScreen(lState->dis));
+  lState->win = XCreateWindow(lState->dis, RootWindow(lState->dis, visInfoTemplate.screen), x, y, width, height, 0,
                               visualInfo->depth, InputOutput, visualInfo->visual,
                               CWBackPixel | CWBorderPixel | CWEventMask | CWColormap, &windowAttributes);
   
-  XSelectInput(state->dis, state->win, event_mask);
+  XSelectInput(lState->dis, lState->win, event_mask);
 
-  state->width = width;
-  state->height = height;
+  lState->width = width;
+  lState->height = height;
 
   // Register for the window manager's close-window protocol so that closing the
   // window sends us a ClientMessage instead of severing the X11 connection.
-  state->wm_delete_window = XInternAtom(state->dis, "WM_DELETE_WINDOW", False);
-  XSetWMProtocols(state->dis, state->win, &state->wm_delete_window, 1);
+  lState->wm_delete_window = XInternAtom(lState->dis, "WM_DELETE_WINDOW", False);
+  XSetWMProtocols(lState->dis, lState->win, &lState->wm_delete_window, 1);
 
-  XMapWindow(state->dis, state->win);
-  XFlush(state->dis);
+  XMapWindow(lState->dis, lState->win);
+  XFlush(lState->dis);
 
-  state->xim = XOpenIM(state->dis, 0, 0, 0);
-  state->xic = XCreateIC(state->xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, NULL);
+  lState->xim = XOpenIM(lState->dis, 0, 0, 0);
+  lState->xic = XCreateIC(lState->xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, NULL);
   
+  return TRUE;
+}
+
+b8 platform_get_native_window(const platform_state* state, platform_native_window *out_window){
+  if(state->internal_state == NULL){
+    VERROR("Attempted to get native window before platform startup");
+    return FALSE;
+  }
+  linux_state *lState = (linux_state*)state->internal_state;
+  out_window->kind = PLATFORM_WINDOW_XLIB;
+  out_window->xlib.window = lState->win;
+  out_window->xlib.display = lState->dis;
+  return TRUE;
+}
+
+b8 platform_get_window_size(const platform_state* state, u32* out_width, u32* out_height){
+  if(state->internal_state == NULL){
+    VERROR("Attempted to get window size but platform hasn't been started yet");
+    return FALSE;
+  }
+  linux_state *lState = (linux_state*)state->internal_state;
+  (*out_height) = lState->height;
+  (*out_width) = lState->width;
   return TRUE;
 }
 
@@ -78,22 +117,26 @@ void* platform_move_memory(void* dest, const void* src, u64 size){
 
 
 void platform_shutdown(platform_state* state){
-  XDestroyWindow(state->dis, state->win);
+  linux_state* lState = (linux_state*)state->internal_state;
+  XDestroyWindow(lState->dis, lState->win);
   #ifndef VULKAN_RENDER // vulkan actually handles the closing of the display internally
-  XCloseDisplay(state->dis);
+  XCloseDisplay(lState->dis);
   #endif
+  vfree(lState, sizeof(linux_state), MEMORY_TAG_GAME);
+  state->internal_state = NULL;
 }
 
 b8 platform_pump_messages(platform_state* state){
+  linux_state* lState = (linux_state*)state->internal_state;
   XEvent newXEvent;
-  while(XPending(state->dis)){
-    XNextEvent(state->dis, &newXEvent);
+  while(XPending(lState->dis)){
+    XNextEvent(lState->dis, &newXEvent);
     switch (newXEvent.type)
     {
     case ClientMessage:
       // The window manager asked us to close (e.g. the user clicked the close
       // button). Queue a graceful shutdown instead of letting X kill us.
-      if((Atom)newXEvent.xclient.data.l[0] == state->wm_delete_window){
+      if((Atom)newXEvent.xclient.data.l[0] == lState->wm_delete_window){
         create_and_queue_event(ENGINE_CLOSE_GAME, 0, NULL);
       }
       break;
@@ -103,9 +146,9 @@ b8 platform_pump_messages(platform_state* state){
       // ConfigureNotify reports the window's actual geometry. It also fires on
       // moves, so only emit a resize event when the size truly changed.
       XConfigureEvent eventDat = newXEvent.xconfigure;
-      if((u32)eventDat.width != state->width || (u32)eventDat.height != state->height){
-        state->width = eventDat.width;
-        state->height = eventDat.height;
+      if((u32)eventDat.width != lState->width || (u32)eventDat.height != lState->height){
+        lState->width = eventDat.width;
+        lState->height = eventDat.height;
         resize_data dat = {
           .height = eventDat.height,
           .width = eventDat.width
@@ -148,8 +191,8 @@ b8 platform_pump_messages(platform_state* state){
       }
       mouse_button_data dat = {
         .pressed = (newXEvent.type == ButtonPress),
-        .x = state->mouseX,
-        .y = state->mouseY,
+        .x = lState->mouseX,
+        .y = lState->mouseY,
       };
       if(eventDat.button == Button1){
         dat.button_code = MOUSE_L_BUTTON;
@@ -170,8 +213,8 @@ b8 platform_pump_messages(platform_state* state){
     }break;
     case MotionNotify:{
       XPointerMovedEvent eventDat = newXEvent.xmotion;
-      state->mouseX = eventDat.x;
-      state->mouseY = eventDat.y;
+      lState->mouseX = eventDat.x;
+      lState->mouseY = eventDat.y;
       mouse_position_data dat = {
         .x = eventDat.x,
         .y = eventDat.y,
@@ -271,3 +314,4 @@ platform_proc platform_get_function(platform_library* library, const char* funcN
   }
   return (platform_proc)sym;
 }
+#endif

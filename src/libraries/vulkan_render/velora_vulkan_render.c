@@ -1,3 +1,4 @@
+#include "core/platform/platform.h"
 #include "defines.h"
 #include "vulkan/vulkan_core.h"
 
@@ -1975,37 +1976,45 @@ typedef struct _window_dimensions {
 
 #ifdef VPLATFORM_WINDOWS
 b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_state, window_dimensions *outDim){
-  VkWin32SurfaceCreateInfoKHR createInfo = {
-    .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-    .hwnd = plat_internal_state->window,
-    .hinstance = plat_internal_state->instance,
-  };
-  VK_CHECK(
-    vkCreateWin32SurfaceKHR(state->instance, &createInfo, NULL, &state->surface), 
-    "Unable to create windows surface for vulkan renderer"
-  );
-  RECT winSize;
-  GetClientRect(plat_internal_state->window, &winSize);
-  outDim->width = winSize.right;
-  outDim->height = winSize.bottom;
+  platform_native_window window;
+  VEL_CHECK(platform_get_native_window(plat_internal_state, &window));
+  if(window.kind == PLATFORM_WINDOW_WIN32){
+    VkWin32SurfaceCreateInfoKHR createInfo = {
+      .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+      .hwnd = window.win32.hwnd,
+      .hinstance = window.win32.hinstance,
+    };
+    VK_CHECK(
+      vkCreateWin32SurfaceKHR(state->instance, &createInfo, NULL, &state->surface), 
+      "Unable to create windows surface for vulkan renderer"
+    );
+  }else{
+    VERROR("Attempted to create a window for an unsupported platform backend");
+    return FALSE;
+  }
+  VEL_CHECK(platform_get_window_size(plat_internal_state, &outDim->width, &outDim->height));
   return TRUE;
 }
 #elif VPLATFORM_LINUX
 b8 create_window_surface(vulkan_state* state, platform_state* plat_internal_state, window_dimensions *outDim){
-  VkXlibSurfaceCreateInfoKHR createInfo = {
-    .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-    .flags = 0,
-    .dpy = plat_internal_state->dis,
-    .window = plat_internal_state->win,
-  };
-  VK_CHECK(
-    vkCreateXlibSurfaceKHR(state->instance, &createInfo, NULL, &state->surface), 
-    "Unable to create XLib surface for vulkan renderer"
-  );
-  XWindowAttributes winAtt;
-  XGetWindowAttributes(plat_internal_state->dis, plat_internal_state->win, &winAtt);
-  outDim->width = winAtt.width;
-  outDim->height = winAtt.height;
+  platform_native_window window;
+  VEL_CHECK(platform_get_native_window(plat_internal_state, &window));
+  if(window.kind == PLATFORM_WINDOW_XLIB){
+    VkXlibSurfaceCreateInfoKHR createInfo = {
+      .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+      .flags = 0,
+      .dpy = window.xlib.display,
+      .window = window.xlib.window,
+    };
+    VK_CHECK(
+      vkCreateXlibSurfaceKHR(state->instance, &createInfo, NULL, &state->surface), 
+      "Unable to create XLib surface for vulkan renderer"
+    );
+  }else{
+    VERROR("Attempted to create a window for an unsupported platform backend");
+    return FALSE;
+  }
+  VEL_CHECK(platform_get_window_size(plat_internal_state, &outDim->width, &outDim->height));
   return TRUE;
 }
 #endif //VPLATFORM_*
