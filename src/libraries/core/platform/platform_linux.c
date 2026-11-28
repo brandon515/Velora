@@ -37,6 +37,8 @@ i32 height){
   lState->dis = XOpenDisplay(NULL);
   if(lState->dis == NULL){
     platform_console_write("Unable to connect to XLib display server", LOG_LEVEL_FATAL);
+    vfree(state->internal_state, sizeof(linux_state), MEMORY_TAG_GAME);
+    state->internal_state = NULL;
     return FALSE;
   }
 
